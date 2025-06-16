@@ -61,10 +61,10 @@ pub fn createOpenGLContext(window: *Window) !OpenGLContext {
     }
 
     const wglChoosePixelFormatARB: PFNWGLCHOOSEPIXELFORMATARBPROC =
-        @ptrCast(open_gl.wglGetProcAddress("wglChoosePixelFormatARB"));
+        @ptrCast(open_gl.wglGetProcAddress("wglChoosePixelFormatARB") orelse @panic("can't load wglChoosePixelFormatARB"));
 
     const wglCreateContextAttribsARB: PFNWGLCREATECONTEXTATTRIBSARBPROC =
-        @ptrCast(open_gl.wglGetProcAddress("wglCreateContextAttribsARB"));
+        @ptrCast(open_gl.wglGetProcAddress("wglCreateContextAttribsARB") orelse @panic("can't load wglCreateContextAttribsARB"));
 
     const pixel_attribus = [_]i32{
         WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
