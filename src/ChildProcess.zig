@@ -1,4 +1,4 @@
-// ChildProcess
+const ChildProcess = @This();
 
 id: switch (os) {
     .windows => win32fnd.HANDLE,
@@ -15,19 +15,29 @@ stdin: ?File = null,
 stdout: ?File = null,
 stderr: ?File = null,
 
-pub usingnamespace switch (os) {
-    .windows => struct {
-        pub const start = startWindows;
-        pub const terminate = terminateWindows;
-        pub const wait = waitWindows;
-    },
-    .linux, .macos => struct {
-        pub const start = startPosix;
-        pub const terminate = terminatePosix;
-        pub const wait = waitPosix;
-    },
-    else => {},
-};
+pub fn start(self: *ChildProcess, arina: Allocator, pty: ?*Pty) !void {
+    switch (os) {
+        .windows => self.startWindows(arina, pty),
+        .linux, .macos => self.startPosix(arina, pty),
+        else => @compileError("Not supported"),
+    }
+}
+
+pub fn terminate(self: *ChildProcess) void {
+    switch (os) {
+        .windows => self.terminateWindows(),
+        .linux, .macos => self.terminatePosix(),
+        else => @compileError("Not supported"),
+    }
+}
+
+pub fn wait(self: *ChildProcess) !void {
+    return switch(os) {
+        .windows => self.waitWindows(),
+        .linux, .macos => self.waitPosix(),
+        else => @compileError("Not supported"),
+    };
+}
 
 fn startWindows(self: *ChildProcess, arina: Allocator, pty: ?*Pty) !void {
     var startup_info_ex = std.mem.zeroes(win32thread.STARTUPINFOEXW);
@@ -72,9 +82,9 @@ fn startWindows(self: *ChildProcess, arina: Allocator, pty: ?*Pty) !void {
         else
             try std.fs.realpathAlloc(arina, path);
 
-    const pathW = try WideAlloc(arina, path_absolute);
+    const pathW = try std.unicode.utf8ToUtf16LeAllocZ(arina, path_absolute);
 
-    const cwd = if (self.cwd) |cwd_path| (try WideAlloc(arina, cwd_path)).ptr else null;
+    const cwd = if (self.cwd) |cwd_path| (try std.unicode.utf8ToUtf16LeAllocZ(arina, cwd_path)).ptr else null;
 
     var env_block: ?*anyopaque = null;
     if (self.env_map) |envmap| {
@@ -159,6 +169,7 @@ fn startPosix(self: *ChildProcess, arina: std.mem.Allocator, pty: ?*Pty) !void {
         return;
     }
 
+    // TODO: implement macOS syscalls
     _ = linux.setsid();
     _ = linux.ioctl(slave_fd, 0x540E, @as(usize, 0));
 
@@ -239,9 +250,6 @@ const std = @import("std");
 const win32 = @import("win32");
 const builtin = @import("builtin");
 
-const Wide = std.unicode.utf8ToUtf16LeStringLiteral;
-const WideAlloc = std.unicode.utf8ToUtf16LeAllocZ;
-
 const posix = std.posix;
 const linux = std.os.linux;
 
@@ -254,7 +262,6 @@ const win32fs = win32.storage.file_system;
 const win32mem = win32.system.memory;
 
 const Pty = @import("pty.zig").Pty;
-const ChildProcess = @This();
 
 const File = std.fs.File;
 const Allocator = std.mem.Allocator;
