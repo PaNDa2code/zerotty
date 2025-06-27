@@ -16,11 +16,11 @@ stdout: ?File = null,
 stderr: ?File = null,
 
 pub fn start(self: *ChildProcess, arina: Allocator, pty: ?*Pty) !void {
-    switch (os) {
+    return switch (os) {
         .windows => self.startWindows(arina, pty),
         .linux, .macos => self.startPosix(arina, pty),
         else => @compileError("Not supported"),
-    }
+    };
 }
 
 pub fn terminate(self: *ChildProcess) void {
