@@ -102,7 +102,7 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
 
     for (physical_devices, 0..) |pd, i| {
         const props = vki.getPhysicalDeviceProperties(pd);
-        std.log.info("GPU{}: {s}", .{ i, props.device_name });
+        std.log.info("GPU{}: {s} - {s}", .{ i, props.device_name, @tagName(props.device_type) });
         const deriver_version: vk.Version = @bitCast(props.driver_version);
         std.log.info("driver version: {}.{}.{}.{}", .{ deriver_version.major, deriver_version.minor, deriver_version.patch, deriver_version.variant });
     }
@@ -127,9 +127,10 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
     var physical_device: vk.PhysicalDevice = .null_handle;
     var device: vk.Device = .null_handle;
 
-    for (physical_devices) |phs_dev| {
+    for (physical_devices, 0..) |phs_dev, i| {
         device = vki.createDevice(phs_dev, &device_create_info, &vk_mem_cb) catch continue;
         physical_device = phs_dev;
+        std.log.info("Using GPU{}", .{i});
         break;
     }
 
