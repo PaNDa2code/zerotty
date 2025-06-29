@@ -4,16 +4,20 @@ threadlocal var gl_proc: gl.ProcTable = undefined;
 threadlocal var gl_lib: DynamicLibrary = undefined;
 threadlocal var gl_proc_is_loaded: bool = false;
 
+allocator: Allocator,
 context: OpenGLContext,
-vertex_shader: gl.uint,
-fragment_shader: gl.uint,
 shader_program: gl.uint,
-characters: [128]Character,
-atlas: gl.uint,
 window_height: u32,
 window_width: u32,
-VAO: gl.uint,
-VBO: gl.uint,
+atlas_texture: gl.uint,
+quad_vao: gl.uint,
+quad_vbo: gl.uint,
+
+vao: gl.uint,
+vbo: gl.uint,
+
+atlas: Atlas,
+cell_program: CellProgram,
 
 fn getProc(name: [*:0]const u8) ?*const anyopaque {
     var p: ?*const anyopaque = null;
@@ -54,6 +58,7 @@ const fragment_shader_source = @embedFile("shaders/fragment.glsl");
 
 pub fn init(window: *Window, allocator: Allocator) !OpenGLRenderer {
     var self: OpenGLRenderer = undefined;
+    self.allocator = allocator;
     self.context = try OpenGLContext.createOpenGLContext(window);
 
     if (!gl_proc_is_loaded)
@@ -62,48 +67,168 @@ pub fn init(window: *Window, allocator: Allocator) !OpenGLRenderer {
     self.window_height = window.height;
     self.window_width = window.width;
 
+    self.atlas = try self.createAtlasTexture(allocator);
+    self.cell_program = try CellProgram.create(allocator, self.window_height, self.window_width, self.atlas.cell_width);
+
     // load_proc_once.call();
 
-    self.vertex_shader = gl.CreateShader(gl.VERTEX_SHADER);
-    gl.ShaderSource(self.vertex_shader, 1, &.{@ptrCast(vertex_shader_source.ptr)}, null);
+    gl.Enable(gl.DEBUG_OUTPUT);
+    gl.DebugMessageCallback(@import("debug.zig").openglDebugCallback, null);
+    // gl.DebugMessageControl(gl.DONT_CARE, gl.DONT_CARE, gl.DONT_CARE, 0, null, gl.TRUE);
+    try self.compileShader();
 
-    self.fragment_shader = gl.CreateShader(gl.FRAGMENT_SHADER);
-    gl.ShaderSource(self.fragment_shader, 1, &.{@ptrCast(fragment_shader_source.ptr)}, null);
-
-    gl.CompileShader(self.vertex_shader);
-    gl.CompileShader(self.fragment_shader);
-
-    self.shader_program = gl.CreateProgram();
-    gl.AttachShader(self.shader_program, self.vertex_shader);
-    gl.AttachShader(self.shader_program, self.fragment_shader);
-    gl.LinkProgram(self.shader_program);
-
-    gl.DeleteShader(self.vertex_shader);
-    gl.DeleteShader(self.fragment_shader);
-
-    self.atlas = try createAtlas(allocator, "res/fonts/FiraCodeNerdFontMono-Regular.ttf");
-
-    var VAO: gl.uint = undefined;
-    var VBO: gl.uint = undefined;
-    gl.GenVertexArrays(1, @ptrCast(&VAO));
-    gl.GenBuffers(1, @ptrCast(&VBO));
-    gl.BindVertexArray(VAO);
-    gl.BindBuffer(gl.ARRAY_BUFFER, VBO);
-    gl.BufferData(gl.ARRAY_BUFFER, @sizeOf(f32) * 6 * 4, null, gl.DYNAMIC_DRAW);
-    gl.EnableVertexAttribArray(0);
-    gl.VertexAttribPointer(0, 4, gl.FLOAT, gl.FALSE, 4 * @sizeOf(f32), 0);
-    gl.BindBuffer(gl.ARRAY_BUFFER, 0);
-    gl.BindVertexArray(0);
-
-    self.VAO = VAO;
-    self.VBO = VBO;
+    self.setupVAO();
 
     return self;
+}
+
+fn setupVAO(self: *OpenGLRenderer) void {
+    // ========== Vertex Array Object ========== //
+    var vao: gl.uint = undefined;
+    gl.GenVertexArrays(1, @ptrCast(&vao));
+    gl.BindVertexArray(vao);
+    self.vao = vao;
+
+    // ========== Vertex Buffer Object (Quad) ========== //
+    const full_quad = [6]Vec4(f32){
+        .{ .x = 1.0, .y = 0.0, .z = 1.0, .w = 0.0 },
+        .{ .x = 0.0, .y = 0.0, .z = 0.0, .w = 0.0 },
+        .{ .x = 0.0, .y = 1.0, .z = 0.0, .w = 1.0 },
+
+        .{ .x = 0.0, .y = 1.0, .z = 0.0, .w = 1.0 },
+        .{ .x = 1.0, .y = 1.0, .z = 1.0, .w = 1.0 },
+        .{ .x = 1.0, .y = 0.0, .z = 1.0, .w = 0.0 },
+    };
+
+    var quad_vbo: gl.uint = undefined;
+    gl.GenBuffers(1, @ptrCast(&quad_vbo));
+    gl.BindBuffer(gl.ARRAY_BUFFER, quad_vbo);
+
+    gl.BufferData(gl.ARRAY_BUFFER, @sizeOf(Vec4(f32)) * full_quad.len, &full_quad, gl.STATIC_DRAW);
+
+    gl.EnableVertexAttribArray(0);
+    gl.VertexAttribPointer(0, 4, gl.FLOAT, gl.FALSE, @sizeOf(Vec4(f32)), 0);
+    gl.VertexAttribDivisor(0, 0); // quad_vertex
+    self.quad_vbo = quad_vbo;
+
+    // ========== Vertex Buffer Object (Instance) ========== //
+    var instance_vbo: gl.uint = undefined;
+    gl.GenBuffers(1, @ptrCast(&instance_vbo));
+    gl.BindBuffer(gl.ARRAY_BUFFER, instance_vbo);
+
+    const size: usize = self.cell_program.data.len * @sizeOf(Cell);
+
+    gl.BufferData(gl.ARRAY_BUFFER, @bitCast(size), null, gl.DYNAMIC_DRAW);
+
+    gl.EnableVertexAttribArray(1);
+    gl.VertexAttribIPointer(1, 1, gl.UNSIGNED_INT, @sizeOf(Cell), @offsetOf(Cell, "row"));
+    gl.VertexAttribDivisor(1, 1); // row
+
+    gl.EnableVertexAttribArray(2);
+    gl.VertexAttribIPointer(2, 1, gl.UNSIGNED_INT, @sizeOf(Cell), @offsetOf(Cell, "col"));
+    gl.VertexAttribDivisor(2, 1); // col
+
+    gl.EnableVertexAttribArray(3);
+    gl.VertexAttribIPointer(3, 1, gl.UNSIGNED_INT, @sizeOf(Cell), @offsetOf(Cell, "char"));
+    gl.VertexAttribDivisor(3, 1); // char
+
+    gl.EnableVertexAttribArray(4);
+    gl.VertexAttribPointer(4, 4, gl.FLOAT, gl.FALSE, @sizeOf(Cell), @offsetOf(Cell, "fg_color"));
+    gl.VertexAttribDivisor(4, 1); // fg_color
+
+    gl.EnableVertexAttribArray(5);
+    gl.VertexAttribPointer(5, 4, gl.FLOAT, gl.FALSE, @sizeOf(Cell), @offsetOf(Cell, "bg_color"));
+    gl.VertexAttribDivisor(5, 1); // bg_color
+
+    self.vbo = instance_vbo;
+}
+
+fn setUniforms(self: *OpenGLRenderer) void {
+    gl.Uniform1f(gl.GetUniformLocation(self.shader_program, "cell_height"), @floatFromInt(self.atlas.cell_height));
+    gl.Uniform1f(gl.GetUniformLocation(self.shader_program, "cell_width"), @floatFromInt(self.atlas.cell_width));
+    gl.Uniform1f(gl.GetUniformLocation(self.shader_program, "screen_height"), @floatFromInt(self.window_height));
+    gl.Uniform1f(gl.GetUniformLocation(self.shader_program, "screen_width"), @floatFromInt(self.window_width));
+
+    gl.Uniform1f(gl.GetUniformLocation(self.shader_program, "atlas_cols"), @floatFromInt(self.atlas.cols));
+    gl.Uniform1f(gl.GetUniformLocation(self.shader_program, "atlas_rows"), @floatFromInt(self.atlas.rows));
+
+    gl.Uniform1i(gl.GetUniformLocation(self.shader_program, "atlas_texture"), 0);
+}
+
+fn createAtlasTexture(self: *OpenGLRenderer, allocator: Allocator) !Atlas {
+    _ = self;
+    const atlas = try Atlas.create(allocator, 20, 20, 0, 128);
+
+    var atlas_texture: gl.uint = 0;
+    gl.GenTextures(1, @ptrCast(&atlas_texture));
+    gl.ActiveTexture(gl.TEXTURE0);
+    gl.BindTexture(gl.TEXTURE_2D, atlas_texture);
+    gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_BORDER);
+    gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_BORDER);
+    gl.TexImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.R8,
+        @intCast(atlas.width),
+        @intCast(atlas.height),
+        0,
+        gl.RED,
+        gl.UNSIGNED_BYTE,
+        atlas.buffer.ptr,
+    );
+    gl.BindTexture(gl.TEXTURE_2D, 0);
+
+    return atlas;
+}
+
+fn compileShader(self: *OpenGLRenderer) !void {
+    var stat: i32 = 0;
+    const vertex_shader = gl.CreateShader(gl.VERTEX_SHADER);
+    defer gl.DeleteShader(vertex_shader);
+
+    gl.ShaderSource(vertex_shader, 1, &.{@ptrCast(vertex_shader_source.ptr)}, null);
+
+    const fragment_shader = gl.CreateShader(gl.FRAGMENT_SHADER);
+    defer gl.DeleteShader(fragment_shader);
+
+    gl.ShaderSource(fragment_shader, 1, &.{@ptrCast(fragment_shader_source.ptr)}, null);
+
+    gl.CompileShader(vertex_shader);
+    gl.GetShaderiv(vertex_shader, gl.COMPILE_STATUS, &stat);
+    if (stat == gl.FALSE) {
+        return error.VertShaderCompileFailed;
+    }
+
+    gl.CompileShader(fragment_shader);
+    gl.GetShaderiv(fragment_shader, gl.COMPILE_STATUS, &stat);
+    if (stat == gl.FALSE) {
+        return error.FragShaderCompileFailed;
+    }
+
+    self.shader_program = gl.CreateProgram();
+    errdefer gl.DeleteProgram(self.shader_program);
+
+    gl.AttachShader(self.shader_program, vertex_shader);
+    gl.AttachShader(self.shader_program, fragment_shader);
+    gl.LinkProgram(self.shader_program);
+
+    gl.GetProgramiv(self.shader_program, gl.LINK_STATUS, &stat);
+    if (stat == gl.FALSE) {
+        var log: [512]u8 = undefined;
+        var log_len: gl.int = 0;
+        gl.GetProgramInfoLog(self.shader_program, 512, &log_len, &log);
+        std.log.err("Shader link failed: {s}", .{log[0..@intCast(log_len)]});
+        return error.ShaderLinkFailed;
+    }
 }
 
 pub fn deinit(self: *OpenGLRenderer) void {
     gl_lib.deinit();
     self.context.destory();
+    self.atlas.deinit(self.allocator);
+    self.allocator.free(self.cell_program.data);
 }
 
 pub fn clearBuffer(self: *OpenGLRenderer, color: ColorRGBA) void {
@@ -116,113 +241,28 @@ pub fn presentBuffer(self: *OpenGLRenderer) void {
     self.context.swapBuffers();
 }
 
-pub fn createAtlas(allocator: Allocator, font_path: []const u8) !gl.uint {
-    const glyph_count = 128;
-    const cell_size = 24;
-    const atlas_columns = 16;
-    const atlas_rows = (glyph_count + atlas_columns - 1) / atlas_columns;
-
-    const atlas_width = cell_size * atlas_columns;
-    const atlas_height = cell_size * atlas_rows;
-
-    // Create the atlas texture in CPU before uploading it to the GPU
-    const atlas_bytes = try allocator.alloc(u8, atlas_width * atlas_height);
-    defer allocator.free(atlas_bytes);
-
-    @memset(atlas_bytes, 0);
-
-    const ft_lib = try freetype.Library.init(allocator);
-    defer ft_lib.deinit();
-
-    const ft_face = try ft_lib.face(font_path, cell_size);
-    defer ft_face.deinit();
-
-    for (0..glyph_count) |i| {
-        const char_code: u8 = @intCast(i);
-        var glyph = try ft_face.getGlyph(char_code);
-        defer glyph.deinit();
-
-        const bmp_glyph = try glyph.glyphBitmap();
-
-        if (bmp_glyph.top <= 0 or bmp_glyph.bitmap.buffer == null) continue;
-
-        const bmp = bmp_glyph.bitmap;
-        const bmp_w = bmp.width;
-        const bmp_h = bmp.rows;
-
-        const col = i % atlas_columns;
-        const row = i / atlas_columns;
-
-        const cell_x = col * cell_size;
-        const cell_y = row * cell_size;
-
-        const dst_x = cell_x + (cell_size - bmp_w) / 2;
-        const dst_y = cell_y + cell_size - @min(@as(usize, @intCast(bmp_glyph.top)), cell_size);
-
-        const max_w = @min(bmp_w, atlas_width - dst_x);
-        const max_h = if (dst_y >= atlas_height)
-            0
-        else
-            @min(bmp_h, atlas_height - dst_y);
-
-        std.log.debug("{0c} {0}", .{char_code});
-        for (0..max_h) |y| {
-            for (0..max_w) |x| {
-                const src_idx = y * @as(usize, @intCast(bmp.pitch)) + x;
-                const dst_idx = (dst_y + y) * atlas_width + (dst_x + x);
-                atlas_bytes[dst_idx] = bmp.buffer.?[src_idx];
-            }
-        }
-    }
-
-    try saveAtlasAsPGM("atlas.PGM", atlas_bytes, atlas_width, atlas_height);
-
-    // Upload to the GPU
-    var tex: gl.uint = 0;
-    gl.GenTextures(1, @ptrCast(&tex));
-    gl.BindTexture(gl.TEXTURE_2D, tex);
-    gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1);
-    gl.TexImage2D(
-        gl.TEXTURE_2D,
-        0,
-        gl.RED,
-        atlas_width,
-        atlas_height,
-        0,
-        gl.RED,
-        gl.UNSIGNED_BYTE,
-        atlas_bytes.ptr,
-    );
-    gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-
-    return tex;
-}
-
-pub fn saveAtlasAsPGM(
-    filename: []const u8,
-    data: []const u8,
-    width: usize,
-    height: usize,
-) !void {
-    const file = try std.fs.cwd().createFile(filename, .{});
-    defer file.close();
-
-    const writer = file.writer();
-
-    // Write PGM header
-    try writer.print("P5\n{} {}\n255\n", .{ width, height });
-
-    // Write raw grayscale pixel data
-    try writer.writeAll(data);
-}
-
 pub fn renaderText(self: *OpenGLRenderer, buffer: []const u8, x: u32, y: u32, color: ColorRGBA) void {
     _ = color; // autofix
     _ = y; // autofix
     _ = x; // autofix
     _ = buffer; // autofix
-    _ = self; // autofix
+
+    gl.BindVertexArray(self.vao);
+    defer gl.BindVertexArray(0);
+
+    gl.UseProgram(self.shader_program);
+    defer gl.UseProgram(0);
+
+    self.setUniforms();
+
+    gl.BufferData(
+        gl.ARRAY_BUFFER,
+        @intCast(@sizeOf(Cell) * self.cell_program.data.len),
+        self.cell_program.data.ptr,
+        gl.DYNAMIC_DRAW,
+    );
+
+    gl.DrawArraysInstanced(gl.TRIANGLES, 0, 6, @intCast(self.cell_program.data.len));
 }
 
 pub fn resize(self: *OpenGLRenderer, width: u32, height: u32) void {
@@ -259,3 +299,6 @@ const Window = @import("../../window.zig").Window;
 const freetype = @import("freetype");
 
 const Allocator = std.mem.Allocator;
+const Atlas = @import("../Atlas.zig");
+const CellProgram = @import("CellProgram.zig");
+const Cell = CellProgram.Cell;

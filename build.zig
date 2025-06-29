@@ -132,7 +132,7 @@ pub fn exeMod(b: *std.Build, module_config: ModuleConfig) *std.Build.Module {
                 .api = .gl,
                 .version = .@"4.0",
                 .profile = .core,
-                .extensions = &.{},
+                .extensions = &.{.KHR_debug},
             });
             exe_mod.addImport("gl", gl_bindings);
             if (target.result.os.tag == .linux)
