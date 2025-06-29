@@ -93,10 +93,10 @@ fn setupVAO(self: *OpenGLRenderer) void {
 
     // ========== Vertex Buffer Object (Quad) ========== //
     const full_quad = [_]Vec4(f32){
-        .{ .x = -1.0, .y = -1.0, .z = 0.0, .w = 0.0 }, // Bottom-left
-        .{ .x = 1.0, .y = -1.0, .z = 1.0, .w = 0.0 }, // Bottom-right
-        .{ .x = 1.0, .y = 1.0, .z = 1.0, .w = 1.0 }, // Top-right
-        .{ .x = -1.0, .y = 1.0, .z = 0.0, .w = 1.0 }, // Top-left
+        .{ .x = -0.5, .y = -0.5, .z = 0.0, .w = 0.0 }, // Bottom-left
+        .{ .x = 0.5, .y = -0.5, .z = 1.0, .w = 0.0 }, // Bottom-right
+        .{ .x = 0.5, .y = 0.5, .z = 1.0, .w = 1.0 }, // Top-right
+        .{ .x = -0.5, .y = 0.5, .z = 0.0, .w = 1.0 }, // Top-left
     };
 
     const full_quad_indices = [_]u32{
@@ -169,7 +169,7 @@ fn setUniforms(self: *OpenGLRenderer) void {
 }
 
 fn createAtlasTexture(self: *OpenGLRenderer, allocator: Allocator) !Atlas {
-    const atlas = try Atlas.create(allocator, 20, 20, 0, 128);
+    const atlas = try Atlas.create(allocator, 30, 20, 0, 128);
 
     var atlas_texture: gl.uint = 0;
     gl.GenTextures(1, @ptrCast(&atlas_texture));
