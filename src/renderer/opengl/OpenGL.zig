@@ -10,8 +10,10 @@ shader_program: gl.uint,
 window_height: u32,
 window_width: u32,
 atlas_texture: gl.uint,
+
 quad_vao: gl.uint,
 quad_vbo: gl.uint,
+quad_ebo: gl.uint,
 
 vao: gl.uint,
 vbo: gl.uint,
@@ -90,15 +92,24 @@ fn setupVAO(self: *OpenGLRenderer) void {
     self.vao = vao;
 
     // ========== Vertex Buffer Object (Quad) ========== //
-    const full_quad = [6]Vec4(f32){
-        .{ .x = 1.0, .y = 0.0, .z = 1.0, .w = 0.0 },
-        .{ .x = 0.0, .y = 0.0, .z = 0.0, .w = 0.0 },
-        .{ .x = 0.0, .y = 1.0, .z = 0.0, .w = 1.0 },
-
-        .{ .x = 0.0, .y = 1.0, .z = 0.0, .w = 1.0 },
-        .{ .x = 1.0, .y = 1.0, .z = 1.0, .w = 1.0 },
-        .{ .x = 1.0, .y = 0.0, .z = 1.0, .w = 0.0 },
+    const full_quad = [_]Vec4(f32){
+        .{ .x = -1.0, .y = -1.0, .z = 0.0, .w = 0.0 }, // Bottom-left
+        .{ .x = 1.0, .y = -1.0, .z = 1.0, .w = 0.0 }, // Bottom-right
+        .{ .x = 1.0, .y = 1.0, .z = 1.0, .w = 1.0 }, // Top-right
+        .{ .x = -1.0, .y = 1.0, .z = 0.0, .w = 1.0 }, // Top-left
     };
+
+    const full_quad_indices = [_]u32{
+        0, 1, 2, // First triangle
+        2, 3, 0, // Second triangle
+    };
+
+    var quad_ebo: u32 = undefined;
+    gl.GenBuffers(1, @ptrCast(&quad_ebo));
+    gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, quad_ebo);
+    gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, @sizeOf(u32) * full_quad_indices.len, &full_quad_indices, gl.STATIC_DRAW);
+    self.quad_ebo = quad_ebo;
+    gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, 0);
 
     var quad_vbo: gl.uint = undefined;
     gl.GenBuffers(1, @ptrCast(&quad_vbo));
@@ -111,6 +122,7 @@ fn setupVAO(self: *OpenGLRenderer) void {
     gl.VertexAttribDivisor(0, 0); // quad_vertex
     self.quad_vbo = quad_vbo;
 
+    gl.BindBuffer(gl.ARRAY_BUFFER, 0);
     // ========== Vertex Buffer Object (Instance) ========== //
     var instance_vbo: gl.uint = undefined;
     gl.GenBuffers(1, @ptrCast(&instance_vbo));
@@ -141,6 +153,7 @@ fn setupVAO(self: *OpenGLRenderer) void {
     gl.VertexAttribDivisor(5, 1); // bg_color
 
     self.vbo = instance_vbo;
+    gl.BindBuffer(gl.ARRAY_BUFFER, 0);
 }
 
 fn setUniforms(self: *OpenGLRenderer) void {
@@ -250,6 +263,13 @@ pub fn renaderText(self: *OpenGLRenderer, buffer: []const u8, x: u32, y: u32, co
     gl.BindVertexArray(self.vao);
     defer gl.BindVertexArray(0);
 
+    gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, self.quad_ebo);
+    defer gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, 0);
+
+    gl.BindBuffer(gl.ARRAY_BUFFER, self.vbo);
+    defer gl.BindBuffer(gl.ARRAY_BUFFER, 0);
+
+
     gl.UseProgram(self.shader_program);
     defer gl.UseProgram(0);
 
@@ -262,7 +282,13 @@ pub fn renaderText(self: *OpenGLRenderer, buffer: []const u8, x: u32, y: u32, co
         gl.DYNAMIC_DRAW,
     );
 
-    gl.DrawArraysInstanced(gl.TRIANGLES, 0, 6, @intCast(self.cell_program.data.len));
+    gl.DrawElementsInstanced(
+        gl.TRIANGLES,
+        6,
+        gl.UNSIGNED_INT,
+        null,
+        @intCast(self.cell_program.data.len),
+    );
 }
 
 pub fn resize(self: *OpenGLRenderer, width: u32, height: u32) void {

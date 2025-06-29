@@ -38,7 +38,6 @@ pub fn create(allocator: Allocator, screen_height: usize, screen_width: usize, c
         .data = data,
         .rows = @intCast(rows),
         .columns = @intCast(columns),
-        .byte_size = data.len * @sizeOf(Cell),
     };
 }
 

@@ -36,11 +36,9 @@ pub fn loop(self: *App) void {
     // self.vt_parser.parse(buffer[0..len]);
 
     while (!self.window.exit) {
-        self.window.pumpMessages();
-        // self.window.renderer.clearBuffer(.Gray);
         self.window.renderer.renaderText("HelloWorld!", 10, 570, .White);
-        self.window.renderer.renaderText("PaNDa1code", 10, 540, .Green);
         self.window.renderer.presentBuffer();
+        self.window.pumpMessages();
     }
 }
 
