@@ -18,8 +18,8 @@ uniform float atlas_rows;
 
 // Outputs
 out vec2 TexCoords;
-out vec4 FgColor;
-out vec4 BgColor;
+out vec4 v_fg_color;
+out vec4 v_bg_color;
 
 void main() {
     vec2 cell_size = vec2(cell_width, cell_height);
@@ -46,6 +46,6 @@ void main() {
     TexCoords = atlas_offset + quad_vertex.zw * glyph_uv_size;
     
     // Pass colors
-    FgColor = fg_color;
-    BgColor = bg_color;
+    v_fg_color = fg_color;
+    v_bg_color = bg_color;
 }

@@ -29,7 +29,6 @@ pub fn create(allocator: Allocator, screen_height: usize, screen_width: usize, c
     });
 
     for (data, 0..) |*cell, i| {
-        cell.char = @intCast(i % @as(usize, @intCast('a')));
         cell.row = @intCast(i / columns);
         cell.col = @intCast(i % columns);
     }

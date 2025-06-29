@@ -169,7 +169,6 @@ fn setUniforms(self: *OpenGLRenderer) void {
 }
 
 fn createAtlasTexture(self: *OpenGLRenderer, allocator: Allocator) !Atlas {
-    _ = self;
     const atlas = try Atlas.create(allocator, 20, 20, 0, 128);
 
     var atlas_texture: gl.uint = 0;
@@ -191,7 +190,8 @@ fn createAtlasTexture(self: *OpenGLRenderer, allocator: Allocator) !Atlas {
         gl.UNSIGNED_BYTE,
         atlas.buffer.ptr,
     );
-    gl.BindTexture(gl.TEXTURE_2D, 0);
+
+    self.atlas_texture = atlas_texture;
 
     return atlas;
 }
@@ -269,6 +269,8 @@ pub fn renaderText(self: *OpenGLRenderer, buffer: []const u8, x: u32, y: u32, co
     gl.BindBuffer(gl.ARRAY_BUFFER, self.vbo);
     defer gl.BindBuffer(gl.ARRAY_BUFFER, 0);
 
+    gl.BindTexture(gl.TEXTURE_2D, self.atlas_texture);
+    defer gl.BindTexture(gl.TEXTURE_2D, 0);
 
     gl.UseProgram(self.shader_program);
     defer gl.UseProgram(0);
