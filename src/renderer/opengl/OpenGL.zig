@@ -1,3 +1,5 @@
+const OpenGLRenderer = @This();
+
 // OpenGL renderer
 
 threadlocal var gl_proc: gl.ProcTable = undefined;
@@ -20,6 +22,7 @@ vbo: gl.uint,
 
 atlas: Atlas,
 cell_program: CellProgram,
+raster: @import("Rasterizer.zig"),
 
 fn getProc(name: [*:0]const u8) ?*const anyopaque {
     var p: ?*const anyopaque = null;
@@ -58,6 +61,8 @@ fn getProcTableOnce() void {
 const vertex_shader_source = @embedFile("shaders/vertex.glsl");
 const fragment_shader_source = @embedFile("shaders/fragment.glsl");
 
+const OpenGLRendererInitaliztionError = error{} || shader_utils.CreateShaderProgramError || Allocator.Error;
+
 pub fn init(window: *Window, allocator: Allocator) !OpenGLRenderer {
     var self: OpenGLRenderer = undefined;
     self.allocator = allocator;
@@ -74,10 +79,12 @@ pub fn init(window: *Window, allocator: Allocator) !OpenGLRenderer {
 
     // load_proc_once.call();
 
-    gl.Enable(gl.DEBUG_OUTPUT);
-    gl.DebugMessageCallback(@import("debug.zig").openglDebugCallback, null);
-    // gl.DebugMessageControl(gl.DONT_CARE, gl.DONT_CARE, gl.DONT_CARE, 0, null, gl.TRUE);
-    try self.compileShader();
+    if (builtin.mode == .Debug) {
+        gl.Enable(gl.DEBUG_OUTPUT);
+        gl.DebugMessageCallback(@import("debug.zig").openglDebugCallback, null);
+    }
+
+    self.shader_program = try shader_utils.createShaderProgram(vertex_shader_source, fragment_shader_source);
 
     self.setupVAO();
 
@@ -196,47 +203,6 @@ fn createAtlasTexture(self: *OpenGLRenderer, allocator: Allocator) !Atlas {
     return atlas;
 }
 
-fn compileShader(self: *OpenGLRenderer) !void {
-    var stat: i32 = 0;
-    const vertex_shader = gl.CreateShader(gl.VERTEX_SHADER);
-    defer gl.DeleteShader(vertex_shader);
-
-    gl.ShaderSource(vertex_shader, 1, &.{@ptrCast(vertex_shader_source.ptr)}, null);
-
-    const fragment_shader = gl.CreateShader(gl.FRAGMENT_SHADER);
-    defer gl.DeleteShader(fragment_shader);
-
-    gl.ShaderSource(fragment_shader, 1, &.{@ptrCast(fragment_shader_source.ptr)}, null);
-
-    gl.CompileShader(vertex_shader);
-    gl.GetShaderiv(vertex_shader, gl.COMPILE_STATUS, &stat);
-    if (stat == gl.FALSE) {
-        return error.VertShaderCompileFailed;
-    }
-
-    gl.CompileShader(fragment_shader);
-    gl.GetShaderiv(fragment_shader, gl.COMPILE_STATUS, &stat);
-    if (stat == gl.FALSE) {
-        return error.FragShaderCompileFailed;
-    }
-
-    self.shader_program = gl.CreateProgram();
-    errdefer gl.DeleteProgram(self.shader_program);
-
-    gl.AttachShader(self.shader_program, vertex_shader);
-    gl.AttachShader(self.shader_program, fragment_shader);
-    gl.LinkProgram(self.shader_program);
-
-    gl.GetProgramiv(self.shader_program, gl.LINK_STATUS, &stat);
-    if (stat == gl.FALSE) {
-        var log: [512]u8 = undefined;
-        var log_len: gl.int = 0;
-        gl.GetProgramInfoLog(self.shader_program, 512, &log_len, &log);
-        std.log.err("Shader link failed: {s}", .{log[0..@intCast(log_len)]});
-        return error.ShaderLinkFailed;
-    }
-}
-
 pub fn deinit(self: *OpenGLRenderer) void {
     gl_lib.deinit();
     self.context.destory();
@@ -298,20 +264,6 @@ pub fn resize(self: *OpenGLRenderer, width: u32, height: u32) void {
     self.window_height = height;
 }
 
-const Character = packed struct {
-    texture_id: u32,
-    size: Vec2(i32),
-    bearing: Vec2(i32),
-    advance: u32,
-};
-
-const math = @import("../math.zig");
-const Vec2 = math.Vec2;
-const Vec4 = math.Vec4;
-
-const OpenGLRenderer = @This();
-const DynamicLibrary = @import("../../DynamicLibrary.zig");
-
 const OpenGLContext = switch (builtin.os.tag) {
     .windows => @import("WGLContext.zig"),
     .linux => @import("GLXContext.zig"),
@@ -319,14 +271,18 @@ const OpenGLContext = switch (builtin.os.tag) {
 };
 
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const builtin = @import("builtin");
+const freetype = @import("freetype");
 const gl = @import("gl");
+
+const shader_utils = @import("shader_utils.zig");
+const DynamicLibrary = @import("../../DynamicLibrary.zig");
+const Window = @import("../../window.zig").Window;
+const Atlas = @import("../Atlas.zig");
 const common = @import("../common.zig");
 const ColorRGBA = common.ColorRGBA;
-const Window = @import("../../window.zig").Window;
-const freetype = @import("freetype");
-
-const Allocator = std.mem.Allocator;
-const Atlas = @import("../Atlas.zig");
+const math = @import("../math.zig");
+const Vec4 = math.Vec4;
 const CellProgram = @import("CellProgram.zig");
 const Cell = CellProgram.Cell;
