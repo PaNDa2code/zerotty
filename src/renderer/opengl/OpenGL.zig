@@ -22,7 +22,6 @@ vbo: gl.uint,
 
 atlas: Atlas,
 cell_program: CellProgram,
-raster: @import("Rasterizer.zig"),
 
 fn getProc(name: [*:0]const u8) ?*const anyopaque {
     var p: ?*const anyopaque = null;
@@ -86,12 +85,12 @@ pub fn init(window: *Window, allocator: Allocator) !OpenGLRenderer {
 
     self.shader_program = try shader_utils.createShaderProgram(vertex_shader_source, fragment_shader_source);
 
-    self.setupVAO();
+    self.setupBuffers();
 
     return self;
 }
 
-fn setupVAO(self: *OpenGLRenderer) void {
+fn setupBuffers(self: *OpenGLRenderer) void {
     // ========== Vertex Array Object ========== //
     var vao: gl.uint = undefined;
     gl.GenVertexArrays(1, @ptrCast(&vao));
