@@ -34,6 +34,10 @@
             .url = "git+https://github.com/Snektron/vulkan-zig#0e164cd7306d8d0491982f7102d4291fb5e0c5fa",
             .hash = "vulkan-0.0.0-r7Ytx11UAwDj8RT0-qNjGxpRlTA4KfA7-4Urki6eTGJL",
         },
+        .emsdk = .{
+            .url = "git+https://github.com/emscripten-core/emsdk#62a853cd3b3134398ce85cde8bb5cbb2ef0194cb",
+            .hash = "N-V-__8AAEWFDwBdd7oE1EcCE3lK2y01-2ourXGKhpZeaZxQ",
+        },
     },
     .paths = .{
         "build.zig",
