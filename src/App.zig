@@ -9,7 +9,7 @@ const App = @This();
 
 pub fn new(allocator: Allocator) App {
     return .{
-        .window = Window.new("zerotty", 600, 800),
+        .window = Window.new("zerotty", 720, 1280),
         .allocator = allocator,
         .vt_parser = VTParser.init(vtParseCallback),
         .child = .{ .exe_path = if (@import("builtin").os.tag == .windows) "cmd" else "bash" },
@@ -36,11 +36,9 @@ pub fn loop(self: *App) void {
     // self.vt_parser.parse(buffer[0..len]);
 
     while (!self.window.exit) {
-        self.window.pumpMessages();
-        self.window.renderer.clearBuffer(.Gray);
         self.window.renderer.renaderText("HelloWorld!", 10, 570, .White);
-        self.window.renderer.renaderText("PaNDa1code", 10, 540, .Green);
         self.window.renderer.presentBuffer();
+        self.window.pumpMessages();
     }
 }
 

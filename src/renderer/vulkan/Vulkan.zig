@@ -43,7 +43,7 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
 
     const extensions = [_][*:0]const u8{
         "VK_KHR_surface",
-    } ++ switch (Window.system) {
+    } ++ switch (build_options.@"window-system") {
         .Win32 => win32_exts,
         .Xlib => xlib_exts,
         .Xcb => xcb_exts,
@@ -64,7 +64,7 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
 
     var surface: vk.SurfaceKHR = .null_handle;
 
-    switch (Window.system) {
+    switch (build_options.@"window-system") {
         .Win32 => {
             const surface_info: vk.Win32SurfaceCreateInfoKHR = .{
                 .hwnd = @ptrCast(window.hwnd),
@@ -330,6 +330,8 @@ pub fn renaderText(self: *VulkanRenderer, buffer: []const u8, x: u32, y: u32, co
 
 const std = @import("std");
 const builtin = @import("builtin");
+const build_options = @import("build_options");
+
 const os_tag = builtin.os.tag;
 const vk = @import("vulkan");
 const common = @import("../common.zig");

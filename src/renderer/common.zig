@@ -1,4 +1,4 @@
-pub const ColorRGBA = struct {
+pub const ColorRGBA = packed struct {
     r: f32,
     g: f32,
     b: f32,

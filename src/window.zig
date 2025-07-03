@@ -18,7 +18,7 @@ pub const WindowResizeEvent = struct {
 };
 
 const Win32Window = struct {
-    pub const system: build_options.@"build.WindowSystem" = .Win32;
+    pub const system = .Win32;
 
     const win32fnd = win32.foundation;
     const win32wm = win32.ui.windows_and_messaging;
@@ -194,7 +194,7 @@ const Win32Window = struct {
 };
 
 const XlibWindow = struct {
-    pub const system: build_options.@"build.WindowSystem" = .Xlib;
+    pub const system = .Xlib;
 
     const x11 = @cImport({
         @cInclude("X11/Xlib.h");
@@ -280,7 +280,7 @@ const XlibWindow = struct {
 };
 
 const XcbWindow = struct {
-    pub const system: build_options.@"build.WindowSystem" = .Xcb;
+    pub const system = .Xcb;
 
     const c = @cImport({
         @cInclude("xcb/xcb.h");
