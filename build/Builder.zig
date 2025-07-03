@@ -12,7 +12,7 @@ root_source_file: ?Build.LazyPath = null,
 
 options_mod: ?OptionsModule = null,
 
-_exe: ?*Build.Step.Compile = null,
+exe: ?*Build.Step.Compile = null,
 
 pub const RenderBackend = enum {
     D3D11,
@@ -73,22 +73,22 @@ pub fn addOptionsModule(self: *Builder, name: []const u8, options: *Build.Step.O
     return self;
 }
 
-pub fn exe(self: *Builder, name: []const u8) *Builder {
-    const e = self.b.addExecutable(.{
+pub fn addExcutable(self: *Builder, name: []const u8) *Builder {
+    const exe = self.b.addExecutable(.{
         .name = name,
         .root_module = self.getModule(),
         .link_libc = self.needLibc(),
     });
 
-    self._exe = e;
+    self.exe = exe;
 
-    self.builder_step.dependOn(&e.step);
+    self.builder_step.dependOn(&exe.step);
 
     return self;
 }
 
-pub fn addRunCmd(self: *Builder) *Builder {
-    if (self._exe) |e| {
+pub fn addRunStep(self: *Builder) *Builder {
+    if (self.exe) |e| {
         const run_cmd = self.b.addRunArtifact(e);
 
         run_cmd.step.dependOn(self.b.getInstallStep());
@@ -105,7 +105,14 @@ pub fn addRunCmd(self: *Builder) *Builder {
 }
 
 pub fn apply(self: *Builder) void {
+    self.setInstallArtifact();
     self.b.default_step.dependOn(self.builder_step);
+}
+
+fn setInstallArtifact(self: *Builder) void {
+    if (self.exe) |exe| {
+        self.b.installArtifact(exe);
+    }
 }
 
 fn addImports(self: *Builder, module: *Build.Module) void {
