@@ -2,7 +2,20 @@ device_context: HDC,
 opengl_rendering_context: HGLRC,
 window_handle: HWND,
 
-pub fn createOpenGLContext(window: *Window) !OpenGLContext {
+pub const CreateOpenGLContextError = error{
+    RegisterClass,
+    CreateWindow,
+    GetDC,
+    ChoosePixelFormat,
+    SetPixelFormat,
+    WglCreateContext,
+    WglMakeCurrent,
+    WglChoosePixelFormatARB,
+    WglCreateContextAttribsARB,
+    DescribePixelFormat,
+};
+
+pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLContext {
     const dummy_window_class_name = std.unicode.wtf8ToWtf16LeStringLiteral("Core");
     const dummy_window_class = std.mem.zeroInit(windows.WNDCLASSW, .{
         .lpszClassName = dummy_window_class_name,
@@ -30,7 +43,7 @@ pub fn createOpenGLContext(window: *Window) !OpenGLContext {
 
     const dummy_dc = gdi.GetDC(dummy_window);
 
-    const temp_pf_disc = comptime std.mem.zeroInit(open_gl.PIXELFORMATDESCRIPTOR, .{
+    const temp_pf_disc = std.mem.zeroInit(open_gl.PIXELFORMATDESCRIPTOR, .{
         .nSize = @sizeOf(open_gl.PIXELFORMATDESCRIPTOR),
         .nVersion = 1,
         .dwFlags = .{ .DRAW_TO_WINDOW = 1, .SUPPORT_OPENGL = 1, .DOUBLEBUFFER = 1 },

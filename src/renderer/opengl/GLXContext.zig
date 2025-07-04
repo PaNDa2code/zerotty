@@ -4,7 +4,11 @@ context: c.glx.GLXContext,
 glXSwapIntervalsEXT: PFNGLXSWAPINTERVALEXTPROC,
 glXSwapBuffers: PFNGLXSWAPBUFFERSPROC,
 
-pub fn createOpenGLContext(window: *Window) !OpenGLContext {
+pub const CreateOpenGLContextError = error {
+    GLXCreateContext,
+};
+
+pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLContext {
     const display = window.display;
     const root = c.x11.DefaultRootWindow(display);
 
@@ -32,7 +36,7 @@ pub fn createOpenGLContext(window: *Window) !OpenGLContext {
         &swa,
     );
 
-    const gl_context = c.glx.glXCreateContext(@ptrCast(display), vi, null, 1) orelse return error.glXCreateContext;
+    const gl_context = c.glx.glXCreateContext(@ptrCast(display), vi, null, 1) orelse return error.GLXCreateContext;
     _ = c.glx.glXMakeCurrent(@ptrCast(display), window.w, gl_context);
     _ = c.glx.XMapWindow(@ptrCast(display), window.w);
 

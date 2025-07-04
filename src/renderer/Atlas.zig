@@ -14,8 +14,10 @@ cols: u32,
 from: u32,
 to: u32,
 
+pub const CreateError = freetype.Error || Allocator.Error || SaveAtlasError;
+
 // Create one raw glyph atlas
-pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32, to: u32) !Atlas {
+pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32, to: u32) CreateError!Atlas {
     const glyph_count = to - from;
     const glyph_size = cell_height * cell_width; // m^2
 
@@ -87,12 +89,14 @@ pub fn deinit(self: *Atlas, allocator: Allocator) void {
     self.* = std.mem.zeroes(Atlas);
 }
 
+const SaveAtlasError = std.fs.File.OpenError || std.io.AnyWriter.Error;
+
 fn saveAtlasAsPGM(
     filename: []const u8,
     data: []const u8,
     width: usize,
     height: usize,
-) !void {
+) SaveAtlasError!void {
     const file = try std.fs.cwd().createFile(filename, .{});
     defer file.close();
 

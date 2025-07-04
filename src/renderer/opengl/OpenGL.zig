@@ -60,9 +60,10 @@ fn getProcTableOnce() void {
 const vertex_shader_source = @embedFile("shaders/vertex.glsl");
 const fragment_shader_source = @embedFile("shaders/fragment.glsl");
 
-const OpenGLRendererInitaliztionError = error{} || shader_utils.CreateShaderProgramError || Allocator.Error;
+pub const InitError = shader_utils.CreateShaderProgramError ||
+    Allocator.Error || CreateOpenGLContextError || Atlas.CreateError;
 
-pub fn init(window: *Window, allocator: Allocator) !OpenGLRenderer {
+pub fn init(window: *Window, allocator: Allocator) InitError!OpenGLRenderer {
     var self: OpenGLRenderer = undefined;
     self.allocator = allocator;
     self.context = try OpenGLContext.createOpenGLContext(window);
@@ -174,7 +175,7 @@ fn setUniforms(self: *OpenGLRenderer) void {
     gl.Uniform1i(gl.GetUniformLocation(self.shader_program, "atlas_texture"), 0);
 }
 
-fn createAtlasTexture(self: *OpenGLRenderer, allocator: Allocator) !Atlas {
+fn createAtlasTexture(self: *OpenGLRenderer, allocator: Allocator) Atlas.CreateError!Atlas {
     const atlas = try Atlas.create(allocator, 30, 20, 0, 128);
 
     var atlas_texture: gl.uint = 0;
@@ -268,6 +269,8 @@ const OpenGLContext = switch (builtin.os.tag) {
     .linux => @import("GLXContext.zig"),
     else => void,
 };
+
+const CreateOpenGLContextError = OpenGLContext.CreateOpenGLContextError;
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;
