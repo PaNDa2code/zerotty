@@ -33,10 +33,10 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
     const ft_lib = try freetype.Library.init(allocator);
     defer ft_lib.deinit();
 
-    var face = try ft_lib.face("assets/fonts/FiraCodeNerdFontMono-Regular.ttf", cell_width);
+    var face = try ft_lib.memoryFace(assets.fonts.@"FiraCodeNerdFontMono-Regular.ttf", cell_width);
     defer face.deinit();
 
-    try face.setPixelSize(@intCast(cell_height),@intCast(cell_width));
+    try face.setPixelSize(@intCast(cell_height), @intCast(cell_width));
 
     var char = from;
 
@@ -52,7 +52,6 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
         const bitmap_h = bitmap.rows;
 
         const index = char - from;
-
 
         const dst_x = index * cell_width + (cell_width - bitmap_w) / 2;
         const dst_y = cell_height - @min(@as(usize, @intCast(bitmap_glyph.top)), cell_height);
@@ -111,4 +110,5 @@ fn saveAtlasAsPGM(
 
 const std = @import("std");
 const freetype = @import("freetype");
+const assets = @import("assets");
 const Allocator = std.mem.Allocator;

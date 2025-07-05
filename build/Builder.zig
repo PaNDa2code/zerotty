@@ -168,6 +168,12 @@ fn addImports(self: *Builder, module: *Build.Module) void {
 
     module.addImport("vtparse", vtparse_mod);
     module.addImport("freetype", freetype_mod);
+
+    const assets_mod = self.b.addModule("assets", .{
+        .root_source_file = self.b.path("assets/assets.zig"),
+    });
+
+    module.addImport("assets", assets_mod);
 }
 
 fn linkSystemLibrarys(self: *Builder, module: *Build.Module) void {
