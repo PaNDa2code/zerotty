@@ -86,7 +86,7 @@ pub fn addExcutable(self: *Builder, name: []const u8) *Builder {
 
     if (self.target.result.os.tag == .windows)
         exe.addWin32ResourceFile(.{
-            .file = self.b.path("res/zerotty.rc"),
+            .file = self.b.path("assets/zerotty.rc"),
         });
 
     return self;

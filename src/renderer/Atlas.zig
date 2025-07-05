@@ -33,7 +33,7 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
     const ft_lib = try freetype.Library.init(allocator);
     defer ft_lib.deinit();
 
-    var face = try ft_lib.face("res/fonts/FiraCodeNerdFontMono-Regular.ttf", cell_width);
+    var face = try ft_lib.face("assets/fonts/FiraCodeNerdFontMono-Regular.ttf", cell_width);
     defer face.deinit();
 
     try face.setPixelSize(@intCast(cell_height),@intCast(cell_width));
