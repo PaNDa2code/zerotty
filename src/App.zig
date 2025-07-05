@@ -26,20 +26,30 @@ pub fn start(self: *App) !void {
     try self.buffer.init(1024 * 64);
     try self.pty.open(.{});
     try self.child.start(arina.allocator(), &self.pty);
+
+    fps = try FPS.init();
 }
 
 pub fn loop(self: *App) void {
-    // var buffer: [1024]u8 = undefined;
-    // const child_stdout = self.child.stdout.?;
-    //
-    // const len = child_stdout.read(buffer[0..]) catch unreachable;
-    // self.vt_parser.parse(buffer[0..len]);
+    var buffer: [1024]u8 = undefined;
+    const child_stdout = self.child.stdout.?;
 
+    const len = child_stdout.read(buffer[0..]) catch unreachable;
+    self.vt_parser.parse(buffer[0..len]);
+
+    self.window.render_cb = &drawCallBack;
     while (!self.window.exit) {
-        self.window.renderer.renaderText("HelloWorld!", 10, 570, .White);
-        self.window.renderer.presentBuffer();
         self.window.pumpMessages();
     }
+}
+
+var fps: FPS = undefined;
+
+pub fn drawCallBack(renderer: *Renderer) void {
+    renderer.clearBuffer(.Gray);
+    renderer.renaderText("HelloWorld!", 10, 570, .White);
+    renderer.presentBuffer();
+    std.log.info("FPS = {d:.2}", .{fps.getFps()});
 }
 
 fn vtParseCallback(state: *const vtparse.ParserData, to_action: vtparse.Action, char: u8) void {
@@ -57,6 +67,8 @@ const Window = @import("window.zig").Window;
 const Pty = @import("pty.zig").Pty;
 const CircularBuffer = @import("CircularBuffer.zig");
 const ChildProcess = @import("ChildProcess.zig");
+const Renderer = @import("renderer/root.zig").Renderer;
+const FPS = @import("renderer/FPS.zig");
 const VTParser = vtparse.VTParser;
 const Allocator = std.mem.Allocator;
 

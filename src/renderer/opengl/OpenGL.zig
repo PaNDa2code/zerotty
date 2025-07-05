@@ -212,8 +212,8 @@ pub fn deinit(self: *OpenGLRenderer) void {
 
 pub fn clearBuffer(self: *OpenGLRenderer, color: ColorRGBA) void {
     _ = self;
-    gl_proc.ClearColor(color.r, color.g, color.b, color.a);
-    gl_proc.Clear(gl.COLOR_BUFFER_BIT);
+    gl.ClearColor(color.r, color.g, color.b, color.a);
+    gl.Clear(gl.COLOR_BUFFER_BIT);
 }
 
 pub fn presentBuffer(self: *OpenGLRenderer) void {
@@ -262,6 +262,7 @@ pub fn renaderText(self: *OpenGLRenderer, buffer: []const u8, x: u32, y: u32, co
 pub fn resize(self: *OpenGLRenderer, width: u32, height: u32) void {
     self.window_width = width;
     self.window_height = height;
+    gl.Viewport(0, 0, @intCast(width), @intCast(height));
 }
 
 const OpenGLContext = switch (builtin.os.tag) {

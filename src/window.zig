@@ -41,6 +41,7 @@ const Win32Window = struct {
     height: u32,
     width: u32,
     renderer: RendererApi = undefined,
+    render_cb: ?*const fn (*RendererApi) void = null,
 
     pub fn new(title: []const u8, height: u32, width: u32) Window {
         return .{
@@ -116,7 +117,7 @@ const Win32Window = struct {
     pub fn resize(self: *Window, height: u32, width: u32) !void {
         self.height = height;
         self.width = width;
-        // self.renderer.resize(width, height);
+        self.renderer.resize(width, height);
     }
 
     fn WindowProcSetup(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) callconv(.winapi) LRESULT {
@@ -149,6 +150,9 @@ const Win32Window = struct {
                 return 0;
             },
             win32wm.WM_PAINT => {
+                if (self.render_cb) |render_cb| {
+                    render_cb(&self.renderer);
+                }
                 return 0;
             },
             win32wm.WM_SIZING => {
