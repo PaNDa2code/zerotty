@@ -32,7 +32,7 @@ const Win32Window = struct {
     const WPARAM = win32fnd.WPARAM;
     const LPARAM = win32fnd.LPARAM;
 
-    const RendererApi = @import("renderer/root.zig").Renderer;
+    const Renderer = @import("renderer/root.zig").Renderer;
 
     exit: bool = false,
     hwnd: HWND = undefined,
@@ -40,8 +40,8 @@ const Win32Window = struct {
     title: []const u8,
     height: u32,
     width: u32,
-    renderer: RendererApi = undefined,
-    render_cb: ?*const fn (*RendererApi) void = null,
+    renderer: Renderer = undefined,
+    render_cb: ?*const fn (*Renderer) void = null,
 
     pub fn new(title: []const u8, height: u32, width: u32) Window {
         return .{
@@ -105,7 +105,7 @@ const Win32Window = struct {
 
         self.hwnd = hwnd;
 
-        self.renderer = try RendererApi.init(self, allocator);
+        self.renderer = try Renderer.init(self, allocator);
 
         _ = win32wm.ShowWindow(hwnd, .{ .SHOWNORMAL = 1 });
     }
@@ -207,7 +207,7 @@ const XlibWindow = struct {
         @cInclude("X11/keysym.h");
     });
 
-    const RendererApi = @import("renderer/root.zig").Renderer;
+    const Renderer = @import("renderer/root.zig").Renderer;
 
     socket: i32 = undefined,
     title: []const u8,
@@ -216,9 +216,11 @@ const XlibWindow = struct {
     display: *x11.Display = undefined,
     s: c_int = undefined,
     w: c_ulong = undefined,
-    renderer: RendererApi = undefined,
+    renderer: Renderer = undefined,
+    render_cb: ?*const fn (*Renderer) void = null,
 
     exit: bool = false,
+    window_visable: bool = false,
     wm_delete_window: c_ulong = 0,
 
     pub fn new(title: []const u8, height: u32, width: u32) Window {
@@ -237,7 +239,7 @@ const XlibWindow = struct {
         self.s = screen;
 
         // x11 window is created inside opengl context creator
-        self.renderer = try RendererApi.init(self, allocator);
+        self.renderer = try Renderer.init(self, allocator);
 
         const name = try std.fmt.allocPrintZ(allocator, "{s}", .{self.title});
         _ = x11.XStoreName(@ptrCast(display), self.w, name.ptr);
@@ -262,20 +264,27 @@ const XlibWindow = struct {
         while (i < pending) : (i += 1) {
             _ = x11.XNextEvent(self.display, &event);
 
-            if (event.type == x11.KeyPress and
-                x11.XLookupKeysym(@constCast(&event.xkey), 0) == x11.XK_Escape)
-            {
-                self.exit = true;
-                break;
-            }
-
-            if (event.type == x11.ClientMessage and
-                event.xclient.data.l[0] == self.wm_delete_window)
-            {
-                self.exit = true;
-                break;
+            switch (event.type) {
+                x11.Expose => {
+                    self.window_visable = true;
+                },
+                x11.KeyPress => {
+                    if (x11.XLookupKeysym(@constCast(&event.xkey), 0) == x11.XK_Escape) {
+                        self.exit = true;
+                    }
+                },
+                x11.ClientMessage => {
+                    if (event.xclient.data.l[0] == self.wm_delete_window) {
+                        self.exit = true;
+                        break;
+                    }
+                },
+                else => {},
             }
         }
+        if (self.window_visable)
+            if (self.render_cb) |cb|
+                cb(&self.renderer);
     }
 
     pub fn close(self: *Window) void {
@@ -293,12 +302,12 @@ const XcbWindow = struct {
         @cInclude("X11/keysym.h");
     });
 
-    const RendererApi = @import("renderer/root.zig").Renderer;
+    const Renderer = @import("renderer/root.zig").Renderer;
 
     connection: *c.xcb_connection_t = undefined,
     screen: *c.xcb_screen_t = undefined,
     window: c.xcb_window_t = undefined,
-    renderer: RendererApi = undefined,
+    renderer: Renderer = undefined,
 
     exit: bool = false,
     title: []const u8,
@@ -369,7 +378,7 @@ const XcbWindow = struct {
         // Flush all commands
         _ = c.xcb_flush(self.connection);
 
-        self.renderer = try RendererApi.init(self, allocator);
+        self.renderer = try Renderer.init(self, allocator);
     }
 
     pub fn pumpMessages(self: *Window) void {
