@@ -62,6 +62,8 @@ const Win32Window = struct {
         window_class.lpfnWndProc = &WindowProcSetup;
         window_class.style = .{ .OWNDC = 1, .VREDRAW = 1, .HREDRAW = 1 };
 
+        window_class.hIcon = win32wm.LoadIconW(self.h_instance, std.unicode.utf8ToUtf16LeStringLiteral("APP_LOGO"));
+
         _ = win32wm.RegisterClassW(&window_class);
 
         const window_name = try std.unicode.utf8ToUtf16LeAllocZ(allocator, self.title);
@@ -84,9 +86,9 @@ const Win32Window = struct {
 
         // const menu = win32wm.CreateMenu() orelse return error.CreateMenuFailed;
         // const menu_bar = win32wm.CreateMenu() orelse return error.CreateMenuFailed;
-        // _ = win32wm.AppendMenuW(menu, win32wm.MF_STRING, 1, utf8ToUtf16LeStringLiteral("&New"));
-        // _ = win32wm.AppendMenuW(menu, win32wm.MF_STRING, 2, utf8ToUtf16LeStringLiteral("&Close"));
-        // _ = win32wm.AppendMenuW(menu_bar, win32wm.MF_POPUP, @intFromPtr(menu), utf8ToUtf16LeStringLiteral("&File"));
+        // _ = win32wm.AppendMenuW(menu, win32wm.MF_STRING, 1, std.unicode.utf8ToUtf16LeStringLiteral("&New"));
+        // _ = win32wm.AppendMenuW(menu, win32wm.MF_STRING, 2, std.unicode.utf8ToUtf16LeStringLiteral("&Close"));
+        // _ = win32wm.AppendMenuW(menu_bar, win32wm.MF_POPUP, @intFromPtr(menu), std.unicode.utf8ToUtf16LeStringLiteral("&File"));
         // _ = win32wm.SetMenu(hwnd, menu_bar);
 
         _ = win32.ui.hi_dpi.SetProcessDpiAwareness(.PER_MONITOR_DPI_AWARE);
