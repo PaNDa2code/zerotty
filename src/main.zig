@@ -22,9 +22,7 @@ test {
     std.testing.refAllDecls(@import("ChildProcess.zig"));
     std.testing.refAllDecls(@import("CircularBuffer.zig"));
     std.testing.refAllDecls(@import("DynamicLibrary.zig"));
-    std.testing.refAllDecls(@import("EventLoop.zig"));
     std.testing.refAllDecls(@import("Keyboard.zig"));
     std.testing.refAllDecls(@import("parser.zig"));
     std.testing.refAllDecls(@import("pty.zig"));
-    std.testing.refAllDecls(@import("window.zig"));
 }

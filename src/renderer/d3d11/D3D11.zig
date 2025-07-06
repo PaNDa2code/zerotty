@@ -24,7 +24,7 @@ const dxc = win32.graphics.direct3d.dxc;
 const hlsl = win32.graphics.hlsl;
 
 const DxgiDebugInterface = @import("DxgiDebugInterface.zig");
-const Window = @import("../../window.zig").Window;
+const Window = @import("../../window/root.zig").Window;
 
 const HWND = foundation.HWND;
 const ID3D11Device = d3d11.ID3D11Device;
@@ -306,7 +306,7 @@ pub fn drawTestTriagnle(self: *D3D11Renderer) void {
 test "test triangle rendering" {
     const allocator = std.testing.allocator;
 
-    var window: @import("../../window.zig").Window = .{
+    var window: @import("../../window/root.zig").Window = .{
         .height = 400,
         .width = 400,
         .title = "test drawTexture",

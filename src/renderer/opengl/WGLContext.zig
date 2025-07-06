@@ -224,6 +224,6 @@ pub const HGLRC = open_gl.HGLRC;
 pub const HWND = win32.foundation.HWND;
 
 const OpenGLContext = @This();
-const Window = @import("../../window.zig").Window;
+const Window = @import("../../window/root.zig").Window;
 
 pub const glGetProcAddress = open_gl.wglGetProcAddress;

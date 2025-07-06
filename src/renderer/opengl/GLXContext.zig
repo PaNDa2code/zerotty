@@ -108,7 +108,7 @@ extern "GL" fn glXGetProcAddress(procName: [*:0]const u8) callconv(.C) ?*const a
 pub const glGetProcAddress = glXGetProcAddress;
 
 const OpenGLContext = @This();
-const Window = @import("../../window.zig").Window;
+const Window = @import("../../window/root.zig").Window;
 
 const GLX_CONTEXT_MAJOR_VERSION_ARB = 0x2091;
 const GLX_CONTEXT_MINOR_VERSION_ARB = 0x2092;

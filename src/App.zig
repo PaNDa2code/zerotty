@@ -63,7 +63,7 @@ pub fn exit(self: *App) void {
     self.pty.close();
 }
 
-const Window = @import("window.zig").Window;
+const Window = @import("window/root.zig").Window;
 const Pty = @import("pty.zig").Pty;
 const CircularBuffer = @import("CircularBuffer.zig");
 const ChildProcess = @import("ChildProcess.zig");
