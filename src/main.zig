@@ -24,5 +24,5 @@ test {
     std.testing.refAllDecls(@import("DynamicLibrary.zig"));
     std.testing.refAllDecls(@import("Keyboard.zig"));
     std.testing.refAllDecls(@import("parser.zig"));
-    std.testing.refAllDecls(@import("pty.zig"));
+    std.testing.refAllDecls(@import("pty/root.zig"));
 }
