@@ -280,9 +280,10 @@ const freetype = @import("freetype");
 const gl = @import("gl");
 
 const shader_utils = @import("shader_utils.zig");
+const font = @import("../../font/root.zig");
 const DynamicLibrary = @import("../../DynamicLibrary.zig");
 const Window = @import("../../window.zig").Window;
-const Atlas = @import("../Atlas.zig");
+const Atlas = font.Atlas;
 const common = @import("../common.zig");
 const ColorRGBA = common.ColorRGBA;
 const math = @import("../math.zig");
