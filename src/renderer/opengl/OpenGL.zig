@@ -276,7 +276,6 @@ const CreateOpenGLContextError = OpenGLContext.CreateOpenGLContextError;
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const builtin = @import("builtin");
-const freetype = @import("freetype");
 const gl = @import("gl");
 
 const shader_utils = @import("shader_utils.zig");
