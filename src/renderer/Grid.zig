@@ -43,5 +43,5 @@ pub fn create(allocator: Allocator, screen_height: usize, screen_width: usize, c
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const common = @import("../common.zig");
+const common = @import("common.zig");
 const ColorRGBA = common.ColorRGBA;

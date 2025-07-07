@@ -21,7 +21,7 @@ vao: gl.uint,
 vbo: gl.uint,
 
 atlas: Atlas,
-cell_program: CellProgram,
+grid: Grid,
 
 fn getProc(name: [*:0]const u8) ?*const anyopaque {
     var p: ?*const anyopaque = null;
@@ -75,7 +75,7 @@ pub fn init(window: *Window, allocator: Allocator) InitError!OpenGLRenderer {
     self.window_width = window.width;
 
     self.atlas = try self.createAtlasTexture(allocator);
-    self.cell_program = try CellProgram.create(allocator, self.window_height, self.window_width, self.atlas.cell_width);
+    self.grid = try Grid.create(allocator, self.window_height, self.window_width, self.atlas.cell_width);
 
     // load_proc_once.call();
 
@@ -135,7 +135,7 @@ fn setupBuffers(self: *OpenGLRenderer) void {
     gl.GenBuffers(1, @ptrCast(&instance_vbo));
     gl.BindBuffer(gl.ARRAY_BUFFER, instance_vbo);
 
-    const size: usize = self.cell_program.data.len * @sizeOf(Cell);
+    const size: usize = self.grid.data.len * @sizeOf(Cell);
 
     gl.BufferData(gl.ARRAY_BUFFER, @bitCast(size), null, gl.DYNAMIC_DRAW);
 
@@ -207,7 +207,7 @@ pub fn deinit(self: *OpenGLRenderer) void {
     gl_lib.deinit();
     self.context.destory();
     self.atlas.deinit(self.allocator);
-    self.allocator.free(self.cell_program.data);
+    self.allocator.free(self.grid.data);
 }
 
 pub fn clearBuffer(self: *OpenGLRenderer, color: ColorRGBA) void {
@@ -245,8 +245,8 @@ pub fn renaderText(self: *OpenGLRenderer, buffer: []const u8, x: u32, y: u32, co
 
     gl.BufferData(
         gl.ARRAY_BUFFER,
-        @intCast(@sizeOf(Cell) * self.cell_program.data.len),
-        self.cell_program.data.ptr,
+        @intCast(@sizeOf(Cell) * self.grid.data.len),
+        self.grid.data.ptr,
         gl.DYNAMIC_DRAW,
     );
 
@@ -255,7 +255,7 @@ pub fn renaderText(self: *OpenGLRenderer, buffer: []const u8, x: u32, y: u32, co
         6,
         gl.UNSIGNED_INT,
         null,
-        @intCast(self.cell_program.data.len),
+        @intCast(self.grid.data.len),
     );
 }
 
@@ -287,5 +287,5 @@ const common = @import("../common.zig");
 const ColorRGBA = common.ColorRGBA;
 const math = @import("../math.zig");
 const Vec4 = math.Vec4;
-const CellProgram = @import("CellProgram.zig");
-const Cell = CellProgram.Cell;
+const Grid = @import("../Grid.zig");
+const Cell = Grid.Cell;
