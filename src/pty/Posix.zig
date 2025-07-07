@@ -54,6 +54,7 @@ const openpty = switch (builtin.os.tag) {
     .macos => @cImport({
         @cInclude("pty.h");
     }),
+    else => {},
 };
 const pty = @import("root.zig");
 const PtySize = pty.PtySize;
