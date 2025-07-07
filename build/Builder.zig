@@ -7,7 +7,10 @@ window_system: WindowSystem = undefined,
 render_backend: RenderBackend = undefined,
 
 builder_step: *Build.Step,
+
 main_module: ?*Build.Module = null,
+import_table: std.StringArrayHashMap(*Build.Module),
+
 root_source_file: ?Build.LazyPath = null,
 
 options_mod: ?OptionsModule = null,
@@ -37,6 +40,7 @@ pub fn init(b: *Build, target: ?ResolvedTarget, optimize: ?OptimizeMode) Builder
         .target = target orelse b.standardTargetOptions(.{}),
         .optimize = optimize orelse b.standardOptimizeOption(.{}),
         .builder_step = b.step("Builder", ""),
+        .import_table = .init(b.allocator),
     };
 }
 
@@ -54,7 +58,7 @@ pub fn setRootFile(self: *Builder, path: Build.LazyPath) *Builder {
     return self;
 }
 
-pub fn getModule(self: *Builder) *Build.Module {
+pub fn getModule(self: *Builder) !*Build.Module {
     const mod = self.b.createModule(.{
         .root_source_file = self.root_source_file orelse @panic("root source file is not set"),
         .target = self.target,
@@ -62,7 +66,14 @@ pub fn getModule(self: *Builder) *Build.Module {
         .link_libc = self.needLibc(),
     });
 
-    self.addImports(mod);
+    try self.addImports();
+
+    var modules_iter = self.import_table.iterator();
+
+    while (modules_iter.next()) |entry| {
+        mod.addImport(entry.key_ptr.*, entry.value_ptr.*);
+    }
+
     self.linkSystemLibrarys(mod);
 
     return mod;
@@ -76,7 +87,7 @@ pub fn addOptionsModule(self: *Builder, name: []const u8, options: *Build.Step.O
 pub fn addExcutable(self: *Builder, name: []const u8) *Builder {
     const exe = self.b.addExecutable(.{
         .name = name,
-        .root_module = self.getModule(),
+        .root_module = self.getModule() catch |e| std.debug.panic("Failed to create Module: {}", .{e}),
         .link_libc = self.needLibc(),
     });
 
@@ -120,16 +131,16 @@ fn setInstallArtifact(self: *Builder) void {
     }
 }
 
-fn addImports(self: *Builder, module: *Build.Module) void {
+fn addImports(self: *Builder) !void {
     switch (self.target.result.os.tag) {
         .windows => {
             const win32_mod = self.b.dependency("zigwin32", .{}).module("win32");
-            module.addImport("win32", win32_mod);
+            try self.import_table.put("win32", win32_mod);
         },
         .linux => {
             const zig_openpty = self.b.dependency("zig_openpty", .{});
             const openpty_mod = zig_openpty.module("openpty");
-            module.addImport("openpty", openpty_mod);
+            try self.import_table.put("openpty", openpty_mod);
         },
         .macos => {},
         else => {},
@@ -138,7 +149,7 @@ fn addImports(self: *Builder, module: *Build.Module) void {
     switch (self.render_backend) {
         .D3D11 => {},
         .OpenGL => {
-            module.addImport("gl", self.getOpenGLBindings());
+            try self.import_table.put("gl", self.getOpenGLBindings());
         },
         .Vulkan => {
             const vulkan = self.b.dependency("vulkan", .{
@@ -146,12 +157,12 @@ fn addImports(self: *Builder, module: *Build.Module) void {
             });
 
             const vulkan_mod = vulkan.module("vulkan-zig");
-            module.addImport("vulkan", vulkan_mod);
+            try self.import_table.put("vulkan", vulkan_mod);
         },
     }
 
     if (self.options_mod) |mod| {
-        module.addOptions(mod.name, mod.options);
+        try self.import_table.put(mod.name, mod.options.createModule());
     }
 
     const vtparse = self.b.dependency("vtparse", .{
@@ -166,14 +177,14 @@ fn addImports(self: *Builder, module: *Build.Module) void {
     });
     const freetype_mod = freetype.module("zig_freetype2");
 
-    module.addImport("vtparse", vtparse_mod);
-    module.addImport("freetype", freetype_mod);
+    try self.import_table.put("vtparse", vtparse_mod);
+    try self.import_table.put("freetype", freetype_mod);
 
     const assets_mod = self.b.addModule("assets", .{
         .root_source_file = self.b.path("assets/assets.zig"),
     });
 
-    module.addImport("assets", assets_mod);
+    try self.import_table.put("assets", assets_mod);
 }
 
 fn linkSystemLibrarys(self: *Builder, module: *Build.Module) void {
@@ -192,7 +203,7 @@ fn linkSystemLibrarys(self: *Builder, module: *Build.Module) void {
 fn shouldUseGLES(self: *Builder) bool {
     return switch (self.target.result.os.tag) {
         .emscripten, .wasi, .ios => true,
-        .linux => switch (self.target.result.cpu.arch) {
+        .linux, .windows => switch (self.target.result.cpu.arch) {
             .arm, .armeb, .aarch64 => true,
             else => false,
         },
@@ -201,17 +212,19 @@ fn shouldUseGLES(self: *Builder) bool {
 }
 
 fn getOpenGLBindings(self: *Builder) *Build.Module {
+    const extensions = &.{ .KHR_debug, .ARB_shader_storage_buffer_object };
+
     const gl_bindings = @import("zigglgen").generateBindingsModule(
         self.b,
         if (self.shouldUseGLES()) .{
             .api = .gles,
             .version = .@"3.2",
-            .extensions = &.{ .KHR_debug, .ARB_shader_storage_buffer_object },
+            .extensions = extensions,
         } else .{
             .api = .gl,
             .version = .@"4.0",
             .profile = .core,
-            .extensions = &.{ .KHR_debug, .ARB_shader_storage_buffer_object },
+            .extensions = extensions,
         },
     );
 
