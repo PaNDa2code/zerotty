@@ -95,10 +95,9 @@ pub fn addExcutable(self: *Builder, name: []const u8) *Builder {
 
     self.builder_step.dependOn(&exe.step);
 
-    if (self.target.result.os.tag == .windows)
-        exe.addWin32ResourceFile(.{
-            .file = self.b.path("assets/zerotty.rc"),
-        });
+    exe.addWin32ResourceFile(.{
+        .file = self.b.path("assets/zerotty.rc"),
+    });
 
     return self;
 }
@@ -191,7 +190,7 @@ fn linkSystemLibrarys(self: *Builder, module: *Build.Module) void {
     switch (self.window_system) {
         .Win32 => {},
         .Xlib => {
-            module.linkSystemLibrary("X11", .{});
+            module.linkSystemLibrary("X11", .{ .needed = true });
             if (self.render_backend == .OpenGL) module.linkSystemLibrary("GL", .{});
         },
         .Xcb => {
