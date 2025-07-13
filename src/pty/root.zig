@@ -25,7 +25,7 @@ pub const PtyOptions = struct {
     shell: ?ShellEnum = null,
     shell_args: ?[]const u8 = null,
     async_io: bool = false,
-    size: PtySize = .{ .height = 600, .width = 800 },
+    size: PtySize = .{ .height = 0, .width = 0 },
 };
 
 pub const Pty = switch (@import("builtin").os.tag) {
