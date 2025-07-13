@@ -25,4 +25,5 @@ test {
     std.testing.refAllDecls(@import("Keyboard.zig"));
     std.testing.refAllDecls(@import("parser.zig"));
     std.testing.refAllDecls(@import("pty/root.zig"));
+    std.testing.refAllDecls(@import("font/root.zig"));
 }

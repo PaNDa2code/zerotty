@@ -4,12 +4,14 @@ test Atlas {
     const std = @import("std");
     const allocator = std.testing.allocator;
 
-    const altas = try Atlas.create(
+    var atlas = try Atlas.create(
         allocator,
         10,
         10,
         0,
         128,
     );
-    defer altas.deinit(allocator);
+    defer atlas.deinit(allocator);
+
+    try Atlas.saveAtlasAsPGM("atlas.PGM", atlas.buffer, atlas.width, atlas.height);
 }
