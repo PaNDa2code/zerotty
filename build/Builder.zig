@@ -58,7 +58,11 @@ pub fn setRootFile(self: *Builder, path: Build.LazyPath) *Builder {
     return self;
 }
 
-pub fn getModule(self: *Builder) !*Build.Module {
+pub fn getModule(self: *Builder) *Build.Module {
+    if (self.main_module) |mod| {
+        return mod;
+    }
+
     const mod = self.b.createModule(.{
         .root_source_file = self.root_source_file orelse @panic("root source file is not set"),
         .target = self.target,
@@ -66,7 +70,7 @@ pub fn getModule(self: *Builder) !*Build.Module {
         .link_libc = self.needLibc(),
     });
 
-    try self.addImports();
+    self.addImports();
 
     var modules_iter = self.import_table.iterator();
 
@@ -87,7 +91,7 @@ pub fn addOptionsModule(self: *Builder, name: []const u8, options: *Build.Step.O
 pub fn addExcutable(self: *Builder, name: []const u8) *Builder {
     const exe = self.b.addExecutable(.{
         .name = name,
-        .root_module = self.getModule() catch |e| std.debug.panic("Failed to create Module: {}", .{e}),
+        .root_module = self.getModule(),
         .link_libc = self.needLibc(),
     });
 
@@ -130,16 +134,16 @@ fn setInstallArtifact(self: *Builder) void {
     }
 }
 
-fn addImports(self: *Builder) !void {
+fn addImports(self: *Builder) void {
     switch (self.target.result.os.tag) {
         .windows => {
             const win32_mod = self.b.dependency("zigwin32", .{}).module("win32");
-            try self.import_table.put("win32", win32_mod);
+            self.import_table.put("win32", win32_mod) catch unreachable;
         },
         .linux => {
             const zig_openpty = self.b.dependency("zig_openpty", .{});
             const openpty_mod = zig_openpty.module("openpty");
-            try self.import_table.put("openpty", openpty_mod);
+            self.import_table.put("openpty", openpty_mod) catch unreachable;
         },
         .macos => {},
         else => {},
@@ -148,7 +152,7 @@ fn addImports(self: *Builder) !void {
     switch (self.render_backend) {
         .D3D11 => {},
         .OpenGL => {
-            try self.import_table.put("gl", self.getOpenGLBindings());
+            self.import_table.put("gl", self.getOpenGLBindings()) catch unreachable;
         },
         .Vulkan => {
             const vulkan = self.b.dependency("vulkan", .{
@@ -156,12 +160,12 @@ fn addImports(self: *Builder) !void {
             });
 
             const vulkan_mod = vulkan.module("vulkan-zig");
-            try self.import_table.put("vulkan", vulkan_mod);
+            self.import_table.put("vulkan", vulkan_mod) catch unreachable;
         },
     }
 
     if (self.options_mod) |mod| {
-        try self.import_table.put(mod.name, mod.options.createModule());
+        self.import_table.put(mod.name, mod.options.createModule()) catch unreachable;
     }
 
     const vtparse = self.b.dependency("vtparse", .{
@@ -176,14 +180,14 @@ fn addImports(self: *Builder) !void {
     });
     const freetype_mod = freetype.module("zig_freetype2");
 
-    try self.import_table.put("vtparse", vtparse_mod);
-    try self.import_table.put("freetype", freetype_mod);
+    self.import_table.put("vtparse", vtparse_mod) catch unreachable;
+    self.import_table.put("freetype", freetype_mod) catch unreachable;
 
     const assets_mod = self.b.addModule("assets", .{
         .root_source_file = self.b.path("assets/assets.zig"),
     });
 
-    try self.import_table.put("assets", assets_mod);
+    self.import_table.put("assets", assets_mod) catch unreachable;
 }
 
 fn linkSystemLibrarys(self: *Builder, module: *Build.Module) void {
