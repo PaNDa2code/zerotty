@@ -228,7 +228,7 @@ pub fn reader(self: *CircularBuffer) Reader {
     return .{ .context = self };
 }
 
-test "ciruler buffer test writer" {
+test CircularBuffer {
     var ciruler_buffer = try CircularBuffer.new(0);
     defer ciruler_buffer.deinit();
 

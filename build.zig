@@ -34,7 +34,8 @@ pub fn build(b: *Build) !void {
 
     const test_step = b.step("test", "run main.zig tests");
     const unit_test = b.addTest(.{ .name = "zerotty", .root_module = builder.getModule() });
-    test_step.dependOn(&unit_test.step);
+    const run_unit_test = b.addRunArtifact(unit_test);
+    test_step.dependOn(&run_unit_test.step);
 }
 
 const DEFULAT_RENDER_BACKEND: Builder.RenderBackend = .OpenGL;

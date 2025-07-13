@@ -14,7 +14,7 @@ cols: u32,
 from: u32,
 to: u32,
 
-pub const CreateError = freetype.Error || Allocator.Error || SaveAtlasError;
+pub const CreateError = freetype.Error || Allocator.Error; // || SaveAtlasError;
 
 // Create one raw glyph atlas
 pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32, to: u32) CreateError!Atlas {
@@ -68,7 +68,7 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
         }
     }
 
-    try saveAtlasAsPGM("atlas.PGM", buffer, atlas_width, atlas_height);
+    // try saveAtlasAsPGM("atlas.PGM", buffer, atlas_width, atlas_height);
 
     return .{
         .buffer = buffer,

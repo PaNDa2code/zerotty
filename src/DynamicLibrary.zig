@@ -46,7 +46,7 @@ const PosixLoader = struct {
     }
 };
 
-test "Test Loader" {
+test DynamicLibrary {
     const loader = try DynamicLibrary.init(if (@import("builtin").os.tag == .windows) "C:\\Windows\\System32\\opengl32.dll" else "libGL.so.1");
     defer loader.deinit();
 

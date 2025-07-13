@@ -33,3 +33,11 @@ pub const Pty = switch (@import("builtin").os.tag) {
     .windows => @import("Win32.zig"),
     else => @compileError("Pty is not implemented for this os"),
 };
+
+test Pty {
+    var pty: Pty = undefined;
+    try pty.open(.{});
+    defer pty.close();
+
+    try pty.resize(.{ .width = 10, .height = 10 });
+}

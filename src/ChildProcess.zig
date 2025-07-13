@@ -32,7 +32,7 @@ pub fn terminate(self: *ChildProcess) void {
 }
 
 pub fn wait(self: *ChildProcess) !void {
-    return switch(os) {
+    return switch (os) {
         .windows => self.waitWindows(),
         .linux, .macos => self.waitPosix(),
         else => @compileError("Not supported"),
@@ -229,7 +229,7 @@ fn findPathAlloc(allocator: Allocator, exe: []const u8) !?[]const u8 {
     return null;
 }
 
-test "test ChildProcess with pty" {
+test ChildProcess {
     var pty: Pty = undefined;
     try pty.open(.{});
     defer pty.close();
