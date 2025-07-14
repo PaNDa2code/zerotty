@@ -1,7 +1,6 @@
 const Window = @This();
 pub const system = .Win32;
 
-
 exit: bool = false,
 hwnd: HWND = undefined,
 h_instance: HINSTANCE = undefined,
@@ -85,7 +84,7 @@ pub fn close(self: *Window) void {
 pub fn resize(self: *Window, height: u32, width: u32) !void {
     self.height = height;
     self.width = width;
-    self.renderer.resize(width, height);
+    try self.renderer.resize(width, height);
 }
 
 fn WindowProcSetup(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) callconv(.winapi) LRESULT {
@@ -183,4 +182,3 @@ const LPARAM = win32fnd.LPARAM;
 const Renderer = @import("../renderer/root.zig").Renderer;
 
 const Allocator = std.mem.Allocator;
-

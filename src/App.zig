@@ -9,7 +9,7 @@ const App = @This();
 
 pub fn new(allocator: Allocator) App {
     return .{
-        .window = Window.new("zerotty", 720, 1280),
+        .window = Window.new("zerotty", 720 / 2, 1280 / 2),
         .allocator = allocator,
         .vt_parser = VTParser.init(vtParseCallback),
         .child = .{ .exe_path = if (@import("builtin").os.tag == .windows) "cmd" else "bash" },
@@ -23,19 +23,19 @@ pub fn start(self: *App) !void {
     defer arina.deinit();
 
     try self.window.open(self.allocator);
-    try self.buffer.init(1024 * 64);
-    try self.pty.open(.{});
-    try self.child.start(arina.allocator(), &self.pty);
+    // try self.buffer.init(1024 * 64);
+    // try self.pty.open(.{});
+    // try self.child.start(arina.allocator(), &self.pty);
 
     fps = try FPS.init();
 }
 
 pub fn loop(self: *App) void {
-    var buffer: [1024]u8 = undefined;
-    const child_stdout = self.child.stdout.?;
-
-    const len = child_stdout.read(buffer[0..]) catch unreachable;
-    self.vt_parser.parse(buffer[0..len]);
+    // var buffer: [1024]u8 = undefined;
+    // const child_stdout = self.child.stdout.?;
+    //
+    // const len = child_stdout.read(buffer[0..]) catch unreachable;
+    // self.vt_parser.parse(buffer[0..len]);
 
     self.window.render_cb = &drawCallBack;
     while (!self.window.exit) {
@@ -58,9 +58,9 @@ fn vtParseCallback(state: *const vtparse.ParserData, to_action: vtparse.Action, 
 
 pub fn exit(self: *App) void {
     self.window.close();
-    self.child.terminate();
-    self.buffer.deinit();
-    self.pty.close();
+    // self.child.terminate();
+    // self.buffer.deinit();
+    // self.pty.close();
 }
 
 const Window = @import("window/root.zig").Window;

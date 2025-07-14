@@ -43,6 +43,12 @@ pub fn open(self: *Window, allocator: Allocator) !void {
     self.wm_delete_window = wm_delete_window;
 }
 
+fn resizeCallBack(self: *Window, height: u32, width: u32) !void {
+    self.height = height;
+    self.width = width;
+    try self.renderer.resize(width, height);
+}
+
 pub fn messageLoop(self: *Window) void {
     while (!self.exit) {
         self.pumpMessages();
@@ -50,6 +56,8 @@ pub fn messageLoop(self: *Window) void {
 }
 
 pub fn pumpMessages(self: *Window) void {
+    _ = c.XSelectInput(self.display, self.w, c.ExposureMask | c.StructureNotifyMask);
+
     var event: c.XEvent = undefined;
     const pending = c.XPending(self.display);
     var i: c_int = 0;
@@ -70,6 +78,12 @@ pub fn pumpMessages(self: *Window) void {
                     self.exit = true;
                     break;
                 }
+            },
+            c.ConfigureNotify => {
+                const height: u32 = @intCast(event.xconfigure.height);
+                const width: u32 = @intCast(event.xconfigure.width);
+                self.resizeCallBack(height, width) catch |e|
+                    std.log.err("Window resize failed: {}", .{e});
             },
             else => {},
         }
@@ -94,4 +108,3 @@ const c = @cImport({
     @cInclude("X11/Xlib.h");
     @cInclude("X11/keysym.h");
 });
-

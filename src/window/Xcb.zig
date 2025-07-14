@@ -78,6 +78,12 @@ pub fn open(self: *Window, allocator: Allocator) !void {
     self.renderer = try Renderer.init(self, allocator);
 }
 
+fn resizeCallBack(self: *Window, height: u32, width: u32) !void {
+    self.height = height;
+    self.width = width;
+    try self.renderer.resize(width, height);
+}
+
 pub fn pumpMessages(self: *Window) void {
     while (c.xcb_poll_for_event(self.connection)) |event| {
         const response_type = event.*.response_type & 0x7F;

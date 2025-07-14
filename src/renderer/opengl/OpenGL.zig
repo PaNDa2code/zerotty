@@ -75,7 +75,12 @@ pub fn init(window: *Window, allocator: Allocator) InitError!OpenGLRenderer {
     self.window_width = window.width;
 
     self.atlas = try self.createAtlasTexture(allocator);
-    self.grid = try Grid.create(allocator, self.window_height, self.window_width, self.atlas.cell_width);
+    self.grid = try Grid.create(allocator, .{
+        .screen_height = self.window_height,
+        .screen_width = self.window_width,
+        .cell_height = self.atlas.cell_height,
+        .cell_width = self.atlas.cell_width,
+    });
 
     // load_proc_once.call();
 
@@ -259,9 +264,15 @@ pub fn renaderText(self: *OpenGLRenderer, buffer: []const u8, x: u32, y: u32, co
     );
 }
 
-pub fn resize(self: *OpenGLRenderer, width: u32, height: u32) void {
+pub fn resize(self: *OpenGLRenderer, width: u32, height: u32) !void {
     self.window_width = width;
     self.window_height = height;
+    try self.grid.resize(self.allocator, .{
+        .screen_height = height,
+        .screen_width = width,
+        .cell_height = self.atlas.cell_height,
+        .cell_width = self.atlas.cell_width,
+    });
     gl.Viewport(0, 0, @intCast(width), @intCast(height));
 }
 
