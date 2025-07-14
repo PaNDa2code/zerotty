@@ -1,10 +1,6 @@
 const OpenGLRenderer = @This();
 
-// OpenGL renderer
-
-threadlocal var gl_proc: gl.ProcTable = undefined;
-threadlocal var gl_lib: DynamicLibrary = undefined;
-threadlocal var gl_proc_is_loaded: bool = false;
+threadlocal var gl_proc: *gl.ProcTable = undefined;
 
 allocator: Allocator,
 context: OpenGLContext,
@@ -23,40 +19,6 @@ vbo: gl.uint,
 atlas: Atlas,
 grid: Grid,
 
-fn getProc(name: [*:0]const u8) ?*const anyopaque {
-    var p: ?*const anyopaque = null;
-
-    p = OpenGLContext.glGetProcAddress(name);
-
-    // https://www.khronos.org/opengl/wiki/Load_OpenGL_Functions
-    if (p == null or
-        builtin.os.tag == .windows and
-            (p == @as(?*const anyopaque, @ptrFromInt(1)) or
-                p == @as(?*const anyopaque, @ptrFromInt(2)) or
-                p == @as(?*const anyopaque, @ptrFromInt(3)) or
-                p == @as(?*const anyopaque, @ptrFromInt(@as(usize, @bitCast(@as(isize, -1)))))))
-    {
-        p = gl_lib.getProcAddress(name);
-    }
-
-    return p;
-}
-
-fn getProcTableOnce() void {
-    const opengl_lib_name = switch (@import("builtin").os.tag) {
-        .windows => "opengl32.dll",
-        .linux => "libGL.so",
-        else => {},
-    };
-
-    gl_lib = DynamicLibrary.init(opengl_lib_name) catch @panic("can't load OpenGL library");
-
-    if (!gl_proc.init(getProc))
-        @panic("failed to load opengl proc table");
-
-    gl.makeProcTableCurrent(&gl_proc);
-}
-
 const vertex_shader_source = @embedFile("shaders/vertex.glsl");
 const fragment_shader_source = @embedFile("shaders/fragment.glsl");
 
@@ -68,8 +30,8 @@ pub fn init(window: *Window, allocator: Allocator) InitError!OpenGLRenderer {
     self.allocator = allocator;
     self.context = try OpenGLContext.createOpenGLContext(window);
 
-    if (!gl_proc_is_loaded)
-        getProcTableOnce();
+    gl_proc = try @import("proc_table.zig").createProcTable(allocator);
+    gl.makeProcTableCurrent(gl_proc);
 
     self.window_height = window.height;
     self.window_width = window.width;
@@ -209,7 +171,8 @@ fn createAtlasTexture(self: *OpenGLRenderer, allocator: Allocator) Atlas.CreateE
 }
 
 pub fn deinit(self: *OpenGLRenderer) void {
-    gl_lib.deinit();
+    gl.makeProcTableCurrent(null);
+    self.allocator.destroy(gl_proc);
     self.context.destory();
     self.atlas.deinit(self.allocator);
     self.allocator.free(self.grid.data);
@@ -291,7 +254,6 @@ const gl = @import("gl");
 
 const shader_utils = @import("shader_utils.zig");
 const font = @import("../../font/root.zig");
-const DynamicLibrary = @import("../../DynamicLibrary.zig");
 const Window = @import("../../window/root.zig").Window;
 const Atlas = font.Atlas;
 const common = @import("../common.zig");
