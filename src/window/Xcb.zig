@@ -113,7 +113,7 @@ pub fn close(self: *Window) void {
 }
 
 const std = @import("std");
-const Renderer = @import("../renderer/root.zig").Renderer;
+const Renderer = @import("../renderer/root.zig");
 
 const Allocator = std.mem.Allocator;
 
