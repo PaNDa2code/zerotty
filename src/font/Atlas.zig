@@ -14,17 +14,25 @@ cols: u32,
 from: u32,
 to: u32,
 
-pub const CreateError = freetype.Error || Allocator.Error;
+pub const CreateError = freetype.Error || Allocator.Error || SaveAtlasError;
 
-// Create one raw glyph atlas
-pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32, to: u32) CreateError!Atlas {
-    const glyph_count = to - from;
-    const glyph_size = cell_height * cell_width; // m^2
+// TODO: glyphs are not placed corrctly on the baseline
+pub fn create(
+    allocator: Allocator,
+    cell_height: u16,
+    cell_width: u16,
+    from: u32,
+    to: u32,
+) CreateError!Atlas {
+    const glyph_count = to - from + 1;
 
-    const atlas_width = cell_width * glyph_count;
-    const atlas_height = cell_height;
+    const cols: u32 = @intFromFloat(@ceil(@sqrt(@as(f32, @floatFromInt(glyph_count)))));
+    const rows: u32 = @intFromFloat(@ceil(@as(f32, @floatFromInt(glyph_count)) / @as(f32, @floatFromInt(cols))));
 
-    const buffer_size = glyph_size * glyph_count + 100;
+    const atlas_width = cols * cell_width;
+    const atlas_height = rows * cell_height;
+
+    const buffer_size = atlas_width * atlas_height;
     const buffer = try allocator.alloc(u8, buffer_size);
     errdefer allocator.free(buffer);
 
@@ -38,13 +46,16 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
 
     try face.setPixelSize(@intCast(cell_height), @intCast(cell_width));
 
-    var char = from;
+    const metrics = face.ft_face.*.size.*.metrics;
+    const descender: i32 = @intCast(-metrics.descender >> 6);
+    const baseline: usize = @as(usize, @intCast(cell_height)) - @min(@as(usize, @intCast(descender)), cell_height);
 
+    var char = from;
     while (char <= to) : (char += 1) {
         var glyph = try face.getGlyph(@intCast(char));
         defer glyph.deinit();
-        const bitmap_glyph = try glyph.glyphBitmap();
 
+        const bitmap_glyph = try glyph.glyphBitmap();
         if (bitmap_glyph.top <= 0 or bitmap_glyph.bitmap.buffer == null) continue;
 
         const bitmap = &bitmap_glyph.bitmap;
@@ -52,11 +63,21 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
         const bitmap_h = bitmap.rows;
 
         const index = char - from;
+        const col = index % cols;
+        const row = index / cols;
 
-        const dst_x = index * cell_width + (cell_width - bitmap_w) / 2;
-        const dst_y = cell_height - @min(@as(usize, @intCast(bitmap_glyph.top)), cell_height);
+        const origin_x = col * cell_width;
+        const origin_y = row * cell_height;
 
-        const max_w = @min(bitmap_w, cell_width - (dst_x - index * cell_width));
+        const dst_x = origin_x + (cell_width - bitmap_w) / 2;
+
+        const top = bitmap_glyph.top;
+        const dst_y = if (top >= 0)
+            origin_y + baseline - @min(@as(usize, @intCast(top)), baseline)
+        else
+            origin_y + baseline + @as(usize, @intCast(-top));
+
+        const max_w = @min(bitmap_w, atlas_width - dst_x);
         const max_h = if (dst_y >= atlas_height) 0 else @min(bitmap_h, atlas_height - dst_y);
 
         for (0..max_h) |y| {
@@ -68,14 +89,16 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
         }
     }
 
+    try saveAtlasAsPGM("atlas.PGM", buffer, atlas_width, atlas_height);
+
     return .{
         .buffer = buffer,
         .cell_height = cell_height,
         .cell_width = cell_width,
         .height = atlas_height,
         .width = atlas_width,
-        .rows = 1,
-        .cols = glyph_count,
+        .rows = rows,
+        .cols = cols,
         .from = from,
         .to = to,
     };
