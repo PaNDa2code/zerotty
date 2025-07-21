@@ -5,6 +5,7 @@ connection: *c.xcb_connection_t = undefined,
 screen: *c.xcb_screen_t = undefined,
 window: c.xcb_window_t = undefined,
 renderer: Renderer = undefined,
+render_cb: ?*const fn (*Renderer) void = null,
 
 exit: bool = false,
 title: []const u8,
