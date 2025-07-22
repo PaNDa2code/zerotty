@@ -38,6 +38,10 @@
             .url = "git+https://github.com/emscripten-core/emsdk#62a853cd3b3134398ce85cde8bb5cbb2ef0194cb",
             .hash = "N-V-__8AAEWFDwBdd7oE1EcCE3lK2y01-2ourXGKhpZeaZxQ",
         },
+        .zigimg = .{
+            .url = "git+https://github.com/zigimg/zigimg#31bd433201d12d6aa700074d751a7db4555cdb0d",
+            .hash = "zigimg-0.1.0-8_eo2qClEgC8dTSiSO6vqGe7mdtIkobGi-Uc4d0Eo7_2",
+        },
     },
     .paths = .{
         "build.zig",

@@ -23,7 +23,7 @@ pub fn create(
     cell_width: u16,
     from: u32,
     to: u32,
-) CreateError!Atlas {
+) !Atlas {
     const glyph_count = to - from + 1;
 
     const cols: u32 = @intFromFloat(@ceil(@sqrt(@as(f32, @floatFromInt(glyph_count)))));
@@ -89,7 +89,8 @@ pub fn create(
         }
     }
 
-    try saveAtlasAsPGM("atlas.PGM", buffer, atlas_width, atlas_height);
+    if (builtin.mode == .Debug)
+        try saveAtlas(allocator, "temp/atlas.png", buffer, atlas_width, atlas_height);
 
     return .{
         .buffer = buffer,
@@ -111,25 +112,20 @@ pub fn deinit(self: *Atlas, allocator: Allocator) void {
 
 const SaveAtlasError = std.fs.File.OpenError || std.io.AnyWriter.Error;
 
-pub fn saveAtlasAsPGM(
+pub fn saveAtlas(
+    allocator: Allocator,
     filename: []const u8,
     data: []const u8,
     width: usize,
     height: usize,
-) SaveAtlasError!void {
-    const file = try std.fs.cwd().createFile(filename, .{});
-    defer file.close();
-
-    const writer = file.writer();
-
-    // Write PGM header
-    try writer.print("P5\n{} {}\n255\n", .{ width, height });
-
-    // Write raw grayscale pixel data
-    try writer.writeAll(data);
+) !void {
+    const image = try zigimg.ImageUnmanaged.fromRawPixelsOwned(width, height, data, .grayscale8);
+    try image.writeToFilePath(allocator, filename, .{ .png = .{} });
 }
 
 const std = @import("std");
+const builtin = @import("builtin");
 const freetype = @import("freetype");
 const assets = @import("assets");
+const zigimg = @import("zigimg");
 const Allocator = std.mem.Allocator;

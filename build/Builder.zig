@@ -188,6 +188,13 @@ fn addImports(self: *Builder) void {
     });
 
     self.import_table.put("assets", assets_mod) catch unreachable;
+
+    const zigimg = self.b.dependency("zigimg", .{
+        .target = self.target,
+        .optimize = self.optimize,
+    });
+    const zigimg_mod = zigimg.module("zigimg");
+    self.import_table.put("zigimg", zigimg_mod) catch unreachable;
 }
 
 fn linkSystemLibrarys(self: *Builder, module: *Build.Module) void {
