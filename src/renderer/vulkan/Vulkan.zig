@@ -241,7 +241,7 @@ fn createInstance(
         .application_version = 0,
         .api_version = @bitCast(vk.HEADER_VERSION_COMPLETE),
 
-        .p_engine_name = "no_engine",
+        // .p_engine_name = "no_engine",
         .engine_version = 0,
     };
 
@@ -281,33 +281,29 @@ fn createWindowSerface(
     window: *const Window,
     vk_mem_cb: *const vk.AllocationCallbacks,
 ) !vk.SurfaceKHR {
-    var surface: vk.SurfaceKHR = .null_handle;
-
     switch (build_options.@"window-system") {
         .Win32 => {
             const surface_info: vk.Win32SurfaceCreateInfoKHR = .{
                 .hwnd = @ptrCast(window.hwnd),
                 .hinstance = window.h_instance,
             };
-            surface = try vki.createWin32SurfaceKHR(vki.instance, &surface_info, vk_mem_cb);
+            return vki.createWin32SurfaceKHR(instance, &surface_info, vk_mem_cb);
         },
         .Xlib => {
             const surface_info: vk.XlibSurfaceCreateInfoKHR = .{
                 .window = window.w,
                 .dpy = @ptrCast(window.display),
             };
-            surface = try vki.createXlibSurfaceKHR(instance, &surface_info, vk_mem_cb);
+            return vki.createXlibSurfaceKHR(instance, &surface_info, vk_mem_cb);
         },
         .Xcb => {
             const surface_info: vk.XcbSurfaceCreateInfoKHR = .{
                 .connection = @ptrCast(window.connection),
                 .window = window.window,
             };
-            surface = try vki.createXcbSurfaceKHR(instance, &surface_info, vk_mem_cb);
+            return vki.createXcbSurfaceKHR(instance, &surface_info, vk_mem_cb);
         },
     }
-
-    return surface;
 }
 
 fn physicalDeviceScore(vki: *const vk.InstanceWrapper, physical_device: vk.PhysicalDevice) u32 {
@@ -420,6 +416,12 @@ pub fn deinit(self: *VulkanRenderer) void {
 pub fn clearBuffer(self: *VulkanRenderer, color: ColorRGBA) void {
     _ = self;
     _ = color;
+}
+
+pub fn resize(self: *VulkanRenderer, width: u32, height: u32) !void {
+    _ = self;
+    _ = width;
+    _ = height;
 }
 
 pub fn presentBuffer(self: *VulkanRenderer) void {
