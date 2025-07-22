@@ -174,11 +174,11 @@ fn addImports(self: *Builder) void {
     });
     const vtparse_mod = vtparse.module("vtparse");
 
-    const freetype = self.b.dependency("zig_freetype2", .{
+    const freetype = self.b.dependency("freetype", .{
         .target = self.target,
         .optimize = self.optimize,
     });
-    const freetype_mod = freetype.module("zig_freetype2");
+    const freetype_mod = freetype.module("freetype");
 
     self.import_table.put("vtparse", vtparse_mod) catch unreachable;
     self.import_table.put("freetype", freetype_mod) catch unreachable;
