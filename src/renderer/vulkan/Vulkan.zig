@@ -9,6 +9,8 @@ device_dispatch: vk.DeviceDispatch,
 vk_mem: VkMemInterface,
 window_height: u32,
 window_width: u32,
+cmd_pool: vk.CommandPool,
+cmd_buffers: []const vk.CommandBuffer,
 
 const VulkanRenderer = @This();
 
@@ -18,124 +20,18 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
 
     const vk_mem_cb = vk_mem.vkAllocatorCallbacks();
 
-    const app_info = vk.ApplicationInfo{
-        .p_application_name = "zerotty",
-
-        .application_version = 0,
-        .api_version = @bitCast(vk.HEADER_VERSION_COMPLETE),
-
-        .p_engine_name = "no_engine",
-        .engine_version = 0,
-    };
-
-    const win32_exts = [_][*:0]const u8{
-        "VK_KHR_win32_surface",
-    };
-
-    const xlib_exts = [_][*:0]const u8{
-        "VK_KHR_xlib_surface",
-        "VK_EXT_acquire_xlib_display",
-    };
-
-    const xcb_exts = [_][*:0]const u8{
-        "VK_KHR_xcb_surface",
-    };
-
-    const extensions = [_][*:0]const u8{
-        "VK_KHR_surface",
-    } ++ switch (build_options.@"window-system") {
-        .Win32 => win32_exts,
-        .Xlib => xlib_exts,
-        .Xcb => xcb_exts,
-    };
-
-    const inst_info = vk.InstanceCreateInfo{
-        .p_application_info = &app_info,
-        .enabled_extension_count = extensions.len,
-        .pp_enabled_extension_names = &extensions,
-    };
-
     const vkb = vk.BaseWrapper.load(baseGetInstanceProcAddress);
 
-    const instance = try vkb.createInstance(&inst_info, &vk_mem_cb);
+    const instance = try createInstance(&vkb, &vk_mem_cb);
 
     const vki = vk.InstanceWrapper.load(instance, vkb.dispatch.vkGetInstanceProcAddr.?);
     errdefer vki.destroyInstance(instance, &vk_mem_cb);
 
-    var surface: vk.SurfaceKHR = .null_handle;
-
-    switch (build_options.@"window-system") {
-        .Win32 => {
-            const surface_info: vk.Win32SurfaceCreateInfoKHR = .{
-                .hwnd = @ptrCast(window.hwnd),
-                .hinstance = window.h_instance,
-            };
-            surface = try vki.createWin32SurfaceKHR(instance, &surface_info, &vk_mem_cb);
-        },
-        .Xlib => {
-            const surface_info: vk.XlibSurfaceCreateInfoKHR = .{
-                .window = window.w,
-                .dpy = @ptrCast(window.display),
-            };
-            surface = try vki.createXlibSurfaceKHR(instance, &surface_info, &vk_mem_cb);
-        },
-        .Xcb => {
-            const surface_info: vk.XcbSurfaceCreateInfoKHR = .{
-                .connection = @ptrCast(window.connection),
-                .window = window.window,
-            };
-            surface = try vki.createXcbSurfaceKHR(instance, &surface_info, &vk_mem_cb);
-        },
-    }
-
+    const surface = try createWindowSerface(&vki, instance, window, &vk_mem_cb);
     errdefer vki.destroySurfaceKHR(instance, surface, &vk_mem_cb);
 
-    var physical_devices_count: u32 = 0;
-    _ = try vki.enumeratePhysicalDevices(instance, &physical_devices_count, null);
-
-    std.log.info("Vulkan detected {} GPUs", .{physical_devices_count});
-
-    const physical_devices = try allocator.alloc(vk.PhysicalDevice, physical_devices_count);
-    defer allocator.free(physical_devices);
-
-    _ = try vki.enumeratePhysicalDevices(instance, &physical_devices_count, physical_devices.ptr);
-
-    for (physical_devices, 0..) |pd, i| {
-        const props = vki.getPhysicalDeviceProperties(pd);
-        std.log.info("GPU{}: {s} - {s}", .{ i, props.device_name, @tagName(props.device_type) });
-        const deriver_version: vk.Version = @bitCast(props.driver_version);
-        std.log.info("driver version: {}.{}.{}.{}", .{ deriver_version.major, deriver_version.minor, deriver_version.patch, deriver_version.variant });
-    }
-
-    const queue_create_info: vk.DeviceQueueCreateInfo = .{
-        .queue_family_index = 0,
-        .queue_count = 1,
-        .p_queue_priorities = &.{1},
-    };
-
-    const ext = [_][*:0]const u8{
-        "VK_KHR_swapchain",
-    };
-
-    const device_create_info: vk.DeviceCreateInfo = .{
-        .queue_create_info_count = 1,
-        .p_queue_create_infos = &.{queue_create_info},
-        .enabled_extension_count = ext.len,
-        .pp_enabled_extension_names = &ext,
-    };
-
     var physical_device: vk.PhysicalDevice = .null_handle;
-    var device: vk.Device = .null_handle;
-
-    for (physical_devices, 0..) |phs_dev, i| {
-        device = vki.createDevice(phs_dev, &device_create_info, &vk_mem_cb) catch continue;
-        physical_device = phs_dev;
-        std.log.info("Using GPU{}", .{i});
-        break;
-    }
-
-    if (device == .null_handle)
-        return error.DeviceCreationFailed;
+    const device = try createDevice(allocator, &vki, instance, &vk_mem_cb, &physical_device);
 
     const vkd = vk.DeviceWrapper.load(device, vki.dispatch.vkGetDeviceProcAddr.?);
     errdefer vkd.destroyDevice(device, &vk_mem_cb);
@@ -182,7 +78,7 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
             present_mode = .immediate_khr;
     }
 
-    // std.debug.assert(caps.max_image_count >= 1);
+    std.debug.assert(caps.max_image_count > 1);
 
     var image_count = caps.min_image_count + 1;
 
@@ -208,6 +104,9 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
 
     const swap_chain = try vkd.createSwapchainKHR(device, &swap_chain_create_info, &vk_mem_cb);
 
+    var cmd_pool: vk.CommandPool = .null_handle;
+    const cmd_buffers = try allocCmdBuffers(allocator, &vkd, device, image_count, &cmd_pool, &vk_mem_cb);
+
     return .{
         .swap_chain = swap_chain,
         .device = device,
@@ -220,7 +119,212 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
         .vk_mem = vk_mem,
         .window_height = window.height,
         .window_width = window.width,
+        .cmd_pool = cmd_pool,
+        .cmd_buffers = cmd_buffers,
     };
+}
+
+fn allocCmdBuffers(
+    allocator: Allocator,
+    vkd: *const vk.DeviceWrapper,
+    device: vk.Device,
+    primary_count: usize,
+    p_cmd_pool: *vk.CommandPool,
+    vk_mem_cb: *const vk.AllocationCallbacks,
+) ![]const vk.CommandBuffer {
+    const cmd_pool_create_info = vk.CommandPoolCreateInfo{
+        .flags = .{ .reset_command_buffer_bit = true },
+        .queue_family_index = 0,
+    };
+
+    const cmd_pool = try vkd.createCommandPool(device, &cmd_pool_create_info, vk_mem_cb);
+    errdefer vkd.destroyCommandPool(device, cmd_pool, vk_mem_cb);
+
+    const cmd_buffer_alloc_info = vk.CommandBufferAllocateInfo{
+        .command_pool = cmd_pool,
+        .command_buffer_count = @intCast(primary_count),
+        .level = .primary,
+    };
+
+    const cmd_buffers = try allocator.alloc(vk.CommandBuffer, primary_count);
+    errdefer allocator.free(cmd_buffers);
+
+    try vkd.allocateCommandBuffers(device, &cmd_buffer_alloc_info, cmd_buffers.ptr);
+
+    p_cmd_pool.* = cmd_pool;
+
+    return cmd_buffers;
+}
+
+fn freeCmdBuffers(
+    allocator: Allocator,
+    vkd: *const vk.DeviceWrapper,
+    device: vk.Device,
+    cmd_pool: vk.CommandPool,
+    buffers: []const vk.CommandBuffer,
+    vk_mem_cb: *const vk.AllocationCallbacks,
+) void {
+    vkd.freeCommandBuffers(device, cmd_pool, @intCast(buffers.len), buffers.ptr);
+    vkd.destroyCommandPool(device, cmd_pool, vk_mem_cb);
+    allocator.free(buffers);
+}
+fn createDevice(
+    allocator: Allocator,
+    vki: *const vk.InstanceWrapper,
+    instance: vk.Instance,
+    vk_mem_cb: *const vk.AllocationCallbacks,
+    physical_device: *vk.PhysicalDevice,
+) !vk.Device {
+    var physical_devices_count: u32 = 0;
+    _ = try vki.enumeratePhysicalDevices(instance, &physical_devices_count, null);
+
+    std.log.info("Vulkan detected {} GPUs", .{physical_devices_count});
+
+    const physical_devices = try allocator.alloc(vk.PhysicalDevice, physical_devices_count);
+    defer allocator.free(physical_devices);
+
+    _ = try vki.enumeratePhysicalDevices(instance, &physical_devices_count, physical_devices.ptr);
+
+    // sort physical devices pased on score
+    std.sort.heap(vk.PhysicalDevice, physical_devices, vki, physicalDeviceGt);
+
+    for (physical_devices, 0..) |pd, i| {
+        const props = vki.getPhysicalDeviceProperties(pd);
+        std.log.info("GPU{}: {s} - {s}", .{ i, props.device_name, @tagName(props.device_type) });
+        const deriver_version: vk.Version = @bitCast(props.driver_version);
+        std.log.info("driver version: {}.{}.{}.{}", .{ deriver_version.major, deriver_version.minor, deriver_version.patch, deriver_version.variant });
+    }
+
+    // var queue_families_count: u32 = undefined;
+    // vki.getPhysicalDeviceQueueFamilyProperties();
+
+    const queue_create_info: vk.DeviceQueueCreateInfo = .{
+        .queue_family_index = 0,
+        .queue_count = 1,
+        .p_queue_priorities = &.{1},
+    };
+
+    const ext = [_][*:0]const u8{
+        "VK_KHR_swapchain",
+    };
+
+    const device_create_info: vk.DeviceCreateInfo = .{
+        .queue_create_info_count = 1,
+        .p_queue_create_infos = &.{queue_create_info},
+        .enabled_extension_count = ext.len,
+        .pp_enabled_extension_names = &ext,
+    };
+
+    physical_device.* = .null_handle;
+    var device: vk.Device = .null_handle;
+
+    for (physical_devices, 0..) |phs_dev, i| {
+        device = vki.createDevice(phs_dev, &device_create_info, vk_mem_cb) catch continue;
+        physical_device.* = phs_dev;
+        std.log.info("Using GPU{}", .{i});
+        break;
+    }
+
+    if (device == .null_handle)
+        return error.DeviceCreationFailed;
+
+    return device;
+}
+
+fn createInstance(
+    vkb: *const vk.BaseWrapper,
+    vk_mem_cb: *const vk.AllocationCallbacks,
+) !vk.Instance {
+    const app_info = vk.ApplicationInfo{
+        .p_application_name = "zerotty",
+
+        .application_version = 0,
+        .api_version = @bitCast(vk.HEADER_VERSION_COMPLETE),
+
+        .p_engine_name = "no_engine",
+        .engine_version = 0,
+    };
+
+    const win32_exts = [_][*:0]const u8{
+        "VK_KHR_win32_surface",
+    };
+
+    const xlib_exts = [_][*:0]const u8{
+        "VK_KHR_xlib_surface",
+        "VK_EXT_acquire_xlib_display",
+    };
+
+    const xcb_exts = [_][*:0]const u8{
+        "VK_KHR_xcb_surface",
+    };
+
+    const extensions = [_][*:0]const u8{
+        "VK_KHR_surface",
+    } ++ switch (build_options.@"window-system") {
+        .Win32 => win32_exts,
+        .Xlib => xlib_exts,
+        .Xcb => xcb_exts,
+    };
+
+    const inst_info = vk.InstanceCreateInfo{
+        .p_application_info = &app_info,
+        .enabled_extension_count = extensions.len,
+        .pp_enabled_extension_names = &extensions,
+    };
+
+    return vkb.createInstance(&inst_info, vk_mem_cb);
+}
+
+fn createWindowSerface(
+    vki: *const vk.InstanceWrapper,
+    instance: vk.Instance,
+    window: *const Window,
+    vk_mem_cb: *const vk.AllocationCallbacks,
+) !vk.SurfaceKHR {
+    var surface: vk.SurfaceKHR = .null_handle;
+
+    switch (build_options.@"window-system") {
+        .Win32 => {
+            const surface_info: vk.Win32SurfaceCreateInfoKHR = .{
+                .hwnd = @ptrCast(window.hwnd),
+                .hinstance = window.h_instance,
+            };
+            surface = try vki.createWin32SurfaceKHR(vki.instance, &surface_info, vk_mem_cb);
+        },
+        .Xlib => {
+            const surface_info: vk.XlibSurfaceCreateInfoKHR = .{
+                .window = window.w,
+                .dpy = @ptrCast(window.display),
+            };
+            surface = try vki.createXlibSurfaceKHR(instance, &surface_info, vk_mem_cb);
+        },
+        .Xcb => {
+            const surface_info: vk.XcbSurfaceCreateInfoKHR = .{
+                .connection = @ptrCast(window.connection),
+                .window = window.window,
+            };
+            surface = try vki.createXcbSurfaceKHR(instance, &surface_info, vk_mem_cb);
+        },
+    }
+
+    return surface;
+}
+
+fn physicalDeviceScore(vki: *const vk.InstanceWrapper, physical_device: vk.PhysicalDevice) u32 {
+    var score: u32 = 0;
+    const device_props = vki.getPhysicalDeviceProperties(physical_device);
+    switch (device_props.device_type) {
+        .discrete_gpu => score += 2_000,
+        .integrated_gpu => score += 1_000,
+        else => {},
+    }
+    score += device_props.limits.max_image_dimension_2d;
+
+    return score;
+}
+
+fn physicalDeviceGt(vki: *const vk.InstanceWrapper, a: vk.PhysicalDevice, b: vk.PhysicalDevice) bool {
+    return physicalDeviceScore(vki, a) > physicalDeviceScore(vki, b);
 }
 
 fn setImageLayout(
@@ -301,6 +405,8 @@ pub fn deinit(self: *VulkanRenderer) void {
 
     const vki: vk.InstanceWrapper = .{ .dispatch = self.instance_dispatch };
     const vkd: vk.DeviceWrapper = .{ .dispatch = self.device_dispatch };
+
+    freeCmdBuffers(self.vk_mem.allocator, &vkd, self.device, self.cmd_pool, self.cmd_buffers, &cb);
 
     vkd.destroySwapchainKHR(self.device, self.swap_chain, &cb);
     vkd.destroyDevice(self.device, &cb);
