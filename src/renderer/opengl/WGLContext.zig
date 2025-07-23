@@ -1,6 +1,7 @@
 device_context: HDC,
 opengl_rendering_context: HGLRC,
 window_handle: HWND,
+wglSwapIntervalEXT: PFNWGLSWAPINTERVALEXTPROC,
 
 pub const CreateOpenGLContextError = error{
     RegisterClass,
@@ -151,10 +152,16 @@ pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLConte
         return error.WglMakeCurrent;
     }
 
+    const wglSwapIntervalEXT: PFNWGLSWAPINTERVALEXTPROC =
+        @ptrCast(open_gl.wglGetProcAddress("wglSwapIntervalEXT") orelse @panic("can't load wglSwapIntervalEXT"));
+
+    wglSwapIntervalEXT(1);
+
     return .{
         .device_context = dc,
         .opengl_rendering_context = rc.?,
         .window_handle = window.hwnd,
+        .wglSwapIntervalEXT = wglSwapIntervalEXT,
     };
 }
 
@@ -218,6 +225,8 @@ const PFNWGLCREATECONTEXTATTRIBSARBPROC = *const fn (
     hShareContext: ?win32.graphics.open_gl.HGLRC,
     attribList: ?[*]const i32,
 ) callconv(.winapi) ?win32.graphics.open_gl.HGLRC;
+
+const PFNWGLSWAPINTERVALEXTPROC = *const fn (interval: i32) callconv(.winapi) void;
 
 pub const HDC = gdi.HDC;
 pub const HGLRC = open_gl.HGLRC;
