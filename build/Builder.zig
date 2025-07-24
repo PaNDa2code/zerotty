@@ -183,9 +183,17 @@ fn addImports(self: *Builder) void {
     self.import_table.put("vtparse", vtparse_mod) catch unreachable;
     self.import_table.put("freetype", freetype_mod) catch unreachable;
 
+    const shaders_pathes = @import("shaders.zig").compiledShadersPathes(
+        self.b,
+        self.b.path("src/renderer/shaders"),
+        &.{ "cell.frag.glsl", "cell.vert.glsl" },
+    ) catch unreachable;
+
     const assets_mod = self.b.addModule("assets", .{
         .root_source_file = self.b.path("assets/assets.zig"),
     });
+
+    assets_mod.addImport("shaders", shaders_pathes);
 
     self.import_table.put("assets", assets_mod) catch unreachable;
 
