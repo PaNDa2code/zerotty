@@ -187,6 +187,7 @@ fn addImports(self: *Builder) void {
         self.b,
         self.b.path("src/renderer/shaders"),
         &.{ "cell.frag.glsl", "cell.vert.glsl" },
+        self.render_backend,
     ) catch unreachable;
 
     const assets_mod = self.b.addModule("assets", .{
@@ -230,7 +231,7 @@ fn shouldUseGLES(self: *Builder) bool {
 }
 
 fn getOpenGLBindings(self: *Builder) *Build.Module {
-    const extensions = &.{ .KHR_debug, .ARB_shader_storage_buffer_object };
+    const extensions = &.{ .KHR_debug, .ARB_shader_storage_buffer_object, .ARB_gl_spirv };
 
     const gl_bindings = @import("zigglgen").generateBindingsModule(
         self.b,
@@ -240,7 +241,7 @@ fn getOpenGLBindings(self: *Builder) *Build.Module {
             .extensions = extensions,
         } else .{
             .api = .gl,
-            .version = .@"4.0",
+            .version = .@"4.1",
             .profile = .core,
             .extensions = extensions,
         },

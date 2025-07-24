@@ -19,8 +19,11 @@ vbo: gl.uint,
 atlas: Atlas,
 grid: Grid,
 
-const vertex_shader_source = @embedFile("../shaders/cell.vert.glsl");
-const fragment_shader_source = @embedFile("../shaders/cell.frag.glsl");
+const vertex_shader_spv = @embedFile(@import("assets").shaders.@"cell.vert.glsl");
+const fragment_shader_spv = @embedFile(@import("assets").shaders.@"cell.frag.glsl");
+
+// const vertex_shader_source = @embedFile("../shaders/cell.vert.glsl");
+// const fragment_shader_source = @embedFile("../shaders/cell.frag.glsl");
 
 pub const InitError = shader_utils.CreateShaderProgramError ||
     Allocator.Error || CreateOpenGLContextError || Atlas.CreateError;
@@ -51,7 +54,7 @@ pub fn init(window: *Window, allocator: Allocator) InitError!OpenGLRenderer {
         gl.DebugMessageCallback(@import("debug.zig").openglDebugCallback, null);
     }
 
-    self.shader_program = try shader_utils.createShaderProgram(vertex_shader_source, fragment_shader_source);
+    self.shader_program = try shader_utils.createShaderProgram(vertex_shader_spv, fragment_shader_spv);
 
     self.setupBuffers();
 

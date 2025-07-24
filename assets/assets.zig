@@ -6,3 +6,5 @@ pub const fonts = struct {
 pub const icons = struct {
     pub const @"logo.ico" = @embedFile("logo.ico");
 };
+
+pub const shaders = @import("shaders");
