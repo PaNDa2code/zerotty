@@ -19,8 +19,8 @@ vbo: gl.uint,
 atlas: Atlas,
 grid: Grid,
 
-const vertex_shader_source = @embedFile("shaders/vertex.glsl");
-const fragment_shader_source = @embedFile("shaders/fragment.glsl");
+const vertex_shader_source = @embedFile("../shaders/cell.vert.glsl");
+const fragment_shader_source = @embedFile("../shaders/cell.frag.glsl");
 
 pub const InitError = shader_utils.CreateShaderProgramError ||
     Allocator.Error || CreateOpenGLContextError || Atlas.CreateError;
