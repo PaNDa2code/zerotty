@@ -13,8 +13,9 @@ pub fn compiledShadersPathes(b: *Build, dir: Build.LazyPath, files: []const []co
 
         glsl_cmd.addArg("-G");
 
-        const output_path =
-            glsl_cmd.addPrefixedOutputFileArg("-o ", b.fmt("{s}.spv", .{file}));
+        // addPrefixedOutputFileArg not working with glslang
+        glsl_cmd.addArg("-o");
+        const output_path = glsl_cmd.addOutputFileArg(b.fmt("{s}.spv", .{file}));
 
         shader_pathes.addOptionPath(file, output_path);
     }
