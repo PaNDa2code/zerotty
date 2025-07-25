@@ -19,9 +19,6 @@ vbo: gl.uint,
 atlas: Atlas,
 grid: Grid,
 
-const vertex_shader_spv = shaders.cell_vert;
-const fragment_shader_spv = shaders.cell_frag;
-
 pub const InitError = shader_utils.CreateShaderProgramError ||
     Allocator.Error || CreateOpenGLContextError || Atlas.CreateError;
 
@@ -265,3 +262,5 @@ const Cell = Grid.Cell;
 
 const assets = @import("assets");
 const shaders = assets.shaders;
+const vertex_shader_spv = shaders.cell_vert;
+const fragment_shader_spv = shaders.cell_frag;

@@ -7,20 +7,20 @@ pub const CreateShaderProgramError = error{
     ProgramLinkingFailed,
 };
 
-pub fn createShaderProgram(vert: [:0]const u8, frag: [:0]const u8) CreateShaderProgramError!c_uint {
+pub fn createShaderProgram(vert_spv: [:0]const u8, frag_spv: [:0]const u8) CreateShaderProgramError!c_uint {
     var stat: i32 = 0;
 
     const vertex_shader = gl.CreateShader(gl.VERTEX_SHADER);
     defer gl.DeleteShader(vertex_shader);
 
-    gl.ShaderBinary(1, @ptrCast(&vertex_shader), gl.SHADER_BINARY_FORMAT_SPIR_V_ARB, vert.ptr, @intCast(vert.len));
-    // gl.ShaderSource(vertex_shader, 1, &.{@ptrCast(vert.ptr)}, null);
+    gl.ShaderBinary(1, @ptrCast(&vertex_shader), gl.SHADER_BINARY_FORMAT_SPIR_V_ARB, vert_spv.ptr, @intCast(vert_spv.len));
+    gl.SpecializeShaderARB(vertex_shader, "main", 0, null, null);
 
     const fragment_shader = gl.CreateShader(gl.FRAGMENT_SHADER);
     defer gl.DeleteShader(fragment_shader);
 
-    gl.ShaderBinary(1, @ptrCast(&fragment_shader), gl.SHADER_BINARY_FORMAT_SPIR_V_ARB, frag.ptr, @intCast(frag.len));
-    // gl.ShaderSource(fragment_shader, 1, &.{@ptrCast(frag.ptr)}, null);
+    gl.ShaderBinary(1, @ptrCast(&fragment_shader), gl.SHADER_BINARY_FORMAT_SPIR_V_ARB, frag_spv.ptr, @intCast(frag_spv.len));
+    gl.SpecializeShaderARB(fragment_shader, "main", 0, null, null);
 
     gl.CompileShader(vertex_shader);
 
