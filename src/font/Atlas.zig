@@ -72,20 +72,15 @@ pub fn create(
         const dst_x = origin_x + (cell_width - bitmap_w) / 2;
 
         const top = bitmap_glyph.top;
-        const dst_y = if (top >= 0)
-            origin_y + baseline - @min(@as(usize, @intCast(top)), baseline)
-        else
-            origin_y + baseline + @as(usize, @intCast(-top));
-
-        const max_w = @min(bitmap_w, atlas_width - dst_x);
+        const dst_y = origin_y + baseline - @min(@as(usize, @intCast(top)), baseline);
         const max_h = if (dst_y >= atlas_height) 0 else @min(bitmap_h, atlas_height - dst_y);
 
+        const pitch: usize = @intCast(bitmap.pitch);
         for (0..max_h) |y| {
-            for (0..max_w) |x| {
-                const src_idx = y * @as(usize, @intCast(bitmap.pitch)) + x;
-                const dst_idx = (dst_y + y) * atlas_width + (dst_x + x);
-                buffer[dst_idx] = bitmap.buffer.?[src_idx];
-            }
+            const src_row = bitmap.buffer.?[y * pitch ..][0..pitch];
+            const dst_row_start = (dst_y + y) * atlas_width + dst_x;
+            const dst_row = buffer[dst_row_start..][0..pitch];
+            @memcpy(dst_row, src_row);
         }
     }
 

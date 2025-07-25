@@ -6,12 +6,12 @@ test Atlas {
 
     var atlas = try Atlas.create(
         allocator,
-        10,
-        10,
+        30,
+        20,
         0,
         128,
     );
     defer atlas.deinit(allocator);
 
-    try Atlas.saveAtlasAsPGM("atlas.PGM", atlas.buffer, atlas.width, atlas.height);
+    try Atlas.saveAtlas(std.testing.allocator,"temp/atlas.png", atlas.buffer, atlas.width, atlas.height);
 }
