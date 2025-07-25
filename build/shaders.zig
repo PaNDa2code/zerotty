@@ -4,10 +4,12 @@ const Build = std.Build;
 pub fn compiledShadersPathes(b: *Build, dir: Build.LazyPath, files: []const []const u8, renderer: anytype) !*Build.Module {
     const shader_pathes = b.addOptions();
 
+    const glslang_exe = glslang(b);
+
     for (files) |file| {
         const path = try dir.join(b.allocator, file);
 
-        const glsl_cmd = b.addSystemCommand(&.{"glslang"});
+        const glsl_cmd = b.addRunArtifact(glslang_exe);
 
         glsl_cmd.addFileArg(path);
 
@@ -24,4 +26,9 @@ pub fn compiledShadersPathes(b: *Build, dir: Build.LazyPath, files: []const []co
     }
 
     return shader_pathes.createModule();
+}
+
+fn glslang(b: *Build) *Build.Step.Compile {
+    const glslang_d = b.dependency("glslang", .{ .optimize = .ReleaseFast });
+    return glslang_d.artifact("glslangValidator");
 }
