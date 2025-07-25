@@ -15,6 +15,7 @@ quad_ebo: gl.uint,
 
 vao: gl.uint,
 vbo: gl.uint,
+ubo: gl.uint,
 
 atlas: Atlas,
 grid: Grid,
@@ -125,18 +126,39 @@ fn setupBuffers(self: *OpenGLRenderer) void {
 
     self.vbo = instance_vbo;
     gl.BindBuffer(gl.ARRAY_BUFFER, 0);
+
+    var ubo: gl.uint = undefined;
+
+    gl.GenBuffers(1, @ptrCast(&ubo));
+    gl.BindBuffer(gl.UNIFORM_BUFFER, ubo);
+    gl.BufferData(gl.UNIFORM_BUFFER, @sizeOf(UniformsBlock), null, gl.DYNAMIC_DRAW);
+    gl.BindBuffer(gl.UNIFORM_BUFFER, 0);
+
+    self.ubo = ubo;
 }
 
+const UniformsBlock = packed struct {
+    cell_height: f32,
+    cell_width: f32,
+    screen_height: f32,
+    screen_width: f32,
+    atlas_cols: f32,
+    atlas_rows: f32,
+};
+
 fn setUniforms(self: *OpenGLRenderer) void {
-    gl.Uniform1f(gl.GetUniformLocation(self.shader_program, "cell_height"), @floatFromInt(self.atlas.cell_height));
-    gl.Uniform1f(gl.GetUniformLocation(self.shader_program, "cell_width"), @floatFromInt(self.atlas.cell_width));
-    gl.Uniform1f(gl.GetUniformLocation(self.shader_program, "screen_height"), @floatFromInt(self.window_height));
-    gl.Uniform1f(gl.GetUniformLocation(self.shader_program, "screen_width"), @floatFromInt(self.window_width));
-
-    gl.Uniform1f(gl.GetUniformLocation(self.shader_program, "atlas_cols"), @floatFromInt(self.atlas.cols));
-    gl.Uniform1f(gl.GetUniformLocation(self.shader_program, "atlas_rows"), @floatFromInt(self.atlas.rows));
-
-    gl.Uniform1i(gl.GetUniformLocation(self.shader_program, "atlas_texture"), 0);
+    const data = UniformsBlock{
+        .cell_height = @floatFromInt(self.atlas.cell_height),
+        .cell_width = @floatFromInt(self.atlas.cell_width),
+        .screen_height = @floatFromInt(self.window_height),
+        .screen_width = @floatFromInt(self.window_width),
+        .atlas_cols = @floatFromInt(self.atlas.cols),
+        .atlas_rows = @floatFromInt(self.atlas.rows),
+    };
+    gl.BindBuffer(gl.UNIFORM_BUFFER, self.ubo);
+    gl.BufferSubData(gl.UNIFORM_BUFFER, 0, @sizeOf(UniformsBlock), &data);
+    gl.BindBufferBase(gl.UNIFORM_BUFFER, 0, self.ubo);
+    gl.BindBuffer(gl.UNIFORM_BUFFER, 0);
 }
 
 fn createAtlasTexture(self: *OpenGLRenderer, allocator: Allocator) Atlas.CreateError!Atlas {
