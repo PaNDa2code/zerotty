@@ -1,0 +1,21 @@
+.{
+    .name = .hurfbuzz,
+
+    .version = "0.0.0",
+
+    .fingerprint = 0x2ef129a185fccbc9,
+
+    .minimum_zig_version = "0.14.0",
+
+    .dependencies = .{
+        .harfbuzz = .{
+            .url = "https://github.com/harfbuzz/harfbuzz/archive/refs/tags/11.3.2.tar.gz",
+            .hash = "N-V-__8AALH3hgV_vD6lS_Whc1lbCRaTk8GNwZB1OD5qawe7",
+        },
+    },
+
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+    },
+}
