@@ -19,11 +19,8 @@ vbo: gl.uint,
 atlas: Atlas,
 grid: Grid,
 
-const vertex_shader_spv = @embedFile(@import("assets").shaders.@"cell.vert.glsl");
-const fragment_shader_spv = @embedFile(@import("assets").shaders.@"cell.frag.glsl");
-
-// const vertex_shader_source = @embedFile("../shaders/cell.vert.glsl");
-// const fragment_shader_source = @embedFile("../shaders/cell.frag.glsl");
+const vertex_shader_spv = shaders.cell_vert;
+const fragment_shader_spv = shaders.cell_frag;
 
 pub const InitError = shader_utils.CreateShaderProgramError ||
     Allocator.Error || CreateOpenGLContextError || Atlas.CreateError;
@@ -265,3 +262,6 @@ const math = @import("../math.zig");
 const Vec4 = math.Vec4;
 const Grid = @import("../Grid.zig");
 const Cell = Grid.Cell;
+
+const assets = @import("assets");
+const shaders = assets.shaders;

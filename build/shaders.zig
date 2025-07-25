@@ -1,15 +1,23 @@
 const std = @import("std");
 const Build = std.Build;
 
-pub fn compiledShadersPathes(b: *Build, dir: Build.LazyPath, files: []const []const u8, renderer: anytype) !*Build.Module {
-    const shader_pathes = b.addOptions();
+pub const CompiledShader = struct {
+    name: []const u8,
+    path: Build.LazyPath,
+};
 
-    const glslang_exe = glslang(b);
+pub fn compiledShadersPathes(b: *Build, dir: Build.LazyPath, files: []const []const u8, renderer: anytype) ![]CompiledShader {
+    const shader_pathes = try b.allocator.alloc(CompiledShader, files.len);
+    const glslang = b.dependency("glslang", .{ .optimize = .ReleaseFast });
 
-    for (files) |file| {
+    // const spirv_opt = glslang.artifact("spirv-opt");
+    const glslangValidator = glslang.artifact("glslangValidator");
+
+    for (files, 0..) |file, i| {
         const path = try dir.join(b.allocator, file);
+        const output_basename = b.fmt("{s}.spv", .{file});
 
-        const glsl_cmd = b.addRunArtifact(glslang_exe);
+        const glsl_cmd = b.addRunArtifact(glslangValidator);
 
         glsl_cmd.addFileArg(path);
 
@@ -20,15 +28,19 @@ pub fn compiledShadersPathes(b: *Build, dir: Build.LazyPath, files: []const []co
 
         // addPrefixedOutputFileArg not working with glslang
         glsl_cmd.addArg("-o");
-        const output_path = glsl_cmd.addOutputFileArg(b.fmt("{s}.spv", .{file}));
-
-        shader_pathes.addOptionPath(file, output_path);
+        shader_pathes[i] = .{
+            .name = output_basename,
+            .path = glsl_cmd.addOutputFileArg(output_basename),
+        };
     }
 
-    return shader_pathes.createModule();
+    return shader_pathes;
 }
 
-fn glslang(b: *Build) *Build.Step.Compile {
-    const glslang_d = b.dependency("glslang", .{ .optimize = .ReleaseFast });
-    return glslang_d.artifact("glslangValidator");
+pub fn addCompiledShadersToModule(compiled_shaders: []CompiledShader, module: *Build.Module) void {
+    for (compiled_shaders) |compiled_shader| {
+        module.addAnonymousImport(compiled_shader.name, .{
+            .root_source_file = compiled_shader.path,
+        });
+    }
 }

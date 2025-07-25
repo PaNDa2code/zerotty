@@ -7,4 +7,7 @@ pub const icons = struct {
     pub const @"logo.ico" = @embedFile("logo.ico");
 };
 
-pub const shaders = @import("shaders");
+pub const shaders = struct {
+    pub const cell_vert = @embedFile("cell.vert.spv");
+    pub const cell_frag = @embedFile("cell.frag.spv");
+};
