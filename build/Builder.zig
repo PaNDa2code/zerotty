@@ -137,13 +137,16 @@ fn setInstallArtifact(self: *Builder) void {
 fn addImports(self: *Builder) void {
     switch (self.target.result.os.tag) {
         .windows => {
-            const win32_mod = self.b.dependency("zigwin32", .{}).module("win32");
-            self.import_table.put("win32", win32_mod) catch unreachable;
+            if (self.b.lazyDependency("zigwin32", .{})) |dep| {
+                const win32_mod = dep.module("win32");
+                self.import_table.put("win32", win32_mod) catch unreachable;
+            }
         },
         .linux => {
-            const zig_openpty = self.b.dependency("zig_openpty", .{});
-            const openpty_mod = zig_openpty.module("openpty");
-            self.import_table.put("openpty", openpty_mod) catch unreachable;
+            if (self.b.lazyDependency("zig_openpty", .{})) |dep| {
+                const openpty_mod = dep.module("openpty");
+                self.import_table.put("openpty", openpty_mod) catch unreachable;
+            }
         },
         .macos => {},
         else => {},
@@ -155,12 +158,17 @@ fn addImports(self: *Builder) void {
             self.import_table.put("gl", self.getOpenGLBindings()) catch unreachable;
         },
         .Vulkan => {
-            const vulkan = self.b.dependency("vulkan", .{
-                .registry = self.b.dependency("vulkan_headers", .{}).path("registry/vk.xml"),
-            });
+            var vulkan: ?*Build.Dependency = null;
+            const vulkan_headers = self.b.lazyDependency("vulkan_headers", .{});
 
-            const vulkan_mod = vulkan.module("vulkan-zig");
-            self.import_table.put("vulkan", vulkan_mod) catch unreachable;
+            if (vulkan_headers) |vk_headers| {
+                vulkan = self.b.lazyDependency("vulkan", .{ .registry = vk_headers.path("registry/vk.xml") });
+            } else _ = self.b.lazyDependency("vulkan", .{});
+
+            if (vulkan) |dep| {
+                const vulkan_mod = dep.module("vulkan-zig");
+                self.import_table.put("vulkan", vulkan_mod) catch unreachable;
+            }
         },
     }
 
@@ -231,23 +239,30 @@ fn shouldUseGLES(self: *Builder) bool {
 }
 
 fn getOpenGLBindings(self: *Builder) *Build.Module {
-    const extensions = &.{ .KHR_debug, .ARB_shader_storage_buffer_object, .ARB_gl_spirv };
+    const extensions: []const []const u8 = &.{
+        "KHR_debug",
+        "ARB_shader_storage_buffer_object",
+        "ARB_gl_spirv",
+    };
 
-    const gl_bindings = @import("zigglgen").generateBindingsModule(
-        self.b,
-        if (self.shouldUseGLES()) .{
-            .api = .gles,
-            .version = .@"3.2",
-            .extensions = extensions,
-        } else .{
-            .api = .gl,
-            .version = .@"4.1",
-            .profile = .core,
-            .extensions = extensions,
-        },
-    );
+    const target = if (self.shouldUseGLES()) "gles-3.2" else "gl-4.1-core";
 
-    return gl_bindings;
+    const gl = self.b.createModule(.{});
+
+    if (self.b.lazyDependency("zigglgen", .{ .optimize = self.optimize })) |dep| {
+        const zigglgen_exe = dep.artifact("zigglgen");
+        const zigglgen_run = self.b.addRunArtifact(zigglgen_exe);
+        zigglgen_run.addArg(target);
+        for (extensions) |extension| {
+            zigglgen_run.addArg(extension);
+        }
+
+        const output = zigglgen_run.captureStdOut();
+        zigglgen_run.captured_stdout.?.basename = "gl.zig";
+        gl.root_source_file = output;
+    }
+
+    return gl;
 }
 
 // TODO:
