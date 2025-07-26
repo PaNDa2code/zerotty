@@ -8,10 +8,8 @@ test Atlas {
         allocator,
         30,
         20,
-        0,
-        128,
+        0x2500,
+        0x257F,
     );
     defer atlas.deinit(allocator);
-
-    try Atlas.saveAtlas(std.testing.allocator,"temp/atlas.png", atlas.buffer, atlas.width, atlas.height);
 }
