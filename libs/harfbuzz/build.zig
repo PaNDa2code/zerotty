@@ -8,6 +8,7 @@ pub fn build(b: *Build) void {
     const enable_freetype = b.option(bool, "enable_freetype", "Build Freetype") orelse true;
 
     const hurfbuzz_upstream = b.dependency("harfbuzz", .{});
+    const freetype_upstream = b.dependency("freetype", .{});
 
     const harfbuzz_lib = b.addStaticLibrary(.{
         .name = "harfbuzz",
@@ -17,7 +18,8 @@ pub fn build(b: *Build) void {
 
     harfbuzz_lib.addCSourceFile(.{
         .file = hurfbuzz_upstream.path("src/harfbuzz.cc"),
-        .flags = if (enable_freetype) &.{"-DHAVE_FREETYPE"} else &.{},
+        .flags = &.{} ++
+            if (enable_freetype) &.{"-DHAVE_FREETYPE"} else &.{},
     });
 
     harfbuzz_lib.linkLibCpp();
@@ -27,12 +29,14 @@ pub fn build(b: *Build) void {
         "harfbuzz",
         .{ .include_extensions = &.{".h"} },
     );
+    harfbuzz_lib.addIncludePath(freetype_upstream.path("include"));
 
     const harfbuzz_mod = b.addModule("harfbuzz", .{
         .root_source_file = b.path("src/root.zig"),
     });
 
     harfbuzz_mod.addIncludePath(hurfbuzz_upstream.path("src"));
+    harfbuzz_mod.addIncludePath(freetype_upstream.path("include"));
     harfbuzz_mod.linkLibrary(harfbuzz_lib);
 
     b.installArtifact(harfbuzz_lib);

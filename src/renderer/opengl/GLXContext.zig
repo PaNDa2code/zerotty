@@ -62,6 +62,9 @@ pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLConte
         &swa,
     );
 
+    if (window.w == 0)
+        @panic("Failed to create Xlib Window");
+
     _ = c.x11.XMapWindow(@ptrCast(display), window.w);
 
     const glx_exts_ptr: [*:0]const u8 = c.glx.glXQueryExtensionsString(@ptrCast(display), c.x11.DefaultScreen(display));
@@ -70,13 +73,13 @@ pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLConte
     const old_handler: c.x11.XErrorHandler = c.x11.XSetErrorHandler(&ctxErrorHandler);
 
     var glx_context: c.glx.GLXContext = null;
+    ctxErrorOccurred.store(false, .seq_cst);
 
-    if (!extentionSupported(glx_exts_slice, "GLX_ARB_create_context")) {
-        glx_context = c.glx.glXCreateNewContext(display, best_fbc, c.glx.GLX_RGBA_TYPE, null, 1);
-    } else {
+    if (extentionSupported(glx_exts_slice, "GLX_ARB_create_context")) {
         const context_attrs: []const c_int = &.{
-            c.glx.GLX_CONTEXT_MAJOR_VERSION_ARB, 3,
-            c.glx.GLX_CONTEXT_MINOR_VERSION_ARB, 0,
+            GLX_CONTEXT_MAJOR_VERSION_ARB, 4,
+            GLX_CONTEXT_MINOR_VERSION_ARB, 0,
+            GLX_CONTEXT_FLAGS_ARB,         GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,
             0,
         };
 
@@ -89,18 +92,24 @@ pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLConte
         } else {
             std.log.debug("Failed to create GL 3.0 context", .{});
             const context_attrs_: []const c_int = &.{
-                c.glx.GLX_CONTEXT_MAJOR_VERSION_ARB, 1,
-                c.glx.GLX_CONTEXT_MINOR_VERSION_ARB, 0,
+                GLX_CONTEXT_MAJOR_VERSION_ARB, 1,
+                GLX_CONTEXT_MINOR_VERSION_ARB, 4,
+                GLX_CONTEXT_FLAGS_ARB,         GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,
                 0,
             };
             glx_context = glXCreateContextAttribsARB(display, best_fbc, null, 1, @ptrCast(&context_attrs_));
         }
+    } else {
+        glx_context = c.glx.glXCreateNewContext(display, best_fbc, c.glx.GLX_RGBA_TYPE, null, 1);
     }
 
     _ = c.x11.XSync(@ptrCast(display), 0);
     _ = c.x11.XSetErrorHandler(old_handler);
 
     _ = c.glx.glXMakeCurrent(@ptrCast(display), window.w, glx_context);
+
+    _ = c.glx.glXQueryVersion(display, &glx_major, &glx_minor);
+    std.log.debug("GLX context version: {}.{}", .{ glx_major, glx_minor });
 
     return .{
         .display = @ptrCast(display),
@@ -158,19 +167,17 @@ fn getBestFBCIndex(display: *c.glx.Display, fbcs: []const c.glx.GLXFBConfig) usi
 
 fn getFBCs(display: *c.glx.Display) []const c.glx.GLXFBConfig {
     const visual_attribs: []const c_int = &.{
-        c.glx.GLX_X_RENDERABLE,   1,
-        c.glx.GLX_DRAWABLE_TYPE,  c.glx.GLX_WINDOW_BIT,
-        c.glx.GLX_RENDER_TYPE,    c.glx.GLX_RGBA_BIT,
-        c.glx.GLX_X_VISUAL_TYPE,  c.glx.GLX_TRUE_COLOR,
-        c.glx.GLX_RED_SIZE,       8,
-        c.glx.GLX_GREEN_SIZE,     8,
-        c.glx.GLX_BLUE_SIZE,      8,
-        c.glx.GLX_ALPHA_SIZE,     8,
-        c.glx.GLX_DEPTH_SIZE,     24,
-        c.glx.GLX_STENCIL_SIZE,   8,
-        c.glx.GLX_DOUBLEBUFFER,   1,
-        c.glx.GLX_SAMPLE_BUFFERS, 1,
-        c.glx.GLX_SAMPLES,        4,
+        c.glx.GLX_X_RENDERABLE,  1,
+        c.glx.GLX_DRAWABLE_TYPE, c.glx.GLX_WINDOW_BIT,
+        c.glx.GLX_RENDER_TYPE,   c.glx.GLX_RGBA_BIT,
+        c.glx.GLX_X_VISUAL_TYPE, c.glx.GLX_TRUE_COLOR,
+        c.glx.GLX_RED_SIZE,      8,
+        c.glx.GLX_GREEN_SIZE,    8,
+        c.glx.GLX_BLUE_SIZE,     8,
+        c.glx.GLX_ALPHA_SIZE,    8,
+        c.glx.GLX_DEPTH_SIZE,    24,
+        c.glx.GLX_STENCIL_SIZE,  8,
+        c.glx.GLX_DOUBLEBUFFER,  1,
         0,
     };
 
