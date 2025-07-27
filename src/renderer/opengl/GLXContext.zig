@@ -45,7 +45,8 @@ pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLConte
 
     swa.background_pixmap = c.x11.None;
     swa.border_pixel = 0;
-    swa.event_mask = c.x11.StructureNotifyMask;
+    swa.background_pixel = 0;
+    swa.event_mask = c.x11.CWColormap | c.x11.CWBorderPixel | c.x11.CWBackPixel | c.x11.CWEventMask;
 
     window.w = c.x11.XCreateWindow(
         @ptrCast(display),
@@ -58,7 +59,7 @@ pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLConte
         vi.*.depth,
         c.glx.InputOutput,
         @ptrCast(vi.*.visual),
-        c.glx.CWBorderPixel | c.glx.CWColormap | c.glx.CWEventMask,
+        c.x11.CWColormap | c.x11.CWBorderPixel | c.x11.CWBackPixel | c.x11.CWEventMask,
         &swa,
     );
 
@@ -66,6 +67,7 @@ pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLConte
         @panic("Failed to create Xlib Window");
 
     _ = c.x11.XMapWindow(@ptrCast(display), window.w);
+    _ = c.x11.XSelectInput(@ptrCast(display), window.w, c.x11.ExposureMask | c.x11.KeyPressMask);
 
     const glx_exts_ptr: [*:0]const u8 = c.glx.glXQueryExtensionsString(@ptrCast(display), c.x11.DefaultScreen(display));
     const glx_exts_slice = std.mem.span(glx_exts_ptr);
@@ -77,9 +79,9 @@ pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLConte
 
     if (extentionSupported(glx_exts_slice, "GLX_ARB_create_context")) {
         const context_attrs: []const c_int = &.{
-            GLX_CONTEXT_MAJOR_VERSION_ARB, 4,
-            GLX_CONTEXT_MINOR_VERSION_ARB, 0,
-            GLX_CONTEXT_FLAGS_ARB,         GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,
+            c.glx.GLX_CONTEXT_PROFILE_MASK_ARB, c.glx.GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
+            GLX_CONTEXT_MAJOR_VERSION_ARB,      3,
+            GLX_CONTEXT_MINOR_VERSION_ARB,      0,
             0,
         };
 
@@ -92,8 +94,8 @@ pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLConte
         } else {
             std.log.debug("Failed to create GL 3.0 context", .{});
             const context_attrs_: []const c_int = &.{
-                // GLX_CONTEXT_MAJOR_VERSION_ARB, 1,
-                // GLX_CONTEXT_MINOR_VERSION_ARB, 4,
+                GLX_CONTEXT_MAJOR_VERSION_ARB, 1,
+                GLX_CONTEXT_MINOR_VERSION_ARB, 0,
                 0,
             };
             glx_context = glXCreateContextAttribsARB(display, best_fbc, null, 1, @ptrCast(&context_attrs_));
@@ -150,6 +152,11 @@ fn getBestFBCIndex(display: *c.glx.Display, fbcs: []const c.glx.GLXFBConfig) usi
             _ = c.glx.glXGetFBConfigAttrib(display, fbc, c.glx.GLX_SAMPLE_BUFFERS, &samp_buf);
             _ = c.glx.glXGetFBConfigAttrib(display, fbc, c.glx.GLX_SAMPLES, &samples);
 
+            // std.log.debug(
+            //     "fbc[{}] => visual ID 0x{x}: SAMPLE_BUFFERS = {}, SAMPLES = {}",
+            //     .{ i, vi.*.visualid, samp_buf, samples },
+            // );
+
             if (best_fbc < 0 or samp_buf != 0 and samples > best_num_samp) {
                 best_fbc = @intCast(i);
                 best_num_samp = samples;
@@ -161,6 +168,7 @@ fn getBestFBCIndex(display: *c.glx.Display, fbcs: []const c.glx.GLXFBConfig) usi
         }
     }
 
+    // std.log.debug("best_fbc = fbc[{}]", .{best_fbc});
     return @intCast(best_fbc);
 }
 
