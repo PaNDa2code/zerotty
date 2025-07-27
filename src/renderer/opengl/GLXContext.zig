@@ -92,9 +92,8 @@ pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLConte
         } else {
             std.log.debug("Failed to create GL 3.0 context", .{});
             const context_attrs_: []const c_int = &.{
-                GLX_CONTEXT_MAJOR_VERSION_ARB, 1,
-                GLX_CONTEXT_MINOR_VERSION_ARB, 4,
-                GLX_CONTEXT_FLAGS_ARB,         GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,
+                // GLX_CONTEXT_MAJOR_VERSION_ARB, 1,
+                // GLX_CONTEXT_MINOR_VERSION_ARB, 4,
                 0,
             };
             glx_context = glXCreateContextAttribsARB(display, best_fbc, null, 1, @ptrCast(&context_attrs_));

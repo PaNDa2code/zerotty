@@ -18,8 +18,7 @@ pub fn build(b: *Build) void {
 
     harfbuzz_lib.addCSourceFile(.{
         .file = hurfbuzz_upstream.path("src/harfbuzz.cc"),
-        .flags = &.{} ++
-            if (enable_freetype) &.{"-DHAVE_FREETYPE"} else &.{},
+        .flags = &.{if (enable_freetype) "-DHAVE_FREETYPE" else ""},
     });
 
     harfbuzz_lib.linkLibCpp();
