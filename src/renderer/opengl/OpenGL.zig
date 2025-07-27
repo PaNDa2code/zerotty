@@ -65,10 +65,10 @@ fn setupBuffers(self: *OpenGLRenderer) void {
 
     // ========== Vertex Buffer Object (Quad) ========== //
     const full_quad = [_]Vec4(f32){
-        .{ .x = -0.5, .y = -0.5, .z = 0.0, .w = 0.0 }, // Bottom-left
-        .{ .x = 0.5, .y = -0.5, .z = 1.0, .w = 0.0 }, // Bottom-right
-        .{ .x = 0.5, .y = 0.5, .z = 1.0, .w = 1.0 }, // Top-right
-        .{ .x = -0.5, .y = 0.5, .z = 0.0, .w = 1.0 }, // Top-left
+        .{ .x = 0.0, .y = 0.0, .z = 0.0, .w = 0.0 }, // Bottom-left
+        .{ .x = 1.0, .y = 0.0, .z = 1.0, .w = 0.0 }, // Bottom-right
+        .{ .x = 1.0, .y = 1.0, .z = 1.0, .w = 1.0 }, // Top-right
+        .{ .x = 0.0, .y = 1.0, .z = 0.0, .w = 1.0 }, // Top-left
     };
 
     const full_quad_indices = [_]u32{
