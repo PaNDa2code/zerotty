@@ -14,9 +14,9 @@
         .freetype = .{
             .path = "./libs/freetype",
         },
-        // .harfbuzz = .{
-        //     .path = "./libs/harfbuzz",
-        // },
+        .harfbuzz = .{
+            .path = "./libs/harfbuzz",
+        },
 
         .zigwin32 = .{
             .url = "git+https://github.com/marlersoft/zigwin32/#7b434a47c2b85f395d8e5a6dca47af6a74422521",

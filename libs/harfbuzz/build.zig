@@ -28,5 +28,12 @@ pub fn build(b: *Build) void {
         .{ .include_extensions = &.{".h"} },
     );
 
+    const harfbuzz_mod = b.addModule("harfbuzz", .{
+        .root_source_file = b.path("src/root.zig"),
+    });
+
+    harfbuzz_mod.addIncludePath(hurfbuzz_upstream.path("src"));
+    harfbuzz_mod.linkLibrary(harfbuzz_lib);
+
     b.installArtifact(harfbuzz_lib);
 }

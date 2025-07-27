@@ -10,6 +10,7 @@ builder_step: *Build.Step,
 
 main_module: ?*Build.Module = null,
 import_table: std.StringArrayHashMap(*Build.Module),
+link_table: std.ArrayList(*Build.Step.Compile),
 
 root_source_file: ?Build.LazyPath = null,
 
@@ -41,6 +42,7 @@ pub fn init(b: *Build, target: ?ResolvedTarget, optimize: ?OptimizeMode) Builder
         .optimize = optimize orelse b.standardOptimizeOption(.{}),
         .builder_step = b.step("Builder", ""),
         .import_table = .init(b.allocator),
+        .link_table = .init(b.allocator),
     };
 }
 
@@ -186,10 +188,22 @@ fn addImports(self: *Builder) void {
         .target = self.target,
         .optimize = self.optimize,
     });
+    const freetype_lib = freetype.artifact("freetype");
+
+    const harfbuzz = self.b.dependency("harfbuzz", .{
+        .target = self.target,
+        .optimize = self.optimize,
+        .enable_freetype = true,
+    });
+
+    const harfbuzz_mod = harfbuzz.module("harfbuzz");
+    harfbuzz_mod.linkLibrary(freetype_lib);
+
     const freetype_mod = freetype.module("freetype");
 
     self.import_table.put("vtparse", vtparse_mod) catch unreachable;
     self.import_table.put("freetype", freetype_mod) catch unreachable;
+    self.import_table.put("harfbuzz", harfbuzz_mod) catch unreachable;
 
     const compiled_shaders = @import("shaders.zig").compiledShadersPathes(
         self.b,
@@ -249,7 +263,7 @@ fn getOpenGLBindings(self: *Builder) *Build.Module {
 
     const gl = self.b.createModule(.{});
 
-    if (self.b.lazyDependency("zigglgen", .{ .optimize = self.optimize })) |dep| {
+    if (self.b.lazyDependency("zigglgen", .{})) |dep| {
         const zigglgen_exe = dep.artifact("zigglgen");
         const zigglgen_run = self.b.addRunArtifact(zigglgen_exe);
         zigglgen_run.addArg(target);
