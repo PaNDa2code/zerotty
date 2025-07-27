@@ -78,7 +78,7 @@ pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLConte
     ctxErrorOccurred.store(false, .seq_cst);
 
     if (extentionSupported(glx_exts_slice, "GLX_ARB_create_context")) {
-        const context_attrs: []const c_int = &.{
+        var context_attrs = [_]c_int{
             c.glx.GLX_CONTEXT_PROFILE_MASK_ARB, c.glx.GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
             GLX_CONTEXT_MAJOR_VERSION_ARB,      3,
             GLX_CONTEXT_MINOR_VERSION_ARB,      0,
@@ -93,12 +93,8 @@ pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLConte
             std.log.debug("Created 3.0 context", .{});
         } else {
             std.log.debug("Failed to create GL 3.0 context", .{});
-            const context_attrs_: []const c_int = &.{
-                GLX_CONTEXT_MAJOR_VERSION_ARB, 1,
-                GLX_CONTEXT_MINOR_VERSION_ARB, 0,
-                0,
-            };
-            glx_context = glXCreateContextAttribsARB(display, best_fbc, null, 1, @ptrCast(&context_attrs_));
+            context_attrs[4] = 1;
+            glx_context = glXCreateContextAttribsARB(display, best_fbc, null, 1, @ptrCast(&context_attrs));
         }
     } else {
         glx_context = c.glx.glXCreateNewContext(display, best_fbc, c.glx.GLX_RGBA_TYPE, null, 1);
@@ -108,9 +104,6 @@ pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLConte
     _ = c.x11.XSetErrorHandler(old_handler);
 
     _ = c.glx.glXMakeCurrent(@ptrCast(display), window.w, glx_context);
-
-    _ = c.glx.glXQueryVersion(display, &glx_major, &glx_minor);
-    std.log.debug("GLX context version: {}.{}", .{ glx_major, glx_minor });
 
     return .{
         .display = @ptrCast(display),
@@ -189,7 +182,7 @@ fn getFBCs(display: *c.glx.Display) []const c.glx.GLXFBConfig {
     };
 
     var fbc_count: u32 = undefined;
-    const fbcs_ptr = c.glx.glXChooseFBConfig(@ptrCast(display), c.x11.DefaultScreen(display), @ptrCast(&visual_attribs), @ptrCast(&fbc_count));
+    const fbcs_ptr = c.glx.glXChooseFBConfig(@ptrCast(display), c.x11.DefaultScreen(display), @ptrCast(visual_attribs.ptr), @ptrCast(&fbc_count));
     return fbcs_ptr[0..@intCast(fbc_count)];
 }
 
@@ -224,7 +217,7 @@ const PFNGLXCREATECONTEXTATTRIBSARBPROC = *const fn (
     config: c.glx.GLXFBConfig,
     share_context: ?*opaque {},
     direct: u32,
-    attrib_list: [*:0]const u32,
+    attrib_list: [*:0]const c_int,
 ) callconv(.C) c.glx.GLXContext;
 
 pub const PFNGLXMAKECURRENTPROC = *const fn (
