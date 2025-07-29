@@ -8,8 +8,6 @@ pub const CompiledShader = struct {
 };
 
 pub fn compiledShadersPathes(b: *Build, dir: Build.LazyPath, files: []const []const u8, renderer: anytype) ![]CompiledShader {
-    const shader_pathes = try b.allocator.alloc(CompiledShader, files.len);
-
     const glslang_tools_installed =
         try findPathAlloc(b.allocator, "glslangValidator") != null and
         try findPathAlloc(b.allocator, "spirv-opt") != null;
@@ -19,10 +17,12 @@ pub fn compiledShadersPathes(b: *Build, dir: Build.LazyPath, files: []const []co
     var glslangValidator: ?*Build.Step.Compile = null;
 
     if (!glslang_tools_installed) {
-        glslang = b.lazyDependency("glslang", .{ .optimize = .ReleaseFast }) orelse return shader_pathes;
+        glslang = b.lazyDependency("glslang", .{ .optimize = .ReleaseFast }) orelse return &.{};
         glslangValidator = glslang.?.artifact("glslangValidator");
         spirv_opt = glslang.?.artifact("spirv-opt");
     }
+
+    const shader_pathes = try b.allocator.alloc(CompiledShader, files.len);
 
     for (files, 0..) |file, i| {
         const path = try dir.join(b.allocator, file);

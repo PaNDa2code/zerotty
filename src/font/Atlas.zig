@@ -41,7 +41,8 @@ pub fn create(
     const ft_lib = try freetype.Library.init(allocator);
     defer ft_lib.deinit();
 
-    var face = try ft_lib.memoryFace(assets.fonts.@"FiraCodeNerdFontMono-Regular.ttf", cell_width);
+    const ttf_buffer = try assets.decompress(assets.fonts.@"FiraCodeNerdFontMono-Regular.ttf");
+    var face = try ft_lib.memoryFace(ttf_buffer, cell_width);
     defer face.deinit();
 
     try face.setPixelSize(@intCast(cell_height), @intCast(cell_width));
