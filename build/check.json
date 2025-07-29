@@ -1,0 +1,27 @@
+[
+  {
+    "target": "native-windows",
+    "render_backend": "OpenGL",
+    "window_system": "Win32"
+  },
+  {
+    "target": "native-windows",
+    "render_backend": "Vulkan",
+    "window_system": "Win32"
+  },
+  {
+    "target": "native-linux-gnu",
+    "render_backend": "Vulkan",
+    "window_system": "Xcb"
+  },
+  {
+    "target": "native-linux-gnu",
+    "render_backend": "Vulkan",
+    "window_system": "Xlib"
+  },
+  {
+    "target": "native-linux-gnu",
+    "render_backend": "OpenGL",
+    "window_system": "Xlib"
+  }
+]

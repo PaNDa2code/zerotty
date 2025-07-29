@@ -17,6 +17,7 @@ root_source_file: ?Build.LazyPath = null,
 options_mod: ?OptionsModule = null,
 
 exe: ?*Build.Step.Compile = null,
+lib: ?*Build.Step.Compile = null,
 
 pub const RenderBackend = enum {
     D3D11,
@@ -35,12 +36,14 @@ pub const OptionsModule = struct {
     name: []const u8,
 };
 
+var counter: std.atomic.Value(u32) = .init(0);
+
 pub fn init(b: *Build, target: ?ResolvedTarget, optimize: ?OptimizeMode) Builder {
     return .{
         .b = b,
         .target = target orelse b.standardTargetOptions(.{}),
         .optimize = optimize orelse b.standardOptimizeOption(.{}),
-        .builder_step = b.step("Builder", ""),
+        .builder_step = b.step(b.fmt("Builder{}", .{counter.fetchAdd(1, .acq_rel)}), ""),
         .import_table = .init(b.allocator),
         .link_table = .init(b.allocator),
     };
@@ -57,6 +60,11 @@ pub fn setWindowSystem(self: *Builder, system: WindowSystem) *Builder {
 
 pub fn setRootFile(self: *Builder, path: Build.LazyPath) *Builder {
     self.root_source_file = path;
+    return self;
+}
+
+pub fn addCheckStep(self: *Builder) *Builder {
+    @import("check.zig").addCheckStep(self.b) catch unreachable;
     return self;
 }
 
@@ -104,6 +112,19 @@ pub fn addExcutable(self: *Builder, name: []const u8) *Builder {
     exe.addWin32ResourceFile(.{
         .file = self.b.path("assets/zerotty.rc"),
     });
+
+    return self;
+}
+
+pub fn addStaticLibrary(self: *Builder, name: []const u8) *Builder {
+    const lib = self.b.addLibrary(.{
+        .name = name,
+        .root_module = self.getModule(),
+        .linkage = .static,
+    });
+
+    self.lib = lib;
+    self.builder_step.dependOn(&lib.step);
 
     return self;
 }
