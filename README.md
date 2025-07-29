@@ -23,8 +23,6 @@ Current compatibility status across platforms and architectures:
 |**Android**|❌|❌|❌|
 |**iOS**|❌|❌|❌|
 
-### Legend:
-
 * **✅ Supported:** Functional and stable.
 * **🚧 Experimental:** Under development; may have issues.
 * **❌ Not Supported:** No current compatibility.
