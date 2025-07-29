@@ -1,4 +1,3 @@
----
 # ZeroTTY - A Cross-Compiled Terminal Emulator
 
 ![Logo](docs/images/zerotty.png)
@@ -11,7 +10,7 @@ Developed primarily in **Zig**, leveraging its capabilities for cross-compilatio
 
 ---
 
-## 💻 Platform & Architecture Support
+## Platform & Architecture Support
 
 Current compatibility status across platforms and architectures:
 
@@ -29,7 +28,7 @@ Current compatibility status across platforms and architectures:
 
 ---
 
-## ✨ Core Principles
+## Core Principles
 * **Native Performance:** Prioritizes direct system interaction for speed.
 * **Minimal Dependencies:** Reduces overhead and complexity.
 * **Cross-Platform:** Designed for broad operating system compatibility.
