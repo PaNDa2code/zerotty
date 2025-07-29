@@ -428,12 +428,24 @@ pub fn presentBuffer(self: *VulkanRenderer) void {
     _ = self;
 }
 
-pub fn renaderText(self: *VulkanRenderer, buffer: []const u8, x: u32, y: u32, color: ColorRGBA) void {
+pub fn renaderGrid(self: *VulkanRenderer) void {
     _ = self;
-    _ = buffer;
-    _ = x;
-    _ = y;
-    _ = color;
+}
+
+pub fn setCell(
+    self: *VulkanRenderer,
+    row: u32,
+    col: u32,
+    char_code: u32,
+    fg_color: ?ColorRGBA,
+    bg_color: ?ColorRGBA,
+) !void {
+    _ = self; // autofix
+    _ = row; // autofix
+    _ = col; // autofix
+    _ = char_code; // autofix
+    _ = fg_color; // autofix
+    _ = bg_color; // autofix
 }
 
 const std = @import("std");

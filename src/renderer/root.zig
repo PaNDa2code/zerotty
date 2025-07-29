@@ -2,11 +2,16 @@ const Renderer = @This();
 
 backend: RendererBackend,
 fps: FPS,
+cursor: Cursor,
 
 pub fn init(window: *Window, allocator: Allocator) !Renderer {
+    const backend = try RendererBackend.init(window, allocator);
+    var cursor = try Cursor.init();
+    cursor.row_len = backend.grid.columns;
     return .{
-        .backend = try RendererBackend.init(window, allocator),
+        .backend = backend,
         .fps = try FPS.init(),
+        .cursor = cursor,
     };
 }
 
@@ -22,8 +27,24 @@ pub fn presentBuffer(self: *Renderer) void {
     self.backend.presentBuffer();
 }
 
-pub fn renaderText(self: *Renderer, buffer: []const u8, x: u32, y: u32, color: ColorRGBA) void {
-    self.backend.renaderText(buffer, x, y, color);
+pub fn renaderGrid(self: *Renderer) void {
+    self.backend.renaderGrid();
+}
+
+pub fn setCell(
+    self: *Renderer,
+    row: u32,
+    col: u32,
+    char_code: u32,
+    fg_color: ?ColorRGBA,
+    bg_color: ?ColorRGBA,
+) !void {
+    try self.backend.setCell(row, col, char_code, fg_color, bg_color);
+}
+
+pub fn setCursorCell(self: *Renderer, char_code: u32) !void {
+    try self.setCell(self.cursor.row, self.cursor.col, char_code, null, null);
+    self.cursor.nextCol();
 }
 
 pub fn resize(self: *Renderer, width: u32, height: u32) !void {
@@ -43,7 +64,7 @@ pub const RendererBackend = switch (Api) {
 };
 
 pub const FPS = @import("FPS.zig");
+pub const Cursor = @import("Cursor.zig");
 const Window = @import("../window/root.zig").Window;
 const Allocator = @import("std").mem.Allocator;
 const ColorRGBA = @import("common.zig").ColorRGBA;
-

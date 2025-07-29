@@ -6,6 +6,7 @@ screen: *c.xcb_screen_t = undefined,
 window: c.xcb_window_t = undefined,
 renderer: Renderer = undefined,
 render_cb: ?*const fn (*Renderer) void = null,
+resize_cb: ?*const fn (width: u32, height: u32) void = null,
 
 exit: bool = false,
 title: []const u8,

@@ -9,6 +9,7 @@ height: u32,
 width: u32,
 renderer: Renderer = undefined,
 render_cb: ?*const fn (*Renderer) void = null,
+resize_cb: ?*const fn (width: u32, height: u32) void = null,
 
 pub fn new(title: []const u8, height: u32, width: u32) Window {
     return .{
@@ -139,6 +140,7 @@ fn WindowProc(self: *Window, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARA
             const width: u32 = @intCast(lp & 0xFFFF);
             const height: u32 = @intCast((lp >> 16) & 0xFFFF);
             self.resize(height, width) catch return -1;
+            if (self.resize_cb) |cb| cb(width, height);
             return 0;
         },
         else => return win32wm.DefWindowProcW(hwnd, msg, wparam, lparam),

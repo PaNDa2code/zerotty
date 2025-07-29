@@ -100,7 +100,7 @@ fn setupBuffers(self: *OpenGLRenderer) void {
     gl.GenBuffers(1, @ptrCast(&instance_vbo));
     gl.BindBuffer(gl.ARRAY_BUFFER, instance_vbo);
 
-    const size: usize = self.grid.data.len * @sizeOf(Cell);
+    const size: usize = self.grid.data().len * @sizeOf(Cell);
 
     gl.BufferData(gl.ARRAY_BUFFER, @bitCast(size), null, gl.DYNAMIC_DRAW);
 
@@ -194,7 +194,7 @@ pub fn deinit(self: *OpenGLRenderer) void {
     self.allocator.destroy(gl_proc);
     self.context.destory();
     self.atlas.deinit(self.allocator);
-    self.allocator.free(self.grid.data);
+    self.grid.free();
 }
 
 pub fn clearBuffer(self: *OpenGLRenderer, color: ColorRGBA) void {
@@ -207,12 +207,7 @@ pub fn presentBuffer(self: *OpenGLRenderer) void {
     self.context.swapBuffers();
 }
 
-pub fn renaderText(self: *OpenGLRenderer, buffer: []const u8, x: u32, y: u32, color: ColorRGBA) void {
-    _ = color; // autofix
-    _ = y; // autofix
-    _ = x; // autofix
-    _ = buffer; // autofix
-
+pub fn renaderGrid(self: *OpenGLRenderer) void {
     gl.BindVertexArray(self.vao);
     defer gl.BindVertexArray(0);
 
@@ -232,8 +227,8 @@ pub fn renaderText(self: *OpenGLRenderer, buffer: []const u8, x: u32, y: u32, co
 
     gl.BufferData(
         gl.ARRAY_BUFFER,
-        @intCast(@sizeOf(Cell) * self.grid.data.len),
-        self.grid.data.ptr,
+        @intCast(@sizeOf(Cell) * self.grid.data().len),
+        self.grid.data().ptr,
         gl.DYNAMIC_DRAW,
     );
 
@@ -242,7 +237,7 @@ pub fn renaderText(self: *OpenGLRenderer, buffer: []const u8, x: u32, y: u32, co
         6,
         gl.UNSIGNED_INT,
         null,
-        @intCast(self.grid.data.len),
+        @intCast(self.grid.data().len),
     );
 }
 
@@ -256,6 +251,23 @@ pub fn resize(self: *OpenGLRenderer, width: u32, height: u32) !void {
         .cell_width = self.atlas.cell_width,
     });
     gl.Viewport(0, 0, @intCast(width), @intCast(height));
+}
+
+pub fn setCell(
+    self: *OpenGLRenderer,
+    row: u32,
+    col: u32,
+    char_code: u32,
+    fg_color: ?ColorRGBA,
+    bg_color: ?ColorRGBA,
+) !void {
+    try self.grid.set(.{
+        .row = row,
+        .col = col,
+        .char = char_code,
+        .fg_color = fg_color orelse .White,
+        .bg_color = bg_color orelse .Gray,
+    });
 }
 
 const OpenGLContext = switch (builtin.os.tag) {
@@ -278,6 +290,7 @@ const Atlas = font.Atlas;
 const common = @import("../common.zig");
 const ColorRGBA = common.ColorRGBA;
 const math = @import("../math.zig");
+const Vec2 = math.Vec2;
 const Vec4 = math.Vec4;
 const Grid = @import("../Grid.zig");
 const Cell = Grid.Cell;

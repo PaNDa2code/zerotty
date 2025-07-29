@@ -10,10 +10,12 @@ master_write: HANDLE,
 
 h_pesudo_console: HPCON,
 
+child: ?HANDLE,
+
 size: struct { height: u16, width: u16 },
 id: u32,
 
-fn isInvaliedOrNull(handle: ?win32fnd.HANDLE) bool {
+fn isInvaliedOrNull(handle: ?HANDLE) bool {
     return handle == null or handle == win32fnd.INVALID_HANDLE_VALUE;
 }
 

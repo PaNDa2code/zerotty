@@ -10,6 +10,7 @@ s: c_int = undefined,
 w: c_ulong = undefined,
 renderer: Renderer = undefined,
 render_cb: ?*const fn (*Renderer) void = null,
+resize_cb: ?*const fn (width: u32, height: u32) void = null,
 
 exit: bool = false,
 window_visable: bool = false,
@@ -84,6 +85,9 @@ pub fn pumpMessages(self: *Window) void {
                 const width: u32 = @intCast(event.xconfigure.width);
                 self.resizeCallBack(height, width) catch |e|
                     std.log.err("Window resize failed: {}", .{e});
+                if (self.resize_cb) |cb| {
+                    cb(width, height);
+                }
             },
             else => {},
         }

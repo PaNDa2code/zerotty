@@ -2,6 +2,11 @@ const Pty = @This();
 
 master: Fd,
 slave: Fd,
+child: ?switch (builtin.os.tag) {
+    .windows => win32.foundation.HANDLE,
+    .macos, .linux => posix.pid_t,
+    else => @compileError("os is not supported"),
+} = null,
 size: struct { height: u16, width: u16 },
 id: u32,
 
@@ -44,6 +49,9 @@ pub fn resize(self: *Pty, size: PtySize) !void {
     if (std.os.linux.ioctl(self.master, 0x5414, @intFromPtr(&ws)) < 0) {
         return error.PtyResizeFailed;
     }
+
+    if (self.child) |child_id|
+        try posix.kill(child_id, posix.SIG.WINCH);
 }
 
 const std = @import("std");
@@ -61,3 +69,6 @@ const PtySize = pty.PtySize;
 const PtyOptions = pty.PtyOptions;
 
 pub const Fd = posix.fd_t;
+
+const ChildProcess = @import("../ChildProcess.zig");
+const win32 = @import("win32");

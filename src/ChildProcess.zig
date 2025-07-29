@@ -115,6 +115,9 @@ fn startWindows(self: *ChildProcess, arina: Allocator, pty: ?*Pty) !void {
     }
 
     self.id = proc_info.hProcess.?;
+    if (pty) |_pty| {
+        _pty.child = proc_info.hProcess.?;
+    }
 }
 
 fn terminateWindows(self: *ChildProcess) void {
@@ -166,6 +169,7 @@ fn startPosix(self: *ChildProcess, arina: std.mem.Allocator, pty: ?*Pty) !void {
         self.stderr = .{ .handle = master_fd };
         self.id = pid;
         posix.close(slave_fd);
+        pty.?.child = pid;
         return;
     }
 

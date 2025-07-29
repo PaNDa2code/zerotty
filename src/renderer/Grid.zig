@@ -10,7 +10,7 @@ pub const Cell = packed struct {
 
 const test_cell = Cell;
 
-data: []Cell,
+map: std.AutoArrayHashMap(Vec2(u32), Cell),
 rows: u32,
 columns: u32,
 
@@ -25,59 +25,36 @@ pub fn create(allocator: Allocator, options: CellProgramOptions) !CellProgram {
     const rows = options.screen_height / options.cell_height;
     const columns = options.screen_width / options.cell_width;
 
-    const data = try allocator.alloc(Cell, rows * columns);
-
-    @memset(data, .{
-        .row = 0,
-        .col = 0,
-        .char = 'a',
-        .fg_color = .White,
-        .bg_color = .Gray,
-    });
-
-    for (data, 0..) |*cell, i| {
-        cell.char = @intCast('a' + (i % 26));
-        cell.row = @intCast(i / columns);
-        cell.col = @intCast(i % columns);
-    }
+    const map = std.AutoArrayHashMap(Vec2(u32), Cell).init(allocator);
 
     return .{
-        .data = data,
+        .map = map,
         .rows = @intCast(rows),
         .columns = @intCast(columns),
     };
 }
 
+pub fn free(self: *CellProgram) void {
+    self.map.deinit();
+}
+
+pub fn data(self: *CellProgram) []Cell {
+    return self.map.values();
+}
+
 pub fn resize(self: *CellProgram, allocator: Allocator, options: CellProgramOptions) !void {
-    const rows = options.screen_height / options.cell_height;
-    const columns = options.screen_width / options.cell_width;
+    _ = self; // autofix
+    _ = allocator; // autofix
+    _ = options; // autofix
+}
 
-    const data = try allocator.alloc(Cell, rows * columns);
-
-    @memset(data, .{
-        .row = 0,
-        .col = 0,
-        .char = 'a',
-        .fg_color = .White,
-        .bg_color = .Gray,
-    });
-
-    for (data, 0..) |*cell, i| {
-        cell.char = @intCast('a' + (i % 26));
-        cell.row = @intCast(i / columns);
-        cell.col = @intCast(i % columns);
-    }
-
-    allocator.free(self.data);
-
-    self.* = .{
-        .data = data,
-        .rows = @intCast(rows),
-        .columns = @intCast(columns),
-    };
+pub fn set(self: *CellProgram, cell: Cell) !void {
+    try self.map.put(.{ .x = cell.row, .y = cell.col }, cell);
 }
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const common = @import("common.zig");
 const ColorRGBA = common.ColorRGBA;
+const math = @import("math.zig");
+const Vec2 = math.Vec2;
