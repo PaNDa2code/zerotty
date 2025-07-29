@@ -16,7 +16,7 @@ Developed primarily in **Zig**, leveraging its capabilities for cross-compilatio
 Current compatibility status across platforms and architectures:
 
 |OperatingSystem|`x86_64`|`ARM64`|`ARMv7`|
-|:---------------|:------:|:-----:|:-----:|
+|:-------------:|:------:|:-----:|:-----:|
 |**Linux**|🚧|🚧|🚧|
 |**Windows**|🚧|🚧|❌|
 |**macOS**|🚧|❌|❌|
