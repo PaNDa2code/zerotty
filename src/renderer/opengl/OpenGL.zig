@@ -100,7 +100,7 @@ fn setupBuffers(self: *OpenGLRenderer) void {
     gl.GenBuffers(1, @ptrCast(&instance_vbo));
     gl.BindBuffer(gl.ARRAY_BUFFER, instance_vbo);
 
-    const size: usize = self.grid.data().len * @sizeOf(Cell);
+    const size: usize = self.grid.data().len * (@sizeOf(Cell) + @sizeOf(Atlas.GlyphInfo));
 
     gl.BufferData(gl.ARRAY_BUFFER, @bitCast(size), null, gl.DYNAMIC_DRAW);
 
@@ -123,6 +123,18 @@ fn setupBuffers(self: *OpenGLRenderer) void {
     gl.EnableVertexAttribArray(5);
     gl.VertexAttribPointer(5, 4, gl.FLOAT, gl.FALSE, @sizeOf(Cell), @offsetOf(Cell, "bg_color"));
     gl.VertexAttribDivisor(5, 1); // bg_color
+    //
+    gl.EnableVertexAttribArray(6);
+    gl.VertexAttribPointer(6, 2, gl.FLOAT, gl.FALSE, @sizeOf(Cell), @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "coord_start"));
+    gl.VertexAttribDivisor(6, 1); // coord_start
+    //
+    gl.EnableVertexAttribArray(7);
+    gl.VertexAttribPointer(7, 2, gl.FLOAT, gl.FALSE, @sizeOf(Cell), @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "coord_end"));
+    gl.VertexAttribDivisor(7, 1); // coord_end
+
+    gl.EnableVertexAttribArray(8);
+    gl.VertexAttribPointer(8, 2, gl.FLOAT, gl.FALSE, @sizeOf(Cell), @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "bearing"));
+    gl.VertexAttribDivisor(8, 1); // bearing
 
     self.vbo = instance_vbo;
     gl.BindBuffer(gl.ARRAY_BUFFER, 0);
@@ -144,6 +156,8 @@ const UniformsBlock = packed struct {
     screen_width: f32,
     atlas_cols: f32,
     atlas_rows: f32,
+    atlas_width: f32,
+    atlas_height: f32,
 };
 
 fn setUniforms(self: *OpenGLRenderer) void {
@@ -154,6 +168,8 @@ fn setUniforms(self: *OpenGLRenderer) void {
         .screen_width = @floatFromInt(self.window_width),
         .atlas_cols = @floatFromInt(self.atlas.cols),
         .atlas_rows = @floatFromInt(self.atlas.rows),
+        .atlas_height = @floatFromInt(self.atlas.height),
+        .atlas_width = @floatFromInt(self.atlas.width),
     };
     gl.BindBuffer(gl.UNIFORM_BUFFER, self.ubo);
     gl.BufferSubData(gl.UNIFORM_BUFFER, 0, @sizeOf(UniformsBlock), &data);
@@ -162,7 +178,7 @@ fn setUniforms(self: *OpenGLRenderer) void {
 }
 
 fn createAtlasTexture(self: *OpenGLRenderer, allocator: Allocator) Atlas.CreateError!Atlas {
-    const atlas = try Atlas.create(allocator, 30, 20, 0, 128);
+    const atlas = try Atlas.create(allocator, 15, 10, 0, 128);
 
     var atlas_texture: gl.uint = 0;
     gl.GenTextures(1, @ptrCast(&atlas_texture));
@@ -267,6 +283,7 @@ pub fn setCell(
         .char = char_code,
         .fg_color = fg_color orelse .White,
         .bg_color = bg_color orelse .Gray,
+        .glyph_info = self.atlas.glyph_lookup_map.get(char_code) orelse self.atlas.glyph_lookup_map.get(0).?,
     });
 }
 

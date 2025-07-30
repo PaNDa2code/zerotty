@@ -6,6 +6,7 @@ pub const Cell = packed struct {
     char: u32, // location 3
     fg_color: ColorRGBA, // location 4
     bg_color: ColorRGBA, // location 5
+    glyph_info: Atlas.GlyphInfo = undefined, // location 6, 7, 8
 };
 
 const test_cell = Cell;
@@ -58,3 +59,6 @@ const common = @import("common.zig");
 const ColorRGBA = common.ColorRGBA;
 const math = @import("math.zig");
 const Vec2 = math.Vec2;
+
+const font = @import("../font/root.zig");
+const Atlas = font.Atlas;

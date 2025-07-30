@@ -8,6 +8,10 @@ layout(location = 3) in uint character;
 layout(location = 4) in vec4 fg_color;
 layout(location = 5) in vec4 bg_color;
 
+layout(location = 6) in uvec2 coord_start;
+layout(location = 7) in uvec2 coord_end;
+layout(location = 8) in uvec2 bearing;
+
 // Uniforms
 layout(set = 0, binding = 0) uniform Uniforms {
     float cell_height;
@@ -16,6 +20,8 @@ layout(set = 0, binding = 0) uniform Uniforms {
     float screen_width;
     float atlas_cols;
     float atlas_rows;
+    float atlas_height;
+    float atlas_width;
 } ubo;
 
 // Outputs
@@ -38,14 +44,11 @@ void main() {
 
     gl_Position = vec4(clip_pos, 0.0, 1.0);
 
-    // Calculate texture coordinates
-    float glyph_index = float(character);
-    float glyph_x = mod(glyph_index, ubo.atlas_cols);
-    float glyph_y = floor(glyph_index / ubo.atlas_cols);
-    vec2 glyph_uv_size = vec2(1.0 / ubo.atlas_cols, 1.0 / ubo.atlas_rows);
-    vec2 atlas_offset = vec2(glyph_x, glyph_y) * glyph_uv_size;
+    vec2 uv_min = vec2(coord_start) / vec2(ubo.atlas_width, ubo.atlas_height);
+    vec2 uv_max = vec2(coord_end) / vec2(ubo.atlas_width, ubo.atlas_height);
+    vec2 uv_range = uv_max - uv_min;
 
-    TexCoords = atlas_offset + quad_vertex.zw * glyph_uv_size;
+    TexCoords = uv_min + quad_vertex.zw * uv_range;
 
     // Pass colors
     v_fg_color = fg_color;

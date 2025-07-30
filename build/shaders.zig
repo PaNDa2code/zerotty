@@ -35,6 +35,7 @@ pub fn compiledShadersPathes(b: *Build, dir: Build.LazyPath, files: []const []co
                 b.addRunArtifact(glslangValidator.?);
 
         glslangValidator_cmd.addFileArg(path);
+        glslangValidator_cmd.addPrefixedDirectoryArg("-I", path.dirname());
 
         if (renderer == .Vulkan)
             glslangValidator_cmd.addArg("-V");
