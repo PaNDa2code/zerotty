@@ -126,6 +126,9 @@ pub fn saveAtlas(
     width: usize,
     height: usize,
 ) !void {
+    if (std.fs.path.dirname(filename)) |dir_path| {
+        _ = try std.fs.cwd().makePath(dir_path);
+    }
     const image = try zigimg.ImageUnmanaged.fromRawPixelsOwned(width, height, data, .grayscale8);
     try image.writeToFilePath(allocator, filename, .{ .png = .{} });
 }
