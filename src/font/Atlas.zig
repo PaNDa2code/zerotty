@@ -3,7 +3,7 @@ const Atlas = @This();
 pub const GlyphInfo = packed struct {
     coord_start: Vec2(u32),
     coord_end: Vec2(u32),
-    bearing: Vec2(u32),
+    bearing: Vec2(i32),
 };
 
 buffer: []u8,
@@ -41,13 +41,12 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
     const atlas_cols = std.math.sqrt(glyphs_count);
     const atlas_rows = try std.math.divCeil(u32, glyphs_count, atlas_cols);
 
-    // const padding_x = 1;
+    const padding_x = 1;
     const padding_y = 1;
 
     const glyph_height = (@as(u32, @intCast(ft_face.ft_face.*.size.*.metrics.height - ft_face.ft_face.*.size.*.metrics.descender)) >> 6);
-    const glyph_width = (@as(u32, @intCast(ft_face.ft_face.*.size.*.metrics.max_advance)) >> 6);
+    // const glyph_width = (@as(u32, @intCast(ft_face.ft_face.*.size.*.metrics.max_advance)) >> 6);
 
-    // const tex_width = (glyph_width + padding_x) * atlas_cols;
     const tex_height = (glyph_height + padding_y) * atlas_rows;
     const tex_width = tex_height;
 
@@ -81,15 +80,14 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
         const glyph_info: GlyphInfo = .{
             .coord_start = pin,
             .coord_end = .{ .x = pin.x + bitmap.width, .y = pin.y + bitmap.rows },
-            .bearing = .{
-                .x = @intCast(glyph.ft_glyph.advance.x >> 6),
-                .y = @intCast(glyph.ft_glyph.advance.y >> 6),
-            },
+            .bearing = .{ .x = bitmap_glyph.left, .y = -bitmap_glyph.top },
         };
+
+        std.log.debug("GlyphInfo {any}", .{glyph_info});
         try glyph_map.put(@intCast(c), glyph_info);
 
         // Advance to next position
-        pin.x += glyph_width;
+        pin.x += bitmap.width + padding_x;
     }
 
     if (builtin.mode == .Debug)
@@ -100,8 +98,8 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
         .height = tex_height,
         .width = tex_width,
         .glyph_lookup_map = glyph_map,
-        .cell_width = @intCast(glyph_width),
-        .cell_height = @intCast(glyph_height),
+        .cell_width = cell_width,
+        .cell_height = cell_height,
         .rows = atlas_rows,
         .cols = atlas_cols,
         .from = from,

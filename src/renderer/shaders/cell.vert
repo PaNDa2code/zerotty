@@ -10,7 +10,7 @@ layout(location = 5) in vec4 bg_color;
 
 layout(location = 6) in uvec2 coord_start;
 layout(location = 7) in uvec2 coord_end;
-layout(location = 8) in uvec2 bearing;
+layout(location = 8) in ivec2 bearing;
 
 // Uniforms
 layout(set = 0, binding = 0) uniform Uniforms {
@@ -35,8 +35,12 @@ void main() {
     vec2 screen_size = vec2(ubo.screen_width, ubo.screen_height);
 
     // Calculate position
-    vec2 grid_pos = vec2(float(col), float(row)) * cell_size;
-    vec2 vertex_pos = grid_pos + quad_vertex.xy * cell_size;
+    vec2 cell_origin = vec2(col, row) * cell_size;
+    vec2 glyph_offset = vec2(bearing);
+
+    vec2 glyph_size = vec2(coord_end - coord_start);
+
+    vec2 vertex_pos = cell_origin + glyph_offset + quad_vertex.xy * glyph_size;
 
     // Convert to clip space
     vec2 normalized = vertex_pos / screen_size;
@@ -47,7 +51,6 @@ void main() {
 
     vec2 uv_min = vec2(coord_start) / atlas_size;
     vec2 uv_max = vec2(coord_end) / atlas_size;
-
     vec2 uv_range = uv_max - uv_min;
 
     TexCoords = uv_min + quad_vertex.zw * uv_range;
