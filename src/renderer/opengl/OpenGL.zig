@@ -178,7 +178,7 @@ fn setUniforms(self: *OpenGLRenderer) void {
 }
 
 fn createAtlasTexture(self: *OpenGLRenderer, allocator: Allocator) Atlas.CreateError!Atlas {
-    const atlas = try Atlas.create(allocator, 15, 10, 0, 128);
+    const atlas = try Atlas.create(allocator, 30, 20, 0, 128);
 
     var atlas_texture: gl.uint = 0;
     gl.GenTextures(1, @ptrCast(&atlas_texture));
@@ -188,6 +188,7 @@ fn createAtlasTexture(self: *OpenGLRenderer, allocator: Allocator) Atlas.CreateE
     gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_BORDER);
     gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_BORDER);
+    gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1);
     gl.TexImage2D(
         gl.TEXTURE_2D,
         0,
@@ -283,7 +284,7 @@ pub fn setCell(
         .char = char_code,
         .fg_color = fg_color orelse .White,
         .bg_color = bg_color orelse .Gray,
-        .glyph_info = self.atlas.glyph_lookup_map.get(char_code) orelse self.atlas.glyph_lookup_map.get(0).?,
+        .glyph_info = self.atlas.glyph_lookup_map.get(char_code) orelse self.atlas.glyph_lookup_map.get(' ').?,
     });
 }
 

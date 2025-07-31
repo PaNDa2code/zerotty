@@ -35,28 +35,27 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
     // font should always be monospace (at least for now)
     std.debug.assert(ft_face.isFixedWidth());
 
-    try ft_face.setCharSize(0, @as(u32, @intCast(cell_height)) << 6, 96, 96);
+    // try ft_face.setCharSize(0, @as(u32, @intCast(cell_height)) << 6, 96, 96);
+    try ft_face.setPixelSize(cell_width, cell_height);
 
-    const glyphs_per_row = @as(u32, @intFromFloat(@ceil(@sqrt(@as(f32, @floatFromInt(glyphs_count))))));
+    const atlas_cols = std.math.sqrt(glyphs_count);
+    const atlas_rows = try std.math.divCeil(u32, glyphs_count, atlas_cols);
 
-    // Add 1 pixel padding per glyph
-    const cell_size = (@as(u32, @intCast(ft_face.ft_face.*.height)) >> 6) + 1;
+    // const padding_x = 1;
+    const padding_y = 1;
 
-    // Total dimension in pixels
-    const max_dim = cell_size * glyphs_per_row;
+    const glyph_height = (@as(u32, @intCast(ft_face.ft_face.*.size.*.metrics.height - ft_face.ft_face.*.size.*.metrics.descender)) >> 6);
+    const glyph_width = (@as(u32, @intCast(ft_face.ft_face.*.size.*.metrics.max_advance)) >> 6);
 
-    // Find next power of 2 ≥ max_dim
-    var tex_width: usize = 1;
-    while (tex_width < max_dim) tex_width <<= 1;
-
-    const tex_height = tex_width;
+    // const tex_width = (glyph_width + padding_x) * atlas_cols;
+    const tex_height = (glyph_height + padding_y) * atlas_rows;
+    const tex_width = tex_height;
 
     var pixels = try allocator.alloc(u8, tex_width * tex_height);
     @memset(pixels, 0);
     var glyph_map = std.AutoHashMap(u32, GlyphInfo).init(allocator);
 
-    var pin_x: u32 = 0;
-    var pin_y: u32 = 0;
+    var pin: Vec2(u32) = .zero;
     for (from..to) |c| {
         var glyph = try ft_face.getGlyph(@intCast(c));
         defer glyph.deinit();
@@ -64,24 +63,24 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
         const bitmap_glyph = try glyph.glyphBitmap();
         const bitmap = bitmap_glyph.bitmap;
 
-        if (pin_x + bitmap.width >= tex_width) {
-            pin_x = 0;
-            pin_y += cell_size;
+        if (pin.x + bitmap.width > tex_width) {
+            pin.x = 0;
+            pin.y += glyph_height;
         }
 
         for (0..bitmap.rows) |row| {
             const src_start = row * @as(usize, @intCast(bitmap.pitch));
             const src_row = bitmap.buffer.?[src_start .. src_start + bitmap.width];
 
-            const dst_start = (pin_y + row) * tex_width + pin_x;
+            const dst_start = (pin.y + row) * tex_width + pin.x;
             const dst_row = pixels[dst_start .. dst_start + bitmap.width];
 
             @memcpy(dst_row, src_row);
         }
 
         const glyph_info: GlyphInfo = .{
-            .coord_start = .{ .x = pin_x, .y = pin_y },
-            .coord_end = .{ .x = pin_x + bitmap.width, .y = pin_y + bitmap.rows },
+            .coord_start = pin,
+            .coord_end = .{ .x = pin.x + bitmap.width, .y = pin.y + bitmap.rows },
             .bearing = .{
                 .x = @intCast(glyph.ft_glyph.advance.x >> 6),
                 .y = @intCast(glyph.ft_glyph.advance.y >> 6),
@@ -90,7 +89,7 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
         try glyph_map.put(@intCast(c), glyph_info);
 
         // Advance to next position
-        pin_x += cell_size;
+        pin.x += glyph_width;
     }
 
     if (builtin.mode == .Debug)
@@ -101,10 +100,10 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
         .height = tex_height,
         .width = tex_width,
         .glyph_lookup_map = glyph_map,
-        .cell_width = cell_width,
-        .cell_height = cell_height,
-        .rows = 0,
-        .cols = 0,
+        .cell_width = @intCast(glyph_width),
+        .cell_height = @intCast(glyph_height),
+        .rows = atlas_rows,
+        .cols = atlas_cols,
         .from = from,
         .to = to,
     };

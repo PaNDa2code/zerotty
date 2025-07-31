@@ -30,6 +30,7 @@ layout(location = 1) out vec4 v_fg_color;
 layout(location = 2) out vec4 v_bg_color;
 
 void main() {
+    vec2 atlas_size = vec2(ubo.atlas_width, ubo.atlas_height);
     vec2 cell_size = vec2(ubo.cell_width, ubo.cell_height);
     vec2 screen_size = vec2(ubo.screen_width, ubo.screen_height);
 
@@ -44,8 +45,9 @@ void main() {
 
     gl_Position = vec4(clip_pos, 0.0, 1.0);
 
-    vec2 uv_min = vec2(coord_start) / vec2(ubo.atlas_width, ubo.atlas_height);
-    vec2 uv_max = vec2(coord_end) / vec2(ubo.atlas_width, ubo.atlas_height);
+    vec2 uv_min = vec2(coord_start) / atlas_size;
+    vec2 uv_max = vec2(coord_end) / atlas_size;
+
     vec2 uv_range = uv_max - uv_min;
 
     TexCoords = uv_min + quad_vertex.zw * uv_range;
