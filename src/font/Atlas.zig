@@ -80,7 +80,7 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
         const glyph_info: GlyphInfo = .{
             .coord_start = pin,
             .coord_end = .{ .x = pin.x + bitmap.width, .y = pin.y + bitmap.rows },
-            .bearing = .{ .x = bitmap_glyph.left, .y = -bitmap_glyph.top },
+            .bearing = .{ .x = bitmap_glyph.left, .y = bitmap_glyph.top },
         };
 
         std.log.debug("GlyphInfo {any}", .{glyph_info});

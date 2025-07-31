@@ -123,17 +123,17 @@ fn setupBuffers(self: *OpenGLRenderer) void {
     gl.EnableVertexAttribArray(5);
     gl.VertexAttribPointer(5, 4, gl.FLOAT, gl.FALSE, @sizeOf(Cell), @offsetOf(Cell, "bg_color"));
     gl.VertexAttribDivisor(5, 1); // bg_color
-    //
+
     gl.EnableVertexAttribArray(6);
-    gl.VertexAttribPointer(6, 2, gl.UNSIGNED_INT, gl.FALSE, @sizeOf(Cell), @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "coord_start"));
+    gl.VertexAttribIPointer(6, 2, gl.UNSIGNED_INT, @sizeOf(Cell), @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "coord_start"));
     gl.VertexAttribDivisor(6, 1); // coord_start
-    //
+
     gl.EnableVertexAttribArray(7);
-    gl.VertexAttribPointer(7, 2, gl.UNSIGNED_INT, gl.FALSE, @sizeOf(Cell), @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "coord_end"));
+    gl.VertexAttribIPointer(7, 2, gl.UNSIGNED_INT, @sizeOf(Cell), @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "coord_end"));
     gl.VertexAttribDivisor(7, 1); // coord_end
 
     gl.EnableVertexAttribArray(8);
-    gl.VertexAttribPointer(8, 2, gl.INT, gl.FALSE, @sizeOf(Cell), @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "bearing"));
+    gl.VertexAttribIPointer(8, 2, gl.INT, @sizeOf(Cell), @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "bearing"));
     gl.VertexAttribDivisor(8, 1); // bearing
 
     self.vbo = instance_vbo;
