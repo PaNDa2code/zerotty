@@ -80,11 +80,9 @@ pub fn open(self: *Window, allocator: Allocator) !void {
     var img = try zigimg.ImageUnmanaged.fromMemory(allocator, assets.icons.@"logo_32x32.png");
     defer img.deinit(allocator);
 
-    try img.convert(allocator, .rgba32);
+    try img.convert(allocator, .bgra32);
 
     const pixels = img.pixels.asBytes();
-
-    std.debug.assert(img.pixelFormat() == .rgba32 and pixels.len != 0);
 
     var buffer = try allocator.alloc(u8, pixels.len + 8);
     defer allocator.free(buffer);
@@ -92,13 +90,7 @@ pub fn open(self: *Window, allocator: Allocator) !void {
     std.mem.writeInt(u32, buffer[0..4], @intCast(img.width), .little);
     std.mem.writeInt(u32, buffer[4..8], @intCast(img.height), .little);
 
-    var i: usize = 0;
-    while (i < pixels.len) : (i += 4) {
-        buffer[i + 8 ..][0] = pixels[i..][2]; // B
-        buffer[i + 8 ..][1] = pixels[i..][1]; // G 
-        buffer[i + 8 ..][2] = pixels[i..][0]; // R
-        buffer[i + 8 ..][3] = pixels[i..][3]; // A
-    }
+    @memcpy(buffer[8..], pixels);
 
     const data_len = pixels.len + 8;
 
