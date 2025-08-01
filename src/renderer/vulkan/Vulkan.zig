@@ -12,6 +12,8 @@ window_width: u32,
 cmd_pool: vk.CommandPool,
 cmd_buffers: []const vk.CommandBuffer,
 
+grid: @import("../Grid.zig") = undefined,
+
 const VulkanRenderer = @This();
 
 pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {

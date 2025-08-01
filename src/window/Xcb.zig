@@ -77,6 +77,45 @@ pub fn open(self: *Window, allocator: Allocator) !void {
     // Flush all commands
     _ = c.xcb_flush(self.connection);
 
+    var img = try zigimg.ImageUnmanaged.fromMemory(allocator, assets.icons.@"logo_32x32.png");
+    defer img.deinit(allocator);
+
+    try img.convert(allocator, .rgba32);
+
+    const pixels = img.pixels.asBytes();
+
+    std.debug.assert(img.pixelFormat() == .rgba32 and pixels.len != 0);
+
+    var buffer = try allocator.alloc(u8, pixels.len + 8);
+    defer allocator.free(buffer);
+
+    std.mem.writeInt(u32, buffer[0..4], @intCast(img.width), .little);
+    std.mem.writeInt(u32, buffer[4..8], @intCast(img.height), .little);
+
+    var i: usize = 0;
+    while (i < pixels.len) : (i += 4) {
+        buffer[i + 8 ..][0] = pixels[i..][2]; // B
+        buffer[i + 8 ..][1] = pixels[i..][1]; // G 
+        buffer[i + 8 ..][2] = pixels[i..][0]; // R
+        buffer[i + 8 ..][3] = pixels[i..][3]; // A
+    }
+
+    const data_len = pixels.len + 8;
+
+    const net_wm_icon = get_atom(self.connection, "_NET_WM_ICON") orelse undefined;
+    const cardinal = get_atom(self.connection, "CARDINAL") orelse undefined;
+
+    _ = c.xcb_change_property(
+        self.connection,
+        c.XCB_PROP_MODE_REPLACE,
+        self.window,
+        net_wm_icon,
+        cardinal,
+        32,
+        @intCast(data_len / 4),
+        buffer.ptr,
+    );
+
     self.renderer = try Renderer.init(self, allocator);
 }
 
@@ -114,12 +153,22 @@ pub fn close(self: *Window) void {
     self.renderer.deinit();
 }
 
+fn get_atom(conn: *c.xcb_connection_t, atom_name: []const u8) ?c.xcb_atom_t {
+    const cookie = c.xcb_intern_atom(conn, 0, @intCast(atom_name.len), @ptrCast(atom_name.ptr));
+    const replay = c.xcb_intern_atom_reply(conn, cookie, null) orelse return null;
+    defer c.free(replay);
+    return replay.*.atom;
+}
+
 const std = @import("std");
 const Renderer = @import("../renderer/root.zig");
 
 const Allocator = std.mem.Allocator;
 
+const zigimg = @import("zigimg");
+const assets = @import("assets");
 const c = @cImport({
     @cInclude("xcb/xcb.h");
     @cInclude("X11/keysym.h");
+    @cInclude("stdlib.h");
 });

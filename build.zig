@@ -39,4 +39,4 @@ pub fn build(b: *Build) !void {
     test_step.dependOn(&run_unit_test.step);
 }
 
-const DEFULAT_RENDER_BACKEND: Builder.RenderBackend = .OpenGL;
+const DEFULAT_RENDER_BACKEND: Builder.RenderBackend = .Vulkan;
