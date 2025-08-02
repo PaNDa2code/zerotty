@@ -8,6 +8,8 @@ renderer: Renderer = undefined,
 render_cb: ?*const fn (*Renderer) void = null,
 resize_cb: ?*const fn (width: u32, height: u32) void = null,
 
+wm_delete_window_atom: c.xcb_atom_t = 0,
+
 exit: bool = false,
 title: []const u8,
 height: u32,
@@ -35,7 +37,7 @@ pub fn open(self: *Window, allocator: Allocator) !void {
 
     const value_mask: u32 = c.XCB_CW_BACK_PIXEL | c.XCB_CW_EVENT_MASK;
     const value_list = [_]u32{
-        self.screen.*.white_pixel,
+        self.screen.*.black_pixel,
         c.XCB_EVENT_MASK_EXPOSURE |
             c.XCB_EVENT_MASK_KEY_PRESS |
             c.XCB_EVENT_MASK_STRUCTURE_NOTIFY,
@@ -48,8 +50,8 @@ pub fn open(self: *Window, allocator: Allocator) !void {
         self.screen.*.root, // parent window
         0,
         0, // x, y
-        800,
-        600, // width, height
+        @intCast(self.width),
+        @intCast(self.height), // width, height
         0, // border width
         c.XCB_WINDOW_CLASS_INPUT_OUTPUT,
         self.screen.*.root_visual,
@@ -94,18 +96,32 @@ pub fn open(self: *Window, allocator: Allocator) !void {
 
     const data_len = pixels.len + 8;
 
-    const net_wm_icon = get_atom(self.connection, "_NET_WM_ICON") orelse undefined;
-    const cardinal = get_atom(self.connection, "CARDINAL") orelse undefined;
+    const net_wm_icon_atom = get_atom(self.connection, "_NET_WM_ICON") orelse unreachable;
+    const cardinal_atom = get_atom(self.connection, "CARDINAL") orelse unreachable;
+
+    const wm_protocols_atom = get_atom(self.connection, "WM_PROTOCOLS") orelse unreachable;
+    self.wm_delete_window_atom = get_atom(self.connection, "WM_DELETE_WINDOW") orelse unreachable;
 
     _ = c.xcb_change_property(
         self.connection,
         c.XCB_PROP_MODE_REPLACE,
         self.window,
-        net_wm_icon,
-        cardinal,
+        net_wm_icon_atom,
+        cardinal_atom,
         32,
         @intCast(data_len / 4),
         buffer.ptr,
+    );
+
+    _ = c.xcb_change_property(
+        self.connection,
+        c.XCB_PROP_MODE_REPLACE,
+        self.window,
+        wm_protocols_atom,
+        c.XCB_ATOM_ATOM,
+        32,
+        1,
+        &self.wm_delete_window_atom,
     );
 
     self.renderer = try Renderer.init(self, allocator);
@@ -131,7 +147,10 @@ pub fn pumpMessages(self: *Window) void {
             c.XCB_DESTROY_NOTIFY => {
                 self.exit = true;
             },
-            c.XCB_CLIENT_MESSAGE => {},
+            c.XCB_CLIENT_MESSAGE => {
+                if (@as(*c.xcb_client_message_event_t, @ptrCast(event)).data.data32[0] == self.wm_delete_window_atom)
+                    self.exit = true;
+            },
             else => {},
         }
 
