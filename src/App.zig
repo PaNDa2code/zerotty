@@ -19,13 +19,10 @@ pub fn new(allocator: Allocator) App {
 }
 
 pub fn start(self: *App) !void {
-    var arina = std.heap.ArenaAllocator.init(self.allocator);
-    defer arina.deinit();
-
     try self.window.open(self.allocator);
     try self.buffer.init(1024 * 64);
     try self.pty.open(.{});
-    try self.child.start(arina.allocator(), &self.pty);
+    try self.child.start(self.allocator, &self.pty);
 }
 
 pub fn loop(self: *App) void {

@@ -15,10 +15,13 @@ stdin: ?File = null,
 stdout: ?File = null,
 stderr: ?File = null,
 
-pub fn start(self: *ChildProcess, arina: Allocator, pty: ?*Pty) !void {
+pub fn start(self: *ChildProcess, allocator: Allocator, pty: ?*Pty) !void {
+    var arina = std.heap.ArenaAllocator.init(allocator);
+    defer arina.deinit();
+
     return switch (os) {
-        .windows => self.startWindows(arina, pty),
-        .linux, .macos => self.startPosix(arina, pty),
+        .windows => self.startWindows(arina.allocator(), pty),
+        .linux, .macos => self.startPosix(arina.allocator(), pty),
         else => @compileError("Not supported"),
     };
 }
@@ -243,9 +246,7 @@ test ChildProcess {
         .args = &.{},
     };
 
-    var arina = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arina.deinit();
-    try child.start(arina.allocator(), &pty);
+    try child.start(std.testing.allocator, &pty);
     defer child.terminate();
     // try child.wait();
 }
