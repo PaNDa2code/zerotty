@@ -9,7 +9,7 @@ physical_device: vk.PhysicalDevice, // GPU
 device: vk.Device, // GPU drivers
 swap_chain: vk.SwapchainKHR,
 surface: vk.SurfaceKHR, // Window surface
-vk_mem: VkMemInterface,
+vk_mem: VkAllocatorAdapter,
 window_height: u32,
 window_width: u32,
 cmd_pool: vk.CommandPool,
@@ -20,7 +20,7 @@ pipe_line: PipeLine,
 grid: @import("../Grid.zig") = undefined,
 
 pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
-    var vk_mem = VkMemInterface.create(allocator);
+    var vk_mem = try VkAllocatorAdapter.create(allocator);
     errdefer vk_mem.destroy();
 
     const vk_mem_cb = vk_mem.vkAllocatorCallbacks();
@@ -477,4 +477,4 @@ const Window = @import("../../window/root.zig").Window;
 const Allocator = std.mem.Allocator;
 const ColorRGBA = common.ColorRGBA;
 const DynamicLibrary = @import("../../DynamicLibrary.zig");
-const VkMemInterface = @import("VkMemInterface.zig");
+const VkAllocatorAdapter = @import("VkAllocatorAdapter.zig");

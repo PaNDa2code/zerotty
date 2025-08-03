@@ -12,12 +12,14 @@ const RecordMap = std.AutoHashMapUnmanaged(usize, Record);
 
 
 allocator: Allocator,
-record_map: RecordMap,
+record_map: *RecordMap,
 
-pub fn create(allocator: Allocator) VkAllocatorAdapter {
+pub fn create(allocator: Allocator) !VkAllocatorAdapter {
+    const map = try allocator.create(RecordMap);
+    map.* = .empty;
     return .{
         .allocator = allocator,
-        .record_map = .empty,
+        .record_map = map,
     };
 }
 
@@ -76,7 +78,7 @@ fn vkAlloc(
 
     const alignment_enum = std.mem.Alignment.fromByteUnits(alignment);
 
-    return VkAllocatorAdapter.allocAndRecord(vk_allocator.allocator, &vk_allocator.record_map, size, alignment_enum);
+    return VkAllocatorAdapter.allocAndRecord(vk_allocator.allocator, vk_allocator.record_map, size, alignment_enum);
 }
 
 fn vkFree(
@@ -87,7 +89,7 @@ fn vkFree(
         return;
 
     const vk_allocator: *VkAllocatorAdapter = @alignCast(@ptrCast(p_user_data));
-    VkAllocatorAdapter.freeRecored(vk_allocator.allocator, &vk_allocator.record_map, memory.?);
+    VkAllocatorAdapter.freeRecored(vk_allocator.allocator, vk_allocator.record_map, memory.?);
 }
 
 fn vkRealloc(
@@ -119,9 +121,6 @@ fn vkRealloc(
             @returnAddress(),
         );
 
-        if (new == old_block.ptr)
-            old_record_ptr.size = size;
-
         if (new != null and new != old_block.ptr) {
             _ = vk_allocator.record_map.remove(@intFromPtr(old_block.ptr));
             vk_allocator.record_map.put(
@@ -133,13 +132,15 @@ fn vkRealloc(
     }
 
     if (new == null) {
-        new = VkAllocatorAdapter.allocAndRecord(allocator, &vk_allocator.record_map, size, new_alignment);
+        new = VkAllocatorAdapter.allocAndRecord(allocator, vk_allocator.record_map, size, new_alignment);
 
         const bytes_to_copy = @min(size, old_block.len);
         @memcpy(new.?[0..bytes_to_copy], old_block[0..bytes_to_copy]);
 
-        VkAllocatorAdapter.freeRecored(allocator, &vk_allocator.record_map, p_original.?);
+        VkAllocatorAdapter.freeRecored(allocator, vk_allocator.record_map, p_original.?);
     }
+
+    old_record_ptr.size = size;
 
     return new;
 }
