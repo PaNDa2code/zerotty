@@ -1,4 +1,4 @@
-//! Allows Vulkan to use Zig's memory management via plug-in style callbacks.
+//! Allows Vulkan to use Zig's memory management via adapter style callbacks.
 //! Provides a `VkAllocationCallbacks` using Zig's `Allocator`.
 
 // TODO: store allocation data without extra map
@@ -8,18 +8,18 @@ const Record = struct {
 };
 const RecordMap = std.AutoHashMapUnmanaged(usize, Record);
 
-const VkMemInterface = @This();
+const VkAllocatorAdapter = @This();
 
 allocator: Allocator,
 record_map: RecordMap = .empty,
 
-pub fn create(allocator: Allocator) VkMemInterface {
+pub fn create(allocator: Allocator) VkAllocatorAdapter {
     return .{
         .allocator = allocator,
     };
 }
 
-pub fn destroy(self: *VkMemInterface) void {
+pub fn destroy(self: *VkAllocatorAdapter) void {
     // var iter = self.record_map.iterator();
     // while (iter.next()) |entry| {
     //     const ptr: [*]u8 = @ptrFromInt(entry.key_ptr.*);
@@ -34,12 +34,12 @@ pub fn destroy(self: *VkMemInterface) void {
     self.record_map.deinit(self.allocator);
 }
 
-pub fn vkAllocatorCallbacks(self: *VkMemInterface) vk.AllocationCallbacks {
+pub fn vkAllocatorCallbacks(self: *VkAllocatorAdapter) vk.AllocationCallbacks {
     return .{
         .p_user_data = self,
-        .pfn_allocation = VkMemInterface.vkAlloc,
-        .pfn_reallocation = VkMemInterface.vkRealloc,
-        .pfn_free = VkMemInterface.vkFree,
+        .pfn_allocation = VkAllocatorAdapter.vkAlloc,
+        .pfn_reallocation = VkAllocatorAdapter.vkRealloc,
+        .pfn_free = VkAllocatorAdapter.vkFree,
     };
 }
 
@@ -81,11 +81,11 @@ fn vkAlloc(
     if (p_user_data == null or size == 0)
         return null;
 
-    const vk_allocator: *VkMemInterface = @alignCast(@ptrCast(p_user_data.?));
+    const vk_allocator: *VkAllocatorAdapter = @alignCast(@ptrCast(p_user_data.?));
 
     const alignment_enum = std.mem.Alignment.fromByteUnits(alignment);
 
-    return VkMemInterface.allocAndRecord(vk_allocator.allocator, &vk_allocator.record_map, size, alignment_enum);
+    return VkAllocatorAdapter.allocAndRecord(vk_allocator.allocator, &vk_allocator.record_map, size, alignment_enum);
 }
 
 fn vkFree(
@@ -95,8 +95,8 @@ fn vkFree(
     if (p_user_data == null or memory == null)
         return;
 
-    const vk_allocator: *VkMemInterface = @alignCast(@ptrCast(p_user_data));
-    VkMemInterface.freeRecored(vk_allocator.allocator, &vk_allocator.record_map, memory.?);
+    const vk_allocator: *VkAllocatorAdapter = @alignCast(@ptrCast(p_user_data));
+    VkAllocatorAdapter.freeRecored(vk_allocator.allocator, &vk_allocator.record_map, memory.?);
 }
 
 fn vkRealloc(
@@ -110,7 +110,7 @@ fn vkRealloc(
     if (p_user_data == null or p_original == null or size == 0)
         return null;
 
-    const vk_allocator: *VkMemInterface = @alignCast(@ptrCast(p_user_data));
+    const vk_allocator: *VkAllocatorAdapter = @alignCast(@ptrCast(p_user_data));
     const allocator = vk_allocator.allocator;
 
     const old_record_ptr = vk_allocator.record_map.getPtr(@intFromPtr(p_original.?)) orelse return null;
@@ -132,12 +132,12 @@ fn vkRealloc(
     }
 
     if (new == null) {
-        new = VkMemInterface.allocAndRecord(allocator, &vk_allocator.record_map, size, new_alignment);
+        new = VkAllocatorAdapter.allocAndRecord(allocator, &vk_allocator.record_map, size, new_alignment);
 
         const bytes_to_copy = @min(size, old_block.len);
         @memcpy(new.?[0..bytes_to_copy], old_block[0..bytes_to_copy]);
 
-        VkMemInterface.freeRecored(allocator, &vk_allocator.record_map, p_original.?);
+        VkAllocatorAdapter.freeRecored(allocator, &vk_allocator.record_map, p_original.?);
     }
 
     return new;
@@ -148,7 +148,7 @@ const vk = @import("vulkan");
 const Allocator = std.mem.Allocator;
 
 test {
-    var vk_allocator = VkMemInterface.create(std.testing.allocator);
+    var vk_allocator = VkAllocatorAdapter.create(std.testing.allocator);
     defer vk_allocator.destroy();
 
     const callbacks = vk_allocator.vkAllocatorCallbacks();
