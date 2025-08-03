@@ -20,17 +20,6 @@ pub fn create(allocator: Allocator) VkAllocatorAdapter {
 }
 
 pub fn destroy(self: *VkAllocatorAdapter) void {
-    // var iter = self.record_map.iterator();
-    // while (iter.next()) |entry| {
-    //     const ptr: [*]u8 = @ptrFromInt(entry.key_ptr.*);
-    //     const block = ptr[0..entry.value_ptr.size];
-    //     self.allocator.vtable.free(
-    //         self.allocator.ptr,
-    //         block,
-    //         entry.value_ptr.alignment,
-    //         @returnAddress(),
-    //     );
-    // }
     self.record_map.deinit(self.allocator);
 }
 

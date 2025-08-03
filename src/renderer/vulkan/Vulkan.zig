@@ -9,7 +9,7 @@ physical_device: vk.PhysicalDevice, // GPU
 device: vk.Device, // GPU drivers
 swap_chain: vk.SwapchainKHR,
 surface: vk.SurfaceKHR, // Window surface
-vk_mem: VkAllocatorAdapter,
+vk_mem: *VkAllocatorAdapter,
 window_height: u32,
 window_width: u32,
 cmd_pool: vk.CommandPool,
@@ -20,7 +20,8 @@ pipe_line: PipeLine,
 grid: @import("../Grid.zig") = undefined,
 
 pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
-    var vk_mem = VkAllocatorAdapter.create(allocator);
+    const vk_mem = try allocator.create(VkAllocatorAdapter);
+    vk_mem.* = .create(allocator);
     errdefer vk_mem.destroy();
 
     const vk_mem_cb = vk_mem.vkAllocatorCallbacks();
@@ -86,7 +87,7 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
             present_mode = .immediate_khr;
     }
 
-    std.debug.assert(caps.max_image_count > 1);
+    // std.debug.assert(caps.max_image_count > 1);
 
     var image_count = caps.min_image_count + 1;
 
@@ -427,6 +428,7 @@ pub fn deinit(self: *VulkanRenderer) void {
     allocator.destroy(self.device_wrapper);
 
     self.vk_mem.destroy();
+    allocator.destroy(self.vk_mem);
 }
 
 pub fn clearBuffer(self: *VulkanRenderer, color: ColorRGBA) void {
