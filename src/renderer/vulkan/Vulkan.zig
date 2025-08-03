@@ -1,20 +1,23 @@
+const VulkanRenderer = @This();
+
+base_wrapper: *vk.BaseWrapper,
+instance_wrapper: *vk.InstanceWrapper,
+device_wrapper: *vk.DeviceWrapper,
+
 instance: vk.Instance,
 physical_device: vk.PhysicalDevice, // GPU
 device: vk.Device, // GPU drivers
 swap_chain: vk.SwapchainKHR,
 surface: vk.SurfaceKHR, // Window surface
-base_dispatch: vk.BaseDispatch,
-instance_dispatch: vk.InstanceDispatch,
-device_dispatch: vk.DeviceDispatch,
 vk_mem: VkMemInterface,
 window_height: u32,
 window_width: u32,
 cmd_pool: vk.CommandPool,
 cmd_buffers: []const vk.CommandBuffer,
 
-grid: @import("../Grid.zig") = undefined,
+pipe_line: PipeLine,
 
-const VulkanRenderer = @This();
+grid: @import("../Grid.zig") = undefined,
 
 pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
     var vk_mem = VkMemInterface.create(allocator);
@@ -22,20 +25,23 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
 
     const vk_mem_cb = vk_mem.vkAllocatorCallbacks();
 
-    const vkb = vk.BaseWrapper.load(baseGetInstanceProcAddress);
+    const vkb = try allocator.create(vk.BaseWrapper);
+    vkb.* = .load(baseGetInstanceProcAddress);
 
-    const instance = try createInstance(&vkb, &vk_mem_cb);
+    const instance = try createInstance(vkb, &vk_mem_cb);
 
-    const vki = vk.InstanceWrapper.load(instance, vkb.dispatch.vkGetInstanceProcAddr.?);
+    const vki = try allocator.create(vk.InstanceWrapper);
+    vki.* = .load(instance, vkb.dispatch.vkGetInstanceProcAddr.?);
     errdefer vki.destroyInstance(instance, &vk_mem_cb);
 
-    const surface = try createWindowSerface(&vki, instance, window, &vk_mem_cb);
+    const surface = try createWindowSerface(vki, instance, window, &vk_mem_cb);
     errdefer vki.destroySurfaceKHR(instance, surface, &vk_mem_cb);
 
     var physical_device: vk.PhysicalDevice = .null_handle;
-    const device = try createDevice(allocator, &vki, instance, &vk_mem_cb, &physical_device);
+    const device = try createDevice(allocator, vki, instance, &vk_mem_cb, &physical_device);
 
-    const vkd = vk.DeviceWrapper.load(device, vki.dispatch.vkGetDeviceProcAddr.?);
+    const vkd = try allocator.create(vk.DeviceWrapper); 
+    vkd.* = vk.DeviceWrapper.load(device, vki.dispatch.vkGetDeviceProcAddr.?);
     errdefer vkd.destroyDevice(device, &vk_mem_cb);
 
     const caps: vk.SurfaceCapabilitiesKHR =
@@ -107,7 +113,7 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
     const swap_chain = try vkd.createSwapchainKHR(device, &swap_chain_create_info, &vk_mem_cb);
 
     var cmd_pool: vk.CommandPool = .null_handle;
-    const cmd_buffers = try allocCmdBuffers(allocator, &vkd, device, image_count, &cmd_pool, &vk_mem_cb);
+    const cmd_buffers = try allocCmdBuffers(allocator, vkd, device, image_count, &cmd_pool, &vk_mem_cb);
 
     return .{
         .swap_chain = swap_chain,
@@ -115,14 +121,15 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
         .instance = instance,
         .physical_device = physical_device,
         .surface = surface,
-        .base_dispatch = vkb.dispatch,
-        .instance_dispatch = vki.dispatch,
-        .device_dispatch = vkd.dispatch,
+        .base_wrapper = vkb,
+        .instance_wrapper = vki,
+        .device_wrapper = vkd,
         .vk_mem = vk_mem,
         .window_height = window.height,
         .window_width = window.width,
         .cmd_pool = cmd_pool,
         .cmd_buffers = cmd_buffers,
+        .pipe_line = try .init(vkd, device, &vk_mem_cb),
     };
 }
 
@@ -399,18 +406,25 @@ fn baseGetInstanceProcAddress(_: vk.Instance, procname: [*:0]const u8) vk.PfnVoi
 }
 
 pub fn deinit(self: *VulkanRenderer) void {
+    const allocator = self.vk_mem.allocator;
     const cb = self.vk_mem.vkAllocatorCallbacks();
 
-    const vki: vk.InstanceWrapper = .{ .dispatch = self.instance_dispatch };
-    const vkd: vk.DeviceWrapper = .{ .dispatch = self.device_dispatch };
+    const vki = self.instance_wrapper;
+    const vkd = self.device_wrapper;
 
-    freeCmdBuffers(self.vk_mem.allocator, &vkd, self.device, self.cmd_pool, self.cmd_buffers, &cb);
+    self.pipe_line.deinit(vkd, self.device, &cb);
+
+    freeCmdBuffers(self.vk_mem.allocator, vkd, self.device, self.cmd_pool, self.cmd_buffers, &cb);
 
     vkd.destroySwapchainKHR(self.device, self.swap_chain, &cb);
     vkd.destroyDevice(self.device, &cb);
 
     vki.destroySurfaceKHR(self.instance, self.surface, &cb);
     vki.destroyInstance(self.instance, &cb);
+
+    allocator.destroy(self.base_wrapper);
+    allocator.destroy(self.instance_wrapper);
+    allocator.destroy(self.device_wrapper);
 
     self.vk_mem.destroy();
 }
@@ -457,6 +471,8 @@ const build_options = @import("build_options");
 const os_tag = builtin.os.tag;
 const vk = @import("vulkan");
 const common = @import("../common.zig");
+
+const PipeLine = @import("PipeLine.zig");
 const Window = @import("../../window/root.zig").Window;
 const Allocator = std.mem.Allocator;
 const ColorRGBA = common.ColorRGBA;

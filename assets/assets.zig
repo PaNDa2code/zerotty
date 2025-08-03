@@ -11,6 +11,6 @@ pub const icons = struct {
 };
 
 pub const shaders = struct {
-    pub const cell_vert = @embedFile("cell.vert.spv");
-    pub const cell_frag = @embedFile("cell.frag.spv");
+    pub const cell_vert align(@alignOf(u32)) = @embedFile("cell.vert.spv").*;
+    pub const cell_frag align(@alignOf(u32)) = @embedFile("cell.frag.spv").*;
 };
