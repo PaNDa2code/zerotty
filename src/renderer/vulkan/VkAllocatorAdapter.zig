@@ -1,25 +1,25 @@
-//! Allows Vulkan to use Zig's memory management via adapter style callbacks.
 //! Provides a `VkAllocationCallbacks` using Zig's `Allocator`.
+//! Avoid stack allocation, use `Allocator.create` instead.
 
 // TODO: store allocation data without extra map
+const VkAllocatorAdapter = @This();
+
 const Record = struct {
     size: usize,
     alignment: std.mem.Alignment,
 };
 const RecordMap = std.AutoHashMapUnmanaged(usize, Record);
 
-const VkAllocatorAdapter = @This();
-
 allocator: Allocator,
 record_map: RecordMap = .empty,
 
-pub fn create(allocator: Allocator) VkAllocatorAdapter {
+pub fn init(allocator: Allocator) VkAllocatorAdapter {
     return .{
         .allocator = allocator,
     };
 }
 
-pub fn destroy(self: *VkAllocatorAdapter) void {
+pub fn deinit(self: *VkAllocatorAdapter) void {
     self.record_map.deinit(self.allocator);
 }
 
@@ -64,9 +64,8 @@ fn vkAlloc(
     p_user_data: ?*anyopaque,
     size: usize,
     alignment: usize,
-    allocation_scope: vk.SystemAllocationScope,
+    _: vk.SystemAllocationScope,
 ) callconv(.c) ?*anyopaque {
-    _ = allocation_scope;
     if (p_user_data == null or size == 0)
         return null;
 
@@ -93,9 +92,8 @@ fn vkRealloc(
     p_original: ?*anyopaque,
     size: usize,
     alignment: usize,
-    allocation_scope: vk.SystemAllocationScope,
+    _: vk.SystemAllocationScope,
 ) callconv(.c) ?*anyopaque {
-    _ = allocation_scope;
     if (p_user_data == null or p_original == null or size == 0)
         return null;
 
@@ -106,28 +104,25 @@ fn vkRealloc(
     const new_alignment = std.mem.Alignment.fromByteUnits(alignment);
     const old_block = @as([*]u8, @ptrCast(p_original.?))[0..old_record_ptr.size];
 
-    var new: ?[*]u8 = null;
-
-    if (allocator.vtable.resize(
-        allocator.ptr,
-        old_block,
-        new_alignment,
-        size,
-        @returnAddress(),
-    )) {
-        new = old_block.ptr;
+    if (new_alignment == old_record_ptr.alignment and
+        allocator.vtable.resize(
+            allocator.ptr,
+            old_block,
+            new_alignment,
+            size,
+            @returnAddress(),
+        ))
+    {
         old_record_ptr.size = size;
-        old_record_ptr.alignment = new_alignment;
+        return old_block.ptr;
     }
 
-    if (new == null) {
-        new = VkAllocatorAdapter.allocAndRecord(allocator, &vk_allocator.record_map, size, new_alignment);
+    const new = VkAllocatorAdapter.allocAndRecord(allocator, &vk_allocator.record_map, size, new_alignment) orelse return null;
 
-        const bytes_to_copy = @min(size, old_block.len);
-        @memcpy(new.?[0..bytes_to_copy], old_block[0..bytes_to_copy]);
+    const bytes_to_copy = @min(size, old_block.len);
+    @memcpy(new[0..bytes_to_copy], old_block[0..bytes_to_copy]);
 
-        VkAllocatorAdapter.freeRecored(allocator, &vk_allocator.record_map, p_original.?);
-    }
+    VkAllocatorAdapter.freeRecored(allocator, &vk_allocator.record_map, p_original.?);
 
     return new;
 }
@@ -136,9 +131,9 @@ const std = @import("std");
 const vk = @import("vulkan");
 const Allocator = std.mem.Allocator;
 
-test {
-    var vk_allocator = VkAllocatorAdapter.create(std.testing.allocator);
-    defer vk_allocator.destroy();
+test Allocator {
+    var vk_allocator = VkAllocatorAdapter.init(std.testing.allocator);
+    defer vk_allocator.deinit();
 
     const callbacks = vk_allocator.vkAllocatorCallbacks();
 

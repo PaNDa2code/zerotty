@@ -21,8 +21,8 @@ grid: @import("../Grid.zig") = undefined,
 
 pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
     const vk_mem = try allocator.create(VkAllocatorAdapter);
-    vk_mem.* = .create(allocator);
-    errdefer vk_mem.destroy();
+    vk_mem.* = .init(allocator);
+    errdefer vk_mem.deinit();
 
     const vk_mem_cb = vk_mem.vkAllocatorCallbacks();
 
@@ -427,7 +427,7 @@ pub fn deinit(self: *VulkanRenderer) void {
     allocator.destroy(self.instance_wrapper);
     allocator.destroy(self.device_wrapper);
 
-    self.vk_mem.destroy();
+    self.vk_mem.deinit();
     allocator.destroy(self.vk_mem);
 }
 
