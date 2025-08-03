@@ -20,7 +20,7 @@ pipe_line: PipeLine,
 grid: @import("../Grid.zig") = undefined,
 
 pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
-    var vk_mem = try VkAllocatorAdapter.create(allocator);
+    var vk_mem = VkAllocatorAdapter.create(allocator);
     errdefer vk_mem.destroy();
 
     const vk_mem_cb = vk_mem.vkAllocatorCallbacks();
@@ -406,7 +406,7 @@ fn baseGetInstanceProcAddress(_: vk.Instance, procname: [*:0]const u8) vk.PfnVoi
 }
 
 pub fn deinit(self: *VulkanRenderer) void {
-    const allocator = &self.vk_mem.allocator;
+    const allocator = self.vk_mem.allocator;
     const cb = self.vk_mem.vkAllocatorCallbacks();
 
     const vki = self.instance_wrapper;

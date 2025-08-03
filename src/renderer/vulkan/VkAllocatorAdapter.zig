@@ -1,29 +1,36 @@
-//! Allows Vulkan to use Zig's memory allocator via adapter style callbacks.
+//! Allows Vulkan to use Zig's memory management via adapter style callbacks.
 //! Provides a `VkAllocationCallbacks` using Zig's `Allocator`.
-//!
-//! TODO: store allocation data without extra map
-const VkAllocatorAdapter = @This();
 
+// TODO: store allocation data without extra map
 const Record = struct {
     size: usize,
     alignment: std.mem.Alignment,
 };
 const RecordMap = std.AutoHashMapUnmanaged(usize, Record);
 
+const VkAllocatorAdapter = @This();
 
 allocator: Allocator,
-record_map: *RecordMap,
+record_map: RecordMap = .empty,
 
-pub fn create(allocator: Allocator) !VkAllocatorAdapter {
-    const map = try allocator.create(RecordMap);
-    map.* = .empty;
+pub fn create(allocator: Allocator) VkAllocatorAdapter {
     return .{
         .allocator = allocator,
-        .record_map = map,
     };
 }
 
 pub fn destroy(self: *VkAllocatorAdapter) void {
+    // var iter = self.record_map.iterator();
+    // while (iter.next()) |entry| {
+    //     const ptr: [*]u8 = @ptrFromInt(entry.key_ptr.*);
+    //     const block = ptr[0..entry.value_ptr.size];
+    //     self.allocator.vtable.free(
+    //         self.allocator.ptr,
+    //         block,
+    //         entry.value_ptr.alignment,
+    //         @returnAddress(),
+    //     );
+    // }
     self.record_map.deinit(self.allocator);
 }
 
@@ -78,7 +85,7 @@ fn vkAlloc(
 
     const alignment_enum = std.mem.Alignment.fromByteUnits(alignment);
 
-    return VkAllocatorAdapter.allocAndRecord(vk_allocator.allocator, vk_allocator.record_map, size, alignment_enum);
+    return VkAllocatorAdapter.allocAndRecord(vk_allocator.allocator, &vk_allocator.record_map, size, alignment_enum);
 }
 
 fn vkFree(
@@ -89,7 +96,7 @@ fn vkFree(
         return;
 
     const vk_allocator: *VkAllocatorAdapter = @alignCast(@ptrCast(p_user_data));
-    VkAllocatorAdapter.freeRecored(vk_allocator.allocator, vk_allocator.record_map, memory.?);
+    VkAllocatorAdapter.freeRecored(vk_allocator.allocator, &vk_allocator.record_map, memory.?);
 }
 
 fn vkRealloc(
@@ -112,35 +119,26 @@ fn vkRealloc(
 
     var new: ?[*]u8 = null;
 
-    if (old_record_ptr.alignment == new_alignment) {
-        new = allocator.vtable.remap(
-            allocator.ptr,
-            old_block,
-            new_alignment,
-            size,
-            @returnAddress(),
-        );
-
-        if (new != null and new != old_block.ptr) {
-            _ = vk_allocator.record_map.remove(@intFromPtr(old_block.ptr));
-            vk_allocator.record_map.put(
-                vk_allocator.allocator,
-                @intFromPtr(new),
-                .{ .size = size, .alignment = new_alignment },
-            ) catch return null;
-        }
+    if (allocator.vtable.resize(
+        allocator.ptr,
+        old_block,
+        new_alignment,
+        size,
+        @returnAddress(),
+    )) {
+        new = old_block.ptr;
+        old_record_ptr.size = size;
+        old_record_ptr.alignment = new_alignment;
     }
 
     if (new == null) {
-        new = VkAllocatorAdapter.allocAndRecord(allocator, vk_allocator.record_map, size, new_alignment);
+        new = VkAllocatorAdapter.allocAndRecord(allocator, &vk_allocator.record_map, size, new_alignment);
 
         const bytes_to_copy = @min(size, old_block.len);
         @memcpy(new.?[0..bytes_to_copy], old_block[0..bytes_to_copy]);
 
-        VkAllocatorAdapter.freeRecored(allocator, vk_allocator.record_map, p_original.?);
+        VkAllocatorAdapter.freeRecored(allocator, &vk_allocator.record_map, p_original.?);
     }
-
-    old_record_ptr.size = size;
 
     return new;
 }
@@ -149,7 +147,7 @@ const std = @import("std");
 const vk = @import("vulkan");
 const Allocator = std.mem.Allocator;
 
-test VkAllocatorAdapter {
+test {
     var vk_allocator = VkAllocatorAdapter.create(std.testing.allocator);
     defer vk_allocator.destroy();
 
