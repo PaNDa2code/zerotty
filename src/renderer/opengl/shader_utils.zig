@@ -16,20 +16,17 @@ pub fn createShaderProgram(vert_spv: [:0]const u8, frag_spv: [:0]const u8) Creat
     gl.ShaderBinary(1, @ptrCast(&vertex_shader), gl.SHADER_BINARY_FORMAT_SPIR_V_ARB, vert_spv.ptr, @intCast(vert_spv.len));
     gl.SpecializeShaderARB(vertex_shader, "main", 0, null, null);
 
+    gl.GetShaderiv(vertex_shader, gl.COMPILE_STATUS, &stat);
+    if (stat == gl.FALSE) {
+        return error.VertexShaderCompilationFailed;
+    }
+
     const fragment_shader = gl.CreateShader(gl.FRAGMENT_SHADER);
     defer gl.DeleteShader(fragment_shader);
 
     gl.ShaderBinary(1, @ptrCast(&fragment_shader), gl.SHADER_BINARY_FORMAT_SPIR_V_ARB, frag_spv.ptr, @intCast(frag_spv.len));
     gl.SpecializeShaderARB(fragment_shader, "main", 0, null, null);
 
-    gl.CompileShader(vertex_shader);
-
-    gl.GetShaderiv(vertex_shader, gl.COMPILE_STATUS, &stat);
-    if (stat == gl.FALSE) {
-        return error.VertexShaderCompilationFailed;
-    }
-
-    gl.CompileShader(fragment_shader);
     gl.GetShaderiv(fragment_shader, gl.COMPILE_STATUS, &stat);
     if (stat == gl.FALSE) {
         return error.FragmentShaderCompilationFailed;
