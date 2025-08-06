@@ -42,6 +42,10 @@ pub fn wait(self: *ChildProcess) !void {
     };
 }
 
+pub fn deinit(self: *ChildProcess) void {
+    if (self.env_map) |*map| map.deinit();
+}
+
 fn startWindows(self: *ChildProcess, arina: Allocator, pty: ?*Pty) !void {
     var startup_info_ex = std.mem.zeroes(win32thread.STARTUPINFOEXW);
     startup_info_ex.StartupInfo.cb = @sizeOf(win32thread.STARTUPINFOEXW);
@@ -234,6 +238,19 @@ fn findPathAlloc(allocator: Allocator, exe: []const u8) !?[]const u8 {
     }
 
     return null;
+}
+
+pub fn setEnvVar(self: *ChildProcess, allocator: Allocator, name: []const u8, value: []const u8) !void {
+    if (self.env_map == null) {
+        self.env_map = .init(allocator);
+    }
+    try self.env_map.?.put(name, value);
+}
+
+pub fn unsetEvnVar(self: *ChildProcess, name: []const u8) void {
+    if (self.env_map) |*map| {
+        map.remove(name);
+    }
 }
 
 test ChildProcess {
