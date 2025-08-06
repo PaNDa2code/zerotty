@@ -12,7 +12,10 @@ pub fn new(allocator: Allocator) App {
         .window = Window.new("zerotty", 720, 1280),
         .allocator = allocator,
         .vt_parser = VTParser.init(vtParseCallback),
-        .child = .{ .exe_path = if (@import("builtin").os.tag == .windows) "cmd" else "bash" },
+        .child = if (@import("builtin").os.tag == .windows)
+            .{ .exe_path = "cmd", .args = &.{ "cmd", "" } }
+        else
+            .{ .exe_path = "bash", .args = &.{ "bash", "--norc", "--noprofile" } },
         .pty = undefined,
         .buffer = undefined,
     };
@@ -22,6 +25,8 @@ pub fn start(self: *App) !void {
     try self.window.open(self.allocator);
     try self.buffer.init(1024 * 64);
     try self.pty.open(.{});
+    self.child.unsetEvnVar("PS0");
+    try self.child.setEnvVar(self.allocator, "PS1", "\\h@\\u:\\w> ");
     try self.child.start(self.allocator, &self.pty);
 }
 
@@ -80,6 +85,7 @@ fn vtParseCallback(state: *const vtparse.ParserData, to_action: vtparse.Action, 
 pub fn exit(self: *App) void {
     self.window.close();
     self.child.terminate();
+    self.child.deinit();
     self.buffer.deinit();
     self.pty.close();
 }
