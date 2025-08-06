@@ -49,7 +49,7 @@ pub fn init(window: *Window, allocator: Allocator) InitError!OpenGLRenderer {
         gl.DebugMessageCallback(@import("debug.zig").openglDebugCallback, null);
     }
 
-    self.shader_program = try shader_utils.createShaderProgram(vertex_shader_spv, fragment_shader_spv);
+    self.shader_program = try shader_utils.createShaderProgram(&vertex_shader_spv, &fragment_shader_spv);
 
     self.setupBuffers();
 
@@ -158,6 +158,7 @@ const UniformsBlock = packed struct {
     atlas_rows: f32,
     atlas_width: f32,
     atlas_height: f32,
+    descender: f32,
 };
 
 fn setUniforms(self: *OpenGLRenderer) void {
@@ -170,6 +171,7 @@ fn setUniforms(self: *OpenGLRenderer) void {
         .atlas_rows = @floatFromInt(self.atlas.rows),
         .atlas_height = @floatFromInt(self.atlas.height),
         .atlas_width = @floatFromInt(self.atlas.width),
+        .descender = @floatFromInt(self.atlas.descender),
     };
     gl.BindBuffer(gl.UNIFORM_BUFFER, self.ubo);
     gl.BufferSubData(gl.UNIFORM_BUFFER, 0, @sizeOf(UniformsBlock), &data);

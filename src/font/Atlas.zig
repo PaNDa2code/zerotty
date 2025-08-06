@@ -15,6 +15,8 @@ width: usize,
 cell_height: u16,
 cell_width: u16,
 
+descender: i32,
+
 rows: u32,
 cols: u32,
 
@@ -35,7 +37,6 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
     // font should always be monospace (at least for now)
     std.debug.assert(ft_face.isFixedWidth());
 
-    // try ft_face.setCharSize(0, @as(u32, @intCast(cell_height)) << 6, 96, 96);
     try ft_face.setPixelSize(cell_width, cell_height);
 
     const atlas_cols = std.math.sqrt(glyphs_count);
@@ -44,8 +45,9 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
     const padding_x = 1;
     const padding_y = 1;
 
-    const glyph_height = (@as(u32, @intCast(ft_face.ft_face.*.size.*.metrics.height - ft_face.ft_face.*.size.*.metrics.descender)) >> 6);
-    // const glyph_width = (@as(u32, @intCast(ft_face.ft_face.*.size.*.metrics.max_advance)) >> 6);
+    const glyph_height = (@as(u32, @intCast(ft_face.ft_face.*.size.*.metrics.height)) >> 6);
+    const glyph_width = (@as(u32, @intCast(ft_face.ft_face.*.size.*.metrics.max_advance)) >> 6);
+    const descender = (@as(i32, @intCast(ft_face.ft_face.*.size.*.metrics.descender)) >> 6);
 
     const tex_height = (glyph_height + padding_y) * atlas_rows;
     const tex_width = tex_height;
@@ -83,7 +85,6 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
             .bearing = .{ .x = bitmap_glyph.left, .y = bitmap_glyph.top },
         };
 
-        std.log.debug("GlyphInfo {any}", .{glyph_info});
         try glyph_map.put(@intCast(c), glyph_info);
 
         // Advance to next position
@@ -98,8 +99,9 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
         .height = tex_height,
         .width = tex_width,
         .glyph_lookup_map = glyph_map,
-        .cell_width = cell_width,
-        .cell_height = cell_height,
+        .cell_width = @intCast(glyph_width),
+        .cell_height = @intCast(cell_height - descender),
+        .descender = descender,
         .rows = atlas_rows,
         .cols = atlas_cols,
         .from = from,

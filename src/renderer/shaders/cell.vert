@@ -22,6 +22,7 @@ layout(set = 0, binding = 0) uniform Uniforms {
     float atlas_rows;
     float atlas_height;
     float atlas_width;
+    float descender;
 } ubo;
 
 // Outputs
@@ -36,11 +37,14 @@ void main() {
 
     // Calculate position
     vec2 cell_origin = vec2(col, row) * cell_size;
-    vec2 glyph_offset = vec2(bearing);
+
+    float baseline = ubo.cell_height + ubo.descender;
+    vec2 glyph_origin = cell_origin + vec2(0.0, baseline);
+    vec2 glyph_bearing = vec2(bearing.x, -bearing.y);
 
     vec2 glyph_size = vec2(coord_end - coord_start);
 
-    vec2 vertex_pos = cell_origin + glyph_offset + quad_vertex.xy * glyph_size;
+    vec2 vertex_pos = glyph_origin + glyph_bearing + quad_vertex.xy * glyph_size;
 
     // Convert to clip space
     vec2 normalized = vertex_pos / screen_size;
