@@ -47,23 +47,21 @@ pub fn compiledShadersPathes(b: *Build, dir: Build.LazyPath, files: []const []co
         const shader_spv_path = glslangValidator_cmd.addOutputFileArg(output_basename);
 
         const output_path =
-            if (b.release_mode == .off) {
-                blk: {
-                    const spirv_opt_cmd =
-                        if (glslang_tools_installed)
-                            b.addSystemCommand(&.{"spirv-opt"})
-                        else
-                            b.addRunArtifact(spirv_opt.?);
+            if (b.release_mode == .off) blk: {
+                const spirv_opt_cmd =
+                    if (glslang_tools_installed)
+                        b.addSystemCommand(&.{"spirv-opt"})
+                    else
+                        b.addRunArtifact(spirv_opt.?);
 
-                    spirv_opt_cmd.addFileArg(shader_spv_path);
+                spirv_opt_cmd.addFileArg(shader_spv_path);
 
-                    switch (b.release_mode) {
-                        .small => spirv_opt_cmd.addArg("-Os"),
-                        else => spirv_opt_cmd.addArg("-O"),
-                    }
-                    spirv_opt_cmd.addArg("-o");
-                    break :blk spirv_opt_cmd.addOutputFileArg(output_basename);
+                switch (b.release_mode) {
+                    .small => spirv_opt_cmd.addArg("-Os"),
+                    else => spirv_opt_cmd.addArg("-O"),
                 }
+                spirv_opt_cmd.addArg("-o");
+                break :blk spirv_opt_cmd.addOutputFileArg(output_basename);
             } else shader_spv_path;
 
         shader_pathes[i] = .{
