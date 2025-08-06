@@ -46,12 +46,14 @@ pub fn compiledShadersPathes(b: *Build, dir: Build.LazyPath, files: []const []co
         glslangValidator_cmd.addArg("-o");
         const shader_spv_path = glslangValidator_cmd.addOutputFileArg(output_basename);
 
-        if (b.release_mode == .any) {
+        if (b.release_mode == .off) {
             const spirv_opt_cmd =
                 if (glslang_tools_installed)
                     b.addSystemCommand(&.{"spirv-opt"})
                 else
                     b.addRunArtifact(spirv_opt.?);
+
+            spirv_opt_cmd.addFileArg(shader_spv_path);
 
             switch (b.release_mode) {
                 .small => spirv_opt_cmd.addArg("-Os"),
