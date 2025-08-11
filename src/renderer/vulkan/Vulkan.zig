@@ -130,7 +130,7 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
         .window_width = window.width,
         .cmd_pool = cmd_pool,
         .cmd_buffers = cmd_buffers,
-        .pipe_line = try .init(vkd, device, &vk_mem_cb),
+        .pipe_line = try .init(vkd, device, &vk_mem_cb, caps.current_extent),
     };
 }
 
