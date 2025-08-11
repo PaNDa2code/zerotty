@@ -10,4 +10,17 @@ layout(location = 4) in uvec2 rect_size;
 layout(location = 5) in uvec2 bbox_min;
 layout(location = 6) in uvec2 bbox_max;
 
-void main() {}
+#define BEZIER_CONTROL_POINT_BIT 0x01
+#define BEZIER_THIRD_ORDER_BIT 0x02
+
+#define IS_BEZIER_CONTROL_POINT(tag) (( tag & BEZIER_CONTROL_POINT_BIT ) != 0)
+#define IS_BEZIER_THIRD_ORDER(tag) (( tag & BEZIER_THIRD_ORDER_BIT ) != 0)
+
+void main() {
+    if (IS_BEZIER_CONTROL_POINT(tag)) {
+        // TODO
+        if (IS_BEZIER_THIRD_ORDER(tag)) {
+            // TODO
+        }
+    }
+}
