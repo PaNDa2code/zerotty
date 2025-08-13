@@ -24,6 +24,10 @@ pub fn new(allocator: Allocator) App {
     };
 }
 
+
+var render: *Renderer = undefined;
+var _pty: *Pty = undefined;
+
 pub fn start(self: *App) !void {
     try self.window.open(self.allocator);
     try self.buffer.init(1024 * 64);
@@ -31,6 +35,9 @@ pub fn start(self: *App) !void {
     self.child.unsetEvnVar("PS0");
     try self.child.setEnvVar(self.allocator, "PS1", "\\h@\\u:\\w> ");
     try self.child.start(self.allocator, &self.pty);
+
+    render = &self.window.renderer;
+    _pty = &self.pty;
 
     self.io_event_loop = try .init();
 
@@ -41,11 +48,10 @@ pub fn start(self: *App) !void {
     try self.io_event_loop.addEvent(self.allocator, master_event);
 }
 
-pub fn pty_read_callback(_: *const EventLoop.Event, bytes: usize, data: ?*anyopaque) void {
-    std.log.info("pty_read_callback {}", .{bytes});
+pub fn pty_read_callback(_: *const EventLoop.Event, buf: []u8, data: ?*anyopaque) void {
+    std.log.info("pty_read_callback {}", .{buf.len});
     const app: *App = @alignCast(@ptrCast(data));
-
-    app.vt_parser.parse(app.buffer.buffer[0..bytes]);
+    app.vt_parser.parse(buf);
 }
 
 pub fn loop(self: *App) void {
@@ -71,26 +77,22 @@ pub fn resizeCallBack(_: u32, _: u32) void {
     }) catch unreachable;
 }
 
-var render: *Renderer = undefined;
-var _pty: *Pty = undefined;
-
 fn vtParseCallback(state: *const vtparse.ParserData, to_action: vtparse.Action, char: u8) void {
-    std.log.info("{0s: <10}{1s: <13} => {2c} {2d}", .{ @tagName(state.state), @tagName(to_action), char });
-    // switch (to_action) {
-    //     .CSI_DISPATCH => {
-    //         const params = state.params[0..@intCast(state.num_params)];
-    //         if (char == 'q' and state.num_intermediate_chars == 1 and state.intermediate_chars[0] == ' ') {
-    //             const cursor_style_code = params[0];
-    //             std.log.info("cursor_style_code = {}", .{cursor_style_code});
-    //         }
-    //     },
-    //     .PRINT, .OSC_PUT => {
-    //         render.setCursorCell(char) catch undefined;
-    //     },
-    //     else => {
-    //         std.log.info("{0s: <10}{1s: <13} => {2c} {2d}", .{ @tagName(state.state), @tagName(to_action), char });
-    //     },
-    // }
+    switch (to_action) {
+        .CSI_DISPATCH => {
+            const params = state.params[0..@intCast(state.num_params)];
+            if (char == 'q' and state.num_intermediate_chars == 1 and state.intermediate_chars[0] == ' ') {
+                const cursor_style_code = params[0];
+                std.log.info("cursor_style_code = {}", .{cursor_style_code});
+            }
+        },
+        .PRINT, .OSC_PUT => {
+            render.setCursorCell(char) catch undefined;
+        },
+        else => {
+            std.log.info("{0s: <10}{1s: <13} => {2c} {2d}", .{ @tagName(state.state), @tagName(to_action), char });
+        },
+    }
 }
 
 pub fn exit(self: *App) void {

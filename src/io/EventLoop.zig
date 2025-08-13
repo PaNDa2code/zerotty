@@ -55,7 +55,7 @@ pub fn addEvent(self: *EventLoop, allocator: Allocator, event: Event) !void {
         .linux => {
             var epoll_event = std.mem.zeroes(linux.epoll_event);
             epoll_event.data.ptr = self.events.items.len - 1;
-            epoll_event.events = linux.EPOLL.OUT | linux.EPOLL.IN;
+            epoll_event.events = linux.EPOLL.IN;
             _ = linux.epoll_ctl(self.handle, linux.EPOLL.CTL_ADD, event.handle, &epoll_event);
         },
         else => {},
@@ -68,12 +68,17 @@ fn runLinux(self: *const EventLoop) !void {
     while (true) {
         const count = linux.epoll_wait(self.handle, &events, 10, -1);
 
+        if (@as(isize, @bitCast(count)) == -1)
+            std.debug.panic("epoll_wait failed: {}", .{count});
+
         for (0..count) |i| {
             const event_index = events[i].data.ptr;
             const event_ptr = &self.events.items[event_index];
             const avilable: i32 = 0;
             _ = linux.ioctl(event_ptr.handle, 0x541B, @intFromPtr(&avilable));
-            event_ptr.callback_fn(event_ptr, @intCast(avilable), event_ptr.data);
+            const len = event_ptr.dispatch_fn(event_ptr.handle, event_ptr.dispatch_buf);
+            event_ptr.callback_fn(event_ptr, event_ptr.dispatch_buf[0..len], event_ptr.data);
+            return;
         }
     }
 }

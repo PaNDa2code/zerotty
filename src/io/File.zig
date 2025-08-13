@@ -30,18 +30,18 @@ pub fn asyncRead(self: File, allocator: Allocator, buf: []u8, callback: Event.Ca
 }
 
 fn asyncReadLinux(self: File, buf: []u8, callback: Event.CallBack, _: *Event.ControlBlock, data: ?*anyopaque) !Event {
-    _ = posix.read(self.handle, buf) catch |err| {
-        switch (err) {
-            error.WouldBlock => {},
-            else => return err,
-        }
-    };
-
     return .{
         .data = data,
         .handle = self.handle,
         .callback_fn = callback,
+        .dispatch_fn = &readDispatsh,
+        .dispatch_buf = buf,
     };
+}
+
+fn readDispatsh(handle: Handle, buf: []u8) usize {
+    return posix.read(handle, buf) catch |err|
+        std.debug.panic("read dispatsh failed: {}", .{err});
 }
 
 const std = @import("std");
