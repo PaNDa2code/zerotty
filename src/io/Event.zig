@@ -5,27 +5,27 @@ const Handle = switch (builtin.os.tag) {
     else => linux.fd_t,
 };
 
-const CallBack = *const fn (data: ?*anyopaque, event: *const Event) void;
+pub const CallBack = *const fn (event: *const Event, data: ?*anyopaque) void;
 
-const ControlBlock = switch (builtin.os.tag) {
+pub const ControlBlock = switch (builtin.os.tag) {
     .windows => OVERLAPPED,
+    // linux epoll doesn't requre to have epoll_event struct alive
     .linux => void,
-    .macos => c_aio.aiocb,
-    else => void,
+    else => c_aio.aiocb,
 };
 
-data: ?*anyopaque,
 handle: Handle,
-callback: CallBack,
-control_block: ControlBlock,
 
-pub fn init(handle: Handle, callback: CallBack, data: ?*anyopaque) Event {
-    return .{
-        .data = data,
-        .handle = handle,
-        .callback = callback,
-        .control_block = std.mem.zeroes(ControlBlock),
-    };
+data: ?*anyopaque,
+
+callback_fn: CallBack,
+supmit_fn: *const fn (event: *const Event, ptr: [*]u8, len: usize) void,
+control_block: ?*ControlBlock,
+
+error_: anyerror,
+
+pub fn deinit(self: *Event, allocator: Allocator) void {
+    allocator.destroy(self.control_block);
 }
 
 const std = @import("std");
@@ -34,6 +34,8 @@ const builtin = @import("builtin");
 const posix = std.posix;
 const linux = std.os.linux;
 const win32 = @import("win32");
+
+const Allocator = std.mem.Allocator;
 
 const HANDLE = win32.foundation.HANDLE;
 const INVALID_HANDLE_VALUE = win32.foundation.INVALID_HANDLE_VALUE;
