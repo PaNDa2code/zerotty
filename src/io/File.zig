@@ -7,9 +7,9 @@ const Handle = switch (builtin.os.tag) {
 
 handle: Handle,
 
-pub fn init(handle: Handle) File {
+pub fn init(handle: Handle) !File {
     if (builtin.os.tag != .windows)
-        setNonBlockingPosix(handle);
+        try setNonBlockingPosix(handle);
 
     return .{ .handle = handle };
 }
@@ -19,17 +19,18 @@ fn setNonBlockingPosix(handle: Handle) !void {
     _ = try posix.fcntl(handle, linux.F.SETFL, flags | @as(u32, @bitCast(linux.O{ .NONBLOCK = true })));
 }
 
-pub fn asyncRead(self: File, allocator: Allocator, buf: []u8, callback: Event.CallBack) !Event {
+pub fn asyncRead(self: File, allocator: Allocator, buf: []u8, callback: Event.CallBack, data: ?*anyopaque) !Event {
     const control_block = try allocator.create(Event.ControlBlock);
 
     return switch (builtin.os.tag) {
         .windows => {},
-        .linux => self.asyncReadLinux(buf, callback, control_block),
+        .linux => self.asyncReadLinux(buf, callback, control_block, data),
+        else => {},
     };
 }
 
-fn asyncReadLinux(self: File, buf: []u8, callback: Event.CallBack, _: *Event.ControlBlock) !Event {
-    _ = posix.read(self.handle, buf.ptr, buf.len) catch |err| {
+fn asyncReadLinux(self: File, buf: []u8, callback: Event.CallBack, _: *Event.ControlBlock, data: ?*anyopaque) !Event {
+    _ = posix.read(self.handle, buf) catch |err| {
         switch (err) {
             error.WouldBlock => {},
             else => return err,
@@ -37,9 +38,9 @@ fn asyncReadLinux(self: File, buf: []u8, callback: Event.CallBack, _: *Event.Con
     };
 
     return .{
-        .data = null,
+        .data = data,
         .handle = self.handle,
-        .callback = callback,
+        .callback_fn = callback,
     };
 }
 

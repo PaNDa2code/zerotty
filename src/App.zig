@@ -5,6 +5,8 @@ child: ChildProcess,
 vt_parser: VTParser,
 allocator: Allocator,
 
+io_event_loop: EventLoop,
+
 const App = @This();
 
 pub fn new(allocator: Allocator) App {
@@ -18,6 +20,7 @@ pub fn new(allocator: Allocator) App {
             .{ .exe_path = "bash", .args = &.{ "bash", "--norc", "--noprofile" } },
         .pty = undefined,
         .buffer = undefined,
+        .io_event_loop = undefined,
     };
 }
 
@@ -28,18 +31,25 @@ pub fn start(self: *App) !void {
     self.child.unsetEvnVar("PS0");
     try self.child.setEnvVar(self.allocator, "PS1", "\\h@\\u:\\w> ");
     try self.child.start(self.allocator, &self.pty);
+
+    self.io_event_loop = try .init();
+
+    const master_file = try AysncFile.init(self.pty.master);
+
+    const master_event = try master_file.asyncRead(self.allocator, self.buffer.buffer, &pty_read_callback, self);
+
+    try self.io_event_loop.addEvent(self.allocator, master_event);
+}
+
+pub fn pty_read_callback(_: *const EventLoop.Event, bytes: usize, data: ?*anyopaque) void {
+    std.log.info("pty_read_callback {}", .{bytes});
+    const app: *App = @alignCast(@ptrCast(data));
+
+    app.vt_parser.parse(app.buffer.buffer[0..bytes]);
 }
 
 pub fn loop(self: *App) void {
-    var buffer: [1024]u8 = undefined;
-    const child_stdout = self.child.stdout.?;
-
-    render = &self.window.renderer;
-    _pty = &self.pty;
-
-    const len = child_stdout.read(buffer[0..]) catch unreachable;
-    self.vt_parser.parse(buffer[0..len]);
-
+    try self.io_event_loop.run();
     self.window.render_cb = &drawCallBack;
     self.window.resize_cb = &resizeCallBack;
     while (!self.window.exit) {
@@ -65,21 +75,22 @@ var render: *Renderer = undefined;
 var _pty: *Pty = undefined;
 
 fn vtParseCallback(state: *const vtparse.ParserData, to_action: vtparse.Action, char: u8) void {
-    switch (to_action) {
-        .CSI_DISPATCH => {
-            const params = state.params[0..@intCast(state.num_params)];
-            if (char == 'q' and state.num_intermediate_chars == 1 and state.intermediate_chars[0] == ' ') {
-                const cursor_style_code = params[0];
-                std.log.info("cursor_style_code = {}", .{cursor_style_code});
-            }
-        },
-        .PRINT, .OSC_PUT => {
-            render.setCursorCell(char) catch undefined;
-        },
-        else => {
-            std.log.info("{0s: <10}{1s: <13} => {2c} {2d}", .{ @tagName(state.state), @tagName(to_action), char });
-        },
-    }
+    std.log.info("{0s: <10}{1s: <13} => {2c} {2d}", .{ @tagName(state.state), @tagName(to_action), char });
+    // switch (to_action) {
+    //     .CSI_DISPATCH => {
+    //         const params = state.params[0..@intCast(state.num_params)];
+    //         if (char == 'q' and state.num_intermediate_chars == 1 and state.intermediate_chars[0] == ' ') {
+    //             const cursor_style_code = params[0];
+    //             std.log.info("cursor_style_code = {}", .{cursor_style_code});
+    //         }
+    //     },
+    //     .PRINT, .OSC_PUT => {
+    //         render.setCursorCell(char) catch undefined;
+    //     },
+    //     else => {
+    //         std.log.info("{0s: <10}{1s: <13} => {2c} {2d}", .{ @tagName(state.state), @tagName(to_action), char });
+    //     },
+    // }
 }
 
 pub fn exit(self: *App) void {
@@ -96,6 +107,8 @@ const CircularBuffer = @import("CircularBuffer.zig");
 const ChildProcess = @import("ChildProcess.zig");
 const Renderer = @import("renderer/root.zig");
 const FPS = @import("renderer/FPS.zig");
+const AysncFile = @import("io/File.zig");
+const EventLoop = @import("io/EventLoop.zig");
 const VTParser = vtparse.VTParser;
 const Allocator = std.mem.Allocator;
 

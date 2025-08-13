@@ -53,14 +53,16 @@ pub fn addEvent(self: *EventLoop, allocator: Allocator, event: Event) !void {
     switch (builtin.os.tag) {
         .windows => {},
         .linux => {
-            event.control_block.data.ptr = self.events.items.len - 1;
-            linux.epoll_ctl(self.handle, linux.EPOLL.CTL_ADD, event.handle, event.control_block);
+            var epoll_event = std.mem.zeroes(linux.epoll_event);
+            epoll_event.data.ptr = self.events.items.len - 1;
+            epoll_event.events = linux.EPOLL.OUT | linux.EPOLL.IN;
+            _ = linux.epoll_ctl(self.handle, linux.EPOLL.CTL_ADD, event.handle, &epoll_event);
         },
         else => {},
     }
 }
 
-fn runLinux(self: *EventLoop) !void {
+fn runLinux(self: *const EventLoop) !void {
     var events: [10]linux.epoll_event = undefined;
 
     while (true) {
@@ -69,7 +71,9 @@ fn runLinux(self: *EventLoop) !void {
         for (0..count) |i| {
             const event_index = events[i].data.ptr;
             const event_ptr = &self.events.items[event_index];
-            event_ptr.callback_fn(event_ptr, event_ptr.data);
+            const avilable: i32 = 0;
+            _ = linux.ioctl(event_ptr.handle, 0x541B, @intFromPtr(&avilable));
+            event_ptr.callback_fn(event_ptr, @intCast(avilable), event_ptr.data);
         }
     }
 }
@@ -83,7 +87,7 @@ const win32 = @import("win32");
 
 const Allocator = std.mem.Allocator;
 
-const Event = @import("Event.zig");
+pub const Event = @import("Event.zig");
 
 const HANDLE = win32.foundation.HANDLE;
 const INVALID_HANDLE_VALUE = win32.foundation.INVALID_HANDLE_VALUE;

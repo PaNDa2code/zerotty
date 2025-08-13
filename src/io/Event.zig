@@ -5,7 +5,7 @@ const Handle = switch (builtin.os.tag) {
     else => linux.fd_t,
 };
 
-pub const CallBack = *const fn (event: *const Event, data: ?*anyopaque) void;
+pub const CallBack = *const fn (event: *const Event, bytes: usize, data: ?*anyopaque) void;
 
 pub const ControlBlock = switch (builtin.os.tag) {
     .windows => OVERLAPPED,
@@ -19,10 +19,10 @@ handle: Handle,
 data: ?*anyopaque,
 
 callback_fn: CallBack,
-supmit_fn: *const fn (event: *const Event, ptr: [*]u8, len: usize) void,
-control_block: ?*ControlBlock,
+// supmit_fn: *const fn (event: *const Event, ptr: [*]u8, len: usize) void,
+control_block: ?*ControlBlock = null,
 
-error_: anyerror,
+// error_: anyerror,
 
 pub fn deinit(self: *Event, allocator: Allocator) void {
     allocator.destroy(self.control_block);
