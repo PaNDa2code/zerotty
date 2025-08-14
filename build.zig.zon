@@ -57,6 +57,10 @@
             .hash = "glslang-1.4.309-eMn68KLGCQDAuHVUzugaYOOEhbkyHmN526R7mHIq9YUs",
             .lazy = true,
         },
+        .libxkbcommon = .{
+            .url = "https://github.com/allyourcodebase/libxkbcommon/archive/refs/tags/1.9.2.tar.gz",
+            .hash = "libxkbcommon-1.9.2-93LaF-tRAgDYZON1GVWNUvTazOR9b2E8KEqXx2rEoKV5",
+        },
     },
     .paths = .{
         "build.zig",

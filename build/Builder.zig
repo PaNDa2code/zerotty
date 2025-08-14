@@ -195,6 +195,27 @@ fn addImports(self: *Builder) void {
         },
     }
 
+    switch (self.window_system) {
+        .Xcb, .Xlib => {
+            const xkbcommon = self.b.lazyDependency("libxkbcommon", .{
+                .target = self.target,
+                .optimize = self.optimize,
+
+                .@"enable-x11" = true,
+                .@"xkb-config-root" = @as([]const u8, "/usr/share/X11/xkb"),
+                .@"x-locale-root" = @as([]const u8, "/usr/share/X11/locale"),
+            });
+            if (xkbcommon) |dep| {
+                const xkbcommon_lib = dep.artifact("xkbcommon");
+                const xkbcommon_x11_lib = dep.artifact("xkbcommon-x11");
+
+                self.link_table.append(xkbcommon_lib) catch unreachable;
+                self.link_table.append(xkbcommon_x11_lib) catch unreachable;
+            }
+        },
+        else => {},
+    }
+
     if (self.options_mod) |mod| {
         self.import_table.put(mod.name, mod.options.createModule()) catch unreachable;
     }
