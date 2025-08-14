@@ -1,26 +1,22 @@
-const std = @import("std");
-const builtin = @import("builtin");
-const win32 = @import("win32");
-
 const Keyboard = @This();
-
-const Allocator = std.mem.Allocator;
 
 pub const keyboard_key_count = 256;
 // Can be stored in AVX register (YMMx)
 pub const KeyboardState = std.bit_set.IntegerBitSet(keyboard_key_count);
 
-pub const KeyboardEventType = enum {
-    Press,
-    Release,
+pub const KeyEventType = enum {
+    press,
+    release,
+    repeat,
 };
 
-pub const KeyboardEvent = struct {
-    type: KeyboardEventType,
+pub const KeyEvent = struct {
+    type: KeyEventType = .press,
+    state: KeyboardState,
     code: u8,
 };
 
-const KeyboardEventQueue = std.ArrayList(KeyboardEvent);
+const KeyboardEventQueue = std.ArrayList(KeyEvent);
 
 event_queue: KeyboardEventQueue,
 state: KeyboardState,
@@ -34,7 +30,11 @@ pub fn init(allocator: Allocator) Keyboard {
     };
 }
 
-pub fn pushEvent(self: *Keyboard, event: KeyboardEvent) !void {
+pub fn deinit(self: *Keyboard) void {
+    self.event_queue.deinit();
+}
+
+pub fn pushEvent(self: *Keyboard, event: KeyEvent) !void {
     try self.event_queue.append(event);
     switch (event.type) {
         .Press => self.state.set(event.code),
@@ -42,7 +42,7 @@ pub fn pushEvent(self: *Keyboard, event: KeyboardEvent) !void {
     }
 }
 
-pub fn popEvent(self: *Keyboard) ?KeyboardEvent {
+pub fn popEvent(self: *Keyboard) ?KeyEvent {
     return self.event_queue.pop();
 }
 
@@ -51,3 +51,8 @@ pub fn keyIsPressed(self: *Keyboard, key_code: u8) bool {
 }
 
 const shortcuts: []const KeyboardState = {};
+
+
+const std = @import("std");
+
+const Allocator = std.mem.Allocator;
