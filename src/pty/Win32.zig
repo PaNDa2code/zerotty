@@ -26,12 +26,59 @@ pub fn open(self: *Pty, options: PtyOptions) !void {
     var stdout_write: ?HANDLE = undefined;
     var h_pesudo_console: ?HPCON = undefined;
 
-    if (win32pipe.CreatePipe(&stdin_read, &stdin_write, null, 0) == 0 or isInvaliedOrNull(stdin_read) or isInvaliedOrNull(stdin_write)) {
-        return error.PipeCreationFailed;
-    }
-    if (win32pipe.CreatePipe(&stdout_read, &stdout_write, null, 0) == 0 or isInvaliedOrNull(stdout_read) or isInvaliedOrNull(stdout_write)) {
-        return error.PipeCreationFailed;
-    }
+    var buffer: [1024]u8 = undefined;
+
+    const stdin_pipe_name = try std.fmt.bufPrintZ(buffer[0..], "\\\\.\\pipe\\{s}", .{"stdin"});
+
+    stdin_read = win32pipe.CreateNamedPipeA(
+        stdin_pipe_name,
+        .{ .FILE_ATTRIBUTE_READONLY = 1 },
+        .{},
+        1,
+        4096,
+        4096,
+        0,
+        null,
+    );
+
+    stdin_write = win32fs.CreateFileA(
+        stdin_pipe_name,
+        win32fs.FILE_GENERIC_WRITE,
+        .{},
+        null,
+        .OPEN_EXISTING,
+        .{ .FILE_FLAG_OVERLAPPED = 1 },
+        null,
+    );
+    const stdout_pipe_name = try std.fmt.bufPrintZ(buffer[0..], "\\\\.\\pipe\\{s}", .{"stdout"});
+
+    stdout_read = win32pipe.CreateNamedPipeA(
+        stdout_pipe_name,
+        .{ .FILE_ATTRIBUTE_READONLY = 1, .FILE_FLAG_OVERLAPPED = 1 },
+        .{},
+        1,
+        4096,
+        4096,
+        0,
+        null,
+    );
+
+    stdout_write = win32fs.CreateFileA(
+        stdout_pipe_name,
+        win32fs.FILE_GENERIC_WRITE,
+        .{},
+        null,
+        .OPEN_EXISTING,
+        .{ .FILE_FLAG_OVERLAPPED = 1 },
+        null,
+    );
+
+    // if (win32pipe.CreatePipe(&stdin_read, &stdin_write, null, 0) == 0 or isInvaliedOrNull(stdin_read) or isInvaliedOrNull(stdin_write)) {
+    //     return error.PipeCreationFailed;
+    // }
+    // if (win32pipe.CreatePipe(&stdout_read, &stdout_write, null, 0) == 0 or isInvaliedOrNull(stdout_read) or isInvaliedOrNull(stdout_write)) {
+    //     return error.PipeCreationFailed;
+    // }
 
     const hresult = win32con.CreatePseudoConsole(
         .{ .X = @intCast(options.size.width), .Y = @intCast(options.size.height) },

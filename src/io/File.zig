@@ -23,7 +23,7 @@ pub fn asyncRead(self: File, allocator: Allocator, buf: []u8, callback: Event.Ca
     const control_block = try allocator.create(Event.ControlBlock);
 
     return switch (builtin.os.tag) {
-        .windows => {},
+        .windows => self.asyncReadWindows(buf, callback, control_block, data),
         .linux => self.asyncReadLinux(buf, callback, control_block, data),
         else => {},
     };
@@ -34,14 +34,41 @@ fn asyncReadLinux(self: File, buf: []u8, callback: Event.CallBack, _: *Event.Con
         .data = data,
         .handle = self.handle,
         .callback_fn = callback,
-        .dispatch_fn = &readDispatsh,
+        .dispatch_fn = &readDispatshLinux,
         .dispatch_buf = buf,
     };
 }
 
-fn readDispatsh(handle: Handle, buf: []u8) usize {
+fn readDispatshLinux(handle: Handle, buf: []u8) usize {
     return posix.read(handle, buf) catch |err|
         std.debug.panic("read dispatsh failed: {}", .{err});
+}
+
+fn asyncReadWindows(
+    self: File,
+    buf: []u8,
+    callback: Event.CallBack,
+    control_block: *Event.ControlBlock,
+    data: ?*anyopaque,
+) !Event {
+    control_block.* = std.mem.zeroes(Event.ControlBlock);
+
+    _ = win32.storage.file_system.ReadFile(self.handle, buf.ptr, @intCast(buf.len), null, control_block);
+
+    return .{
+        .data = data,
+        .handle = self.handle,
+        .callback_fn = callback,
+        .control_block = control_block,
+        .dispatch_fn = &readDispatshLinux,
+        .dispatch_buf = buf,
+    };
+}
+
+fn readDispatshWindows(handle: Handle, buf: []u8) usize {
+    _ = buf; // autofix
+    _ = handle; // autofix
+    return 0;
 }
 
 const std = @import("std");

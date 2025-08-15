@@ -41,7 +41,7 @@ pub fn start(self: *App) !void {
 
     self.io_event_loop = try .init();
 
-    const master_file = try AysncFile.init(self.pty.master);
+    const master_file = try AysncFile.init(self.child.stdout.?.handle);
 
     const master_event = try master_file.asyncRead(self.allocator, self.buffer.buffer, &pty_read_callback, self);
 
