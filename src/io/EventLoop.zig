@@ -19,7 +19,7 @@ pub fn init() !EventLoop {
 
 pub fn run(self: *const EventLoop) !void {
     return switch (builtin.os.tag) {
-        .windows => {},
+        .windows => self.runWindows(),
         .linux => self.runLinux(),
         else => {},
     };
@@ -34,7 +34,8 @@ fn initLinux() !EventLoop {
 
 fn initWindows() !EventLoop {
     const handle =
-        win32.system.io.CreateIoCompletionPort(INVALID_HANDLE_VALUE, null, 0, 0);
+        win32.system.io.CreateIoCompletionPort(INVALID_HANDLE_VALUE, null, 0, 0) orelse
+        return error.CreateIoCompletionPortFailed;
 
     return .{
         .handle = handle,
@@ -51,7 +52,15 @@ pub fn addEvent(self: *EventLoop, allocator: Allocator, event: Event) !void {
     try self.events.append(allocator, event);
 
     switch (builtin.os.tag) {
-        .windows => {},
+        .windows => {
+            _ = win32.system.io.CreateIoCompletionPort(
+                event.handle,
+                self.handle,
+                self.events.items.len,
+                0,
+            );
+            _ = event.dispatch_fn(event.handle, event.dispatch_buf);
+        },
         .linux => {
             var epoll_event = std.mem.zeroes(linux.epoll_event);
             epoll_event.data.ptr = self.events.items.len - 1;
@@ -80,6 +89,27 @@ fn runLinux(self: *const EventLoop) !void {
             event_ptr.callback_fn(event_ptr, event_ptr.dispatch_buf[0..len], event_ptr.data);
             return;
         }
+    }
+}
+
+fn runWindows(self: *const EventLoop) !void {
+    while (true) {
+        var len: u32 = 0;
+        var event_index: usize = 0;
+        var control_block: *Event.ControlBlock = undefined;
+        _ = win32.system.io.GetQueuedCompletionStatus(
+            self.handle,
+            &len,
+            &event_index,
+            @ptrCast(&control_block),
+            0,
+        );
+
+        const event_ptr = &self.events.items[event_index];
+
+        event_ptr.callback_fn(event_ptr, event_ptr.dispatch_buf[0..len], event_ptr.data);
+
+        return;
     }
 }
 
