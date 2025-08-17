@@ -24,9 +24,9 @@ dispatch_buf: []u8,
 
 control_block: ?*ControlBlock = null,
 
-
 pub fn deinit(self: *Event, allocator: Allocator) void {
-    allocator.destroy(self.control_block);
+    if (self.control_block) |cb|
+        allocator.destroy(cb);
 }
 
 const std = @import("std");

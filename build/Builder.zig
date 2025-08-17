@@ -105,6 +105,10 @@ pub fn addExcutable(self: *Builder, name: []const u8) *Builder {
         .link_libc = self.needLibc(),
     });
 
+    // debug builds needs a consol
+    if (self.window_system == .Win32 and self.optimize != .Debug)
+        exe.subsystem = .Windows;
+
     self.exe = exe;
 
     self.builder_step.dependOn(&exe.step);

@@ -60,7 +60,7 @@ fn asyncReadWindows(
         .handle = self.handle,
         .callback_fn = callback,
         .control_block = control_block,
-        .dispatch_fn = &readDispatshLinux,
+        .dispatch_fn = &readDispatshWindows,
         .dispatch_buf = buf,
     };
 }

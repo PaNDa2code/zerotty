@@ -16,6 +16,14 @@ pub fn main() !void {
     app.loop();
 }
 
+export fn wWinMain() callconv(std.os.windows.WINAPI) i32 {
+    main() catch |e| {
+        std.debug.panic("main() returns error: {}", .{e});
+        return -1;
+    };
+    return 0;
+}
+
 pub const UNICODE = true;
 
 test {

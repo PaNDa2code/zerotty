@@ -17,6 +17,19 @@ pub fn init() !EventLoop {
     };
 }
 
+pub fn deinit(self: *EventLoop, allocator: Allocator) void {
+    for (self.events.items) |*ev|
+        ev.deinit(allocator);
+
+    defer self.events.deinit(allocator);
+
+    return switch (builtin.os.tag) {
+        .windows => self.deinitWindows(allocator),
+        .linux => self.deinitLinux(),
+        else => self.deinitPosix(),
+    };
+}
+
 pub fn run(self: *const EventLoop) !void {
     return switch (builtin.os.tag) {
         .windows => self.runWindows(),
@@ -42,6 +55,11 @@ fn initWindows() !EventLoop {
     };
 }
 
+fn deinitWindows(self: *EventLoop, allocator: Allocator) void {
+    _ = allocator; // autofix
+    _ = self; // autofix
+}
+
 // Posix systems other than linux will not have a handle
 // to epoll or iocp, It will mostly just relay on libc poll
 fn initPosix() !EventLoop {
@@ -56,10 +74,9 @@ pub fn addEvent(self: *EventLoop, allocator: Allocator, event: Event) !void {
             _ = win32.system.io.CreateIoCompletionPort(
                 event.handle,
                 self.handle,
-                self.events.items.len,
+                self.events.items.len - 1,
                 0,
             );
-            _ = event.dispatch_fn(event.handle, event.dispatch_buf);
         },
         .linux => {
             var epoll_event = std.mem.zeroes(linux.epoll_event);
@@ -97,19 +114,22 @@ fn runWindows(self: *const EventLoop) !void {
         var len: u32 = 0;
         var event_index: usize = 0;
         var control_block: *Event.ControlBlock = undefined;
-        _ = win32.system.io.GetQueuedCompletionStatus(
+        if (win32.system.io.GetQueuedCompletionStatus(
             self.handle,
             &len,
             &event_index,
             @ptrCast(&control_block),
             0,
-        );
+        ) == 0) {
+            return;
+        } else {
+            const event_ptr = &self.events.items[event_index];
+            event_ptr.callback_fn(event_ptr, event_ptr.dispatch_buf[0..len], event_ptr.data);
 
-        const event_ptr = &self.events.items[event_index];
-
-        event_ptr.callback_fn(event_ptr, event_ptr.dispatch_buf[0..len], event_ptr.data);
-
-        return;
+            // TODO: i'll handle this better ^_^
+            _ = win32.storage.file_system.ReadFile(event_ptr.handle, event_ptr.dispatch_buf.ptr, @intCast(event_ptr.dispatch_buf.len), null, event_ptr.control_block);
+            // return;
+        }
     }
 }
 

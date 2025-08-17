@@ -123,19 +123,16 @@ fn WindowProc(self: *Window, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARA
             }
             return 0;
         },
-        win32wm.WM_SIZING => {
-            return 0;
-        },
-        win32wm.WM_ENTERSIZEMOVE => {
-            return win32wm.SendMessageW(hwnd, win32wm.WM_SETREDRAW, 0, 0);
-        },
-        win32wm.WM_EXITSIZEMOVE => {
-            return win32wm.SendMessageW(hwnd, win32wm.WM_SETREDRAW, 1, 0);
-        },
+        // win32wm.WM_ENTERSIZEMOVE => {
+        //     return win32wm.SendMessageW(hwnd, win32wm.WM_SETREDRAW, 0, 0);
+        // },
+        // win32wm.WM_EXITSIZEMOVE => {
+        //     return win32wm.SendMessageW(hwnd, win32wm.WM_SETREDRAW, 1, 0);
+        // },
         win32wm.WM_ERASEBKGND => {
             return 0;
         },
-        win32wm.WM_SIZE => {
+        win32wm.WM_SIZING, win32wm.WM_SIZE => {
             const lp: usize = @as(usize, @bitCast(lparam));
             const width: u32 = @intCast(lp & 0xFFFF);
             const height: u32 = @intCast((lp >> 16) & 0xFFFF);
