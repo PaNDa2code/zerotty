@@ -3,3 +3,6 @@ zig-out
 *.cso
 *.PGM
 temp
+Gemfile*
+docs/_site/
+docs/.jekyll-cache
