@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+        <link rel="icon"
+              href="/zerotty/assets/favicon.png"
+              type="image/png">
+
+        <title>Build</title>
+        <link rel="stylesheet" href="http://localhost:4000/zerotty/assets/css/styles.css">
+    </head>
+    <div id="sidebar">
+    <ul>
+        
+            <li class="active">
+                <a href="/zerotty/build.html">Build</a>
+            </li>
+        
+            <li class="active">
+                <a href="/zerotty/">ZeroTTY</a>
+            </li>
+        
+            <li >
+                <a href="/zerotty/assets/css/styles.css"></a>
+            </li>
+        
+    </ul>
+</div>
+
+    <body><h2 id="-building">🚧 Building</h2>
+
+<p>You can customize the rendering backend and window system using build arguments.</p>
+
+<h3 id="-supported-options">✨ Supported Options</h3>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">-Drender-backend</code>
+    <ul>
+      <li><code class="language-plaintext highlighter-rouge">OpenGL</code> (default)</li>
+      <li><code class="language-plaintext highlighter-rouge">Vulkan</code></li>
+      <li><code class="language-plaintext highlighter-rouge">D3D11</code> (Windows only)</li>
+    </ul>
+  </li>
+  <li><code class="language-plaintext highlighter-rouge">-Dwindow-system</code>
+    <ul>
+      <li><code class="language-plaintext highlighter-rouge">Xlib</code> (default on Linux)</li>
+      <li><code class="language-plaintext highlighter-rouge">Xcb</code></li>
+      <li><code class="language-plaintext highlighter-rouge">Win32</code> (default on Windows)</li>
+    </ul>
+  </li>
+</ul>
+
+<hr />
+
+<h3 id="-example-builds">🛠 Example Builds</h3>
+
+<h4 id="-linux--opengl--xlib">✅ Linux + OpenGL + Xlib</h4>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>zig build <span class="nt">-Dtarget</span><span class="o">=</span>native <span class="nt">-Drender-backend</span><span class="o">=</span>OpenGL <span class="nt">-Dwindow-system</span><span class="o">=</span>Xlib
+</code></pre></div></div>
+<p>✅ Windows + D3D11 + Win32</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>zig build <span class="nt">-Dtarget</span><span class="o">=</span>x86_64-windows <span class="nt">-Drender-backend</span><span class="o">=</span>D3D11 <span class="nt">-Dwindow-system</span><span class="o">=</span>Win32
+</code></pre></div></div>
+
+<p>✅ Cross-compile to Windows from Linux</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>zig build <span class="nt">-Dtarget</span><span class="o">=</span>x86_64-windows <span class="nt">-Drender-backend</span><span class="o">=</span>OpenGL <span class="nt">-Dwindow-system</span><span class="o">=</span>Win32
+</code></pre></div></div>
+</body>
+</html>
