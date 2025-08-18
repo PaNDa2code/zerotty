@@ -60,6 +60,10 @@ fn deinitWindows(self: *EventLoop, allocator: Allocator) void {
     _ = self; // autofix
 }
 
+fn deinitLinux(self: *EventLoop) void {
+    _ = self; // autofix
+}
+
 // Posix systems other than linux will not have a handle
 // to epoll or iocp, It will mostly just relay on libc poll
 fn initPosix() !EventLoop {
@@ -92,10 +96,12 @@ fn runLinux(self: *const EventLoop) !void {
     var events: [10]linux.epoll_event = undefined;
 
     while (true) {
-        const count = linux.epoll_wait(self.handle, &events, 10, -1);
+        const count = linux.epoll_wait(self.handle, &events, 10, 0);
 
         if (@as(isize, @bitCast(count)) == -1)
             std.debug.panic("epoll_wait failed: {}", .{count});
+        if (count == 0)
+            return;
 
         for (0..count) |i| {
             const event_index = events[i].data.ptr;
