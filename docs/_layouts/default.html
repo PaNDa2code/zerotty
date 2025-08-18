@@ -1,13 +1,16 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{{ page.title }}</title>
-    <link rel="stylesheet" href="/assets/css/styles.css" />
-  </head>
-  {% include sidebar.html %}
-  <body>
-    {{ content }}
-  </body>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+        <link rel="icon"
+              href="{{ '/assets/favicon.png' | relative_url }}"
+              type="image/png">
+
+        <title>{{ page.title }}</title>
+        <link rel="stylesheet" href="{{ '/assets/css/styles.css' | absolute_url }}">
+    </head>
+    {% include sidebar.html %}
+    <body>{{ content }}</body>
 </html>
