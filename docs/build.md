@@ -1,3 +1,8 @@
+---
+layout: default
+title: Build
+---
+
 ## 🚧 Building
 
 You can customize the rendering backend and window system using build arguments.

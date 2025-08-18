@@ -1,3 +1,8 @@
+---
+layout: default
+title: ZeroTTY
+---
+
 # ZeroTTY - A Cross-Compiled Terminal Emulator
 
 ![Logo](images/zerotty.png)
