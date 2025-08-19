@@ -11,6 +11,7 @@ w: c_ulong = undefined,
 renderer: Renderer = undefined,
 render_cb: ?*const fn (*Renderer) void = null,
 resize_cb: ?*const fn (width: u32, height: u32) void = null,
+keyboard_cb: ?*const fn (key: u8, press: bool) void = null,
 
 exit: bool = false,
 window_visable: bool = false,
@@ -57,7 +58,7 @@ pub fn messageLoop(self: *Window) void {
 }
 
 pub fn pumpMessages(self: *Window) void {
-    _ = c.XSelectInput(self.display, self.w, c.ExposureMask | c.StructureNotifyMask);
+    _ = c.XSelectInput(self.display, self.w, c.ExposureMask | c.StructureNotifyMask | c.KeyPressMask);
 
     var event: c.XEvent = undefined;
     const pending = c.XPending(self.display);
@@ -70,8 +71,17 @@ pub fn pumpMessages(self: *Window) void {
                 self.window_visable = true;
             },
             c.KeyPress => {
-                if (c.XLookupKeysym(@constCast(&event.xkey), 0) == c.XK_Escape) {
+                const keycode = event.xkey.keycode;
+                if (keycode == 9)
                     self.exit = true;
+                if (self.keyboard_cb) |cb| {
+                    cb(@intCast(keycode), true);
+                }
+            },
+            c.KeyRelease => {
+                const keycode = event.xkey.keycode;
+                if (self.keyboard_cb) |cb| {
+                    cb(@intCast(keycode), false);
                 }
             },
             c.ClientMessage => {

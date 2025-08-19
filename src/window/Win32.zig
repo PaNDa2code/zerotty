@@ -10,6 +10,7 @@ width: u32,
 renderer: Renderer = undefined,
 render_cb: ?*const fn (*Renderer) void = null,
 resize_cb: ?*const fn (width: u32, height: u32) void = null,
+keyboard_cb: ?*const fn (key: u8, press: bool) void = null,
 
 pub fn new(title: []const u8, height: u32, width: u32) Window {
     return .{
@@ -114,6 +115,9 @@ fn WindowProc(self: *Window, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARA
         win32wm.WM_KEYDOWN, win32wm.WM_SYSKEYDOWN => {
             if (wparam == @intFromEnum(win32.ui.input.keyboard_and_mouse.VK_ESCAPE)) {
                 win32wm.PostQuitMessage(0);
+            }
+            if (self.keyboard_cb) |cb| {
+                cb(@intCast(wparam), true);
             }
             return 0;
         },

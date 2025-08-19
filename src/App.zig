@@ -27,6 +27,7 @@ pub fn new(allocator: Allocator) App {
 var render: *Renderer = undefined;
 var _pty: *Pty = undefined;
 var evloop: *EventLoop = undefined;
+var child_stdin: std.fs.File = undefined;
 
 pub fn start(self: *App) !void {
     try self.window.open(self.allocator);
@@ -46,6 +47,7 @@ pub fn start(self: *App) !void {
 
     self.io_event_loop = try .init();
 
+    child_stdin = self.child.stdin.?;
     const master_file = try AysncFile.init(self.child.stdout.?.handle);
 
     const master_event = try master_file.asyncRead(self.allocator, self.buffer.buffer, &pty_read_callback, self);
@@ -60,9 +62,15 @@ pub fn pty_read_callback(_: *const EventLoop.Event, buf: []u8, data: ?*anyopaque
     app.vt_parser.parse(buf);
 }
 
+fn keyboard_cb(code: u8, press: bool) void {
+    std.log.debug("code = {}, press = {}", .{ code, press });
+    child_stdin.writeAll(&.{code}) catch unreachable;
+}
+
 pub fn loop(self: *App) void {
     self.window.render_cb = &drawCallBack;
     self.window.resize_cb = &resizeCallBack;
+    self.window.keyboard_cb = &keyboard_cb;
     while (!self.window.exit) {
         self.window.pumpMessages();
     }
