@@ -1,6 +1,6 @@
 ---
 layout: default
-title: ZeroTTY
+title: index
 ---
 
 # ZeroTTY - A Cross-Compiled Terminal Emulator
