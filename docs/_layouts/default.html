@@ -15,6 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   </head>
   <body class="flex flex-col lg:flex-row min-h-screen">
+    {% include sidebar.html %}
     <main class="flex-grow p-6 lg:p-10 order-1 lg:order-2 bg-gray-50">
       <div class="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-lg">
         {{ content }}
