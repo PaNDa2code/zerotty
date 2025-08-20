@@ -10,17 +10,34 @@
       type="image/png"
     />
 
-    <title>{{ page.title }} | {{ site.title }}</title>
+    <title>
+      {{ site.title }} {% if page.title %} | {{ page.title }} {% endif %}
+    </title>
 
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <link href="assets/css/syntax.css" rel="stylesheet">
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="{{ '/assets/css/styles.css' | relative_url }}"
+      rel="stylesheet"
+    />
+    <link
+      href="{{ '/assets/css/syntax.css' | relative_url }}"
+      rel="stylesheet"
+    />
+
+    <script src="{{ '/assets/js/copy-button.js' | relative_url }}"></script>
+
   </head>
-  <body class="flex flex-col lg:flex-row min-h-screen">
-    {% include sidebar.html %}
-    <main class="flex-grow p-6 lg:p-10 order-1 lg:order-2 bg-gray-50">
-      <div class="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-lg">
-        {{ content }}
-      </div>
-    </main>
+  <body class="custom-body-styles">
+    <div class="docs-wrapper">
+      <!-- Sidebar -->
+      {% include sidebar.html %}
+      <!-- Main Content Area -->
+      <main class="main-content">
+        <div class="content-card">{{ content }}</div>
+      </main>
+    </div>
   </body>
 </html>

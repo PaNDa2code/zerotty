@@ -18,6 +18,7 @@ You can customize the rendering backend and window system using build arguments.
   - `Xlib` (default on Linux)
   - `Xcb`
   - `Win32` (default on Windows)
+{: .cli-options}
 
 ---
 

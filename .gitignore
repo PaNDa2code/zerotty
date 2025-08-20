@@ -6,3 +6,7 @@ temp
 # Gemfile*
 docs/_site/
 docs/.jekyll-cache
+docs/Gemfile
+docs/Gemfile.lock
+docs/vendor
+docs/.bundle
