@@ -5,6 +5,12 @@ on:
       - master
     paths:
       - "docs/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
 
 jobs:
   build_mkdocs:
