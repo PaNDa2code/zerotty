@@ -14,9 +14,6 @@
             
                 <link  rel="icon" type="image/x-icon" href="assets/favicon.png">
             
-                <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-                <link rel="stylesheet" href="https://unpkg.com/@highlightjs/cdn-assets@11.4.0/styles/base16/grayscale-dark.min.css">
-                <script>hljs.highlightAll();</script>
             <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Fira+Mono:400,700">
             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 
@@ -66,18 +63,11 @@
                         </li>
                         <li class="nav-item">
                             <a class="
-                            nav-link text-gray text-decoration-none" href="install/">[Install]</a>
+                            nav-link text-gray text-decoration-none" href="build/">[Build]</a>
                         </li>
-                        <li class="nav-item dropdown">
+                        <li class="nav-item">
                             <a class="
-                            nav-link dropdown-toggle text-decoration-none" href="#" data-bs-toggle="dropdown">[Build]</a>
-                            <ul class="dropdown-menu">
-                                    <!-- block dropdown-menu -->
-    <li>
-        <a href="build/build/" class="dropdown-item text-decoration-none ">Build</a>
-    </li>
-<!-- endblock -->
-                            </ul>
+                            nav-link text-gray text-decoration-none" href="install/">[Install]</a>
                         </li>
             </ul>
         </li>
@@ -136,6 +126,10 @@
               <ul class="nav flex-column">
               </ul>
             </li>
+            <li class="nav-item" data-bs-level="2"><a href="#getting-started" class="nav-link">Getting started</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
               </ul>
             </li>
         </ul>
@@ -156,7 +150,24 @@
 <p>A Cross-Compiled Terminal Emulator</p>
 <p><img alt="Logo" src="assets/images/zerotty.png" /></p>
 <h2 id="description">Description</h2>
-<p>ZeroTTY is a terminal emulator project. It focuses on <strong>cross-compilation</strong>, <strong>native execution</strong>, and <strong>low-level design</strong> to achieve high <strong>speed and performance</strong> across various operating systems.</p></p>
+<p>ZeroTTY is a terminal emulator project. It focuses on <strong>cross-compilation</strong>, <strong>native execution</strong>, and <strong>low-level design</strong> to achieve high <strong>speed and performance</strong> across various operating systems.</p>
+<h2 id="getting-started">Getting started</h2>
+<ol>
+<li>clone the repository</li>
+</ol>
+<pre><code class="language-bash">git clone github.com/PaNDa2code/zerotty
+cd zerotty
+</code></pre>
+<ol>
+<li>build the project, <a href="build/">more info</a></li>
+</ol>
+<pre><code class="language-bash">zig build -Drender-backend=OpenGL
+</code></pre>
+<ol>
+<li>run</li>
+</ol>
+<pre><code class="language-bash">./zig-out/bin/zerotty
+</code></pre></p>
     </article>
 </section>
 <!-- endblock -->
@@ -177,7 +188,7 @@
         </div>
         <div class="col themed-grid-col"></div>
         <div class="col themed-grid-col">
-            <a rel="next" href="install/" class="nav-link">
+            <a rel="next" href="build/" class="nav-link">
                 Next <i class="fa fa-arrow-right"></i>
             </a>
         </div>
