@@ -1,8 +1,14 @@
-## Building
+# Building from source
 
 You can customize the rendering backend and window system using build arguments.
 
-### Options
+
+## Build dependences
+
+- zig compiler (0.14.x)
+- SPIR-V tools installed (optional)
+
+## Options
 
 - `-Drender-backend`
     - `OpenGL`
@@ -15,7 +21,7 @@ You can customize the rendering backend and window system using build arguments.
 
 ---
 
-### recommended build options
+## recommended build options
 
 #### linux
 
@@ -31,6 +37,6 @@ zig build -Drender-backend=OpenGL
 
 #### Cross-compile to Windows from Linux
 
-```bash
+```ptyhon
 zig build -Dtarget=x86_64-windows -Drender-backend=OpenGL
 ```

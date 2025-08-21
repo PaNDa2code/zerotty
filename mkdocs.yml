@@ -1,11 +1,31 @@
 site_name: zerotty
 site_url: https://panda2code.github.io/zerotty
+repo_name: PaNDa2code/zerotty
 repo_url: https://github.com/panda2code/zerotty
 docs_dir: docs
 
+nav:
+  - Home: index.md
+  - Build: build.md
+  - Install: install.md 
+  - Config: config.md
+
 theme:
   name: simple-blog
-  sidebar: true
-  navigation_depth: 2
+
   logo: assets/favicon.png
   favicon: assets/favicon.png
+
+  sidebar: true
+  navigation_depth: 2
+
+  hljs_languages: true
+    - bash
+    - python
+
+  components:
+    site_name: true
+    title: false
+    menu: true
+    preview: true
+    footer: true
