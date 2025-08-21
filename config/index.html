@@ -1,14 +1,14 @@
 <!doctype html>
 <html data-bs-theme="">
     <head>
-                <title>Build - zerotty</title>
+                <title>Config - zerotty</title>
 
             <meta charset="utf-8">
             <meta http-equiv="X-UA-Compatible" content="IE=edge">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
             
-            <link rel="canonical" href="https://panda2code.github.io/zerotty/build/">
+            <link rel="canonical" href="https://panda2code.github.io/zerotty/config/">
             
 
             
@@ -62,16 +62,16 @@
                             nav-link text-gray text-decoration-none" href="..">[Home]</a>
                         </li>
                         <li class="nav-item">
-                            <a class=" active 
-                            nav-link text-gray text-decoration-none" href="./">[Build]</a>
+                            <a class="
+                            nav-link text-gray text-decoration-none" href="../build/">[Build]</a>
                         </li>
                         <li class="nav-item">
                             <a class="
                             nav-link text-gray text-decoration-none" href="../install/">[Install]</a>
                         </li>
                         <li class="nav-item">
-                            <a class="
-                            nav-link text-gray text-decoration-none" href="../config/">[Config]</a>
+                            <a class=" active 
+                            nav-link text-gray text-decoration-none" href="./">[Config]</a>
                         </li>
             </ul>
         </li>
@@ -163,23 +163,6 @@
     
     <div class="sidebar navbar-collapse collapse card">
         <ul class="nav flex-column">
-            
-            <li class="nav-item" data-bs-level="1"><a href="#building-from-source" class="nav-link">Building from source</a>
-              <ul class="nav flex-column">
-            <li class="nav-item" data-bs-level="2"><a href="#build-dependences" class="nav-link">Build dependences</a>
-              <ul class="nav flex-column">
-              </ul>
-            </li>
-            <li class="nav-item" data-bs-level="2"><a href="#options" class="nav-link">Options</a>
-              <ul class="nav flex-column">
-              </ul>
-            </li>
-            <li class="nav-item" data-bs-level="2"><a href="#recommended-build-options" class="nav-link">recommended build options</a>
-              <ul class="nav flex-column">
-              </ul>
-            </li>
-              </ul>
-            </li>
         </ul>
     </div>
 </div>
@@ -193,42 +176,7 @@
             
             
         </header>
-        <p><h1 id="building-from-source">Building from source</h1>
-<p>You can customize the rendering backend and window system using build arguments.</p>
-<h2 id="build-dependences">Build dependences</h2>
-<ul>
-<li>zig compiler (0.14.x)</li>
-<li>SPIR-V tools installed (optional)</li>
-</ul>
-<h2 id="options">Options</h2>
-<ul>
-<li>
-<p><code>-Drender-backend</code></p>
-<ul>
-<li><code>OpenGL</code></li>
-<li><code>Vulkan</code> (not fully supported yet)</li>
-</ul>
-</li>
-<li>
-<p><code>-Dwindow-system</code></p>
-<ul>
-<li><code>Xlib</code> (default on Linux)</li>
-<li><code>Xcb</code></li>
-<li><code>Win32</code> (default on Windows)</li>
-</ul>
-</li>
-</ul>
-<hr />
-<h2 id="recommended-build-options">recommended build options</h2>
-<h4 id="linux">linux</h4>
-<pre><code class="language-bash">zig build -Drender-backend=OpenGL
-</code></pre>
-<h4 id="windows">Windows</h4>
-<pre><code class="language-bash">zig build -Drender-backend=OpenGL
-</code></pre>
-<h4 id="cross-compile-to-windows-from-linux">Cross-compile to Windows from Linux</h4>
-<pre><code class="language-ptyhon">zig build -Dtarget=x86_64-windows -Drender-backend=OpenGL
-</code></pre></p>
+        <p></p>
     </article>
 </section>
 <!-- endblock -->
@@ -243,13 +191,13 @@
                     <!-- block preview -->
     <div class="preview row row-cols-md-3 text-center pt-md-3" id="component-preview">
         <div class="col themed-grid-col">
-            <a rel="prev" href=".." class="nav-link">
+            <a rel="prev" href="../install/" class="nav-link">
                 <i class="fa fa-arrow-left"></i> Previous
             </a>
         </div>
         <div class="col themed-grid-col"></div>
         <div class="col themed-grid-col">
-            <a rel="next" href="../install/" class="nav-link">
+            <a rel="next" class="nav-link disabled">
                 Next <i class="fa fa-arrow-right"></i>
             </a>
         </div>
