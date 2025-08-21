@@ -1,30 +1,24 @@
----
-layout: default
-title: Build
----
-
-## 🚧 Building
+## Building
 
 You can customize the rendering backend and window system using build arguments.
 
 ### ✨ Supported Options
 
 - `-Drender-backend`
-  - `OpenGL` (default)
-  - `Vulkan`
-  - `D3D11` (Windows only)
+    - `OpenGL` (default)
+    - `Vulkan`
+    - `D3D11` (Windows only)
 
 - `-Dwindow-system`
-  - `Xlib` (default on Linux)
-  - `Xcb`
-  - `Win32` (default on Windows)
-{: .cli-options}
+    - `Xlib` (default on Linux)
+    - `Xcb`
+    - `Win32` (default on Windows)
 
 ---
 
 ### 🛠 Example Builds
 
-#### ✅ Linux + OpenGL + Xlib
+✅ Linux + OpenGL + Xlib
 ```bash
 zig build -Dtarget=native -Drender-backend=OpenGL -Dwindow-system=Xlib
 ```
