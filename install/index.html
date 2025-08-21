@@ -1,18 +1,18 @@
 <!doctype html>
 <html data-bs-theme="">
     <head>
-                <title>Build - zerotty</title>
+                <title>Install - zerotty</title>
 
             <meta charset="utf-8">
             <meta http-equiv="X-UA-Compatible" content="IE=edge">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
             
-            <link rel="canonical" href="https://panda2code.github.io/zerotty/build/build/">
+            <link rel="canonical" href="https://panda2code.github.io/zerotty/install/">
             
 
             
-                <link  rel="icon" type="image/x-icon" href="../../assets/favicon.png">
+                <link  rel="icon" type="image/x-icon" href="../assets/favicon.png">
             
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
                 <link rel="stylesheet" href="https://unpkg.com/@highlightjs/cdn-assets@11.4.0/styles/base16/grayscale-dark.min.css">
@@ -20,12 +20,12 @@
             <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Fira+Mono:400,700">
             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 
-            <link rel="stylesheet" href="../../assets/css/bootstrap.min.css">
-            <link rel="stylesheet" href="../../assets/css/root.min.css">
-            <link rel="stylesheet" href="../../assets/css/main.min.css">
-            <link rel="stylesheet" href="../../assets/css/media.min.css">
-            <link rel="stylesheet" href="../../assets/css/mkdocstrings.min.css">
-                <script src="../../search/main.js"></script>
+            <link rel="stylesheet" href="../assets/css/bootstrap.min.css">
+            <link rel="stylesheet" href="../assets/css/root.min.css">
+            <link rel="stylesheet" href="../assets/css/main.min.css">
+            <link rel="stylesheet" href="../assets/css/media.min.css">
+            <link rel="stylesheet" href="../assets/css/mkdocstrings.min.css">
+                <script src="../search/main.js"></script>
 
             
                 
@@ -39,7 +39,7 @@
 <nav class="navbar navbar-expand-xl border-bottom">
     <div class="container-fluid">
         
-            <img class="logo" src="../../assets/favicon.png">
+            <img class="logo" src="../assets/favicon.png">
         
 
         
@@ -62,19 +62,19 @@
             <ul class="navbar-nav">
                         <li class="nav-item">
                             <a class="
-                            nav-link text-gray text-decoration-none" href="../..">[zerotty]</a>
+                            nav-link text-gray text-decoration-none" href="..">[zerotty]</a>
                         </li>
                         <li class="nav-item">
-                            <a class="
-                            nav-link text-gray text-decoration-none" href="../../install/">[Install]</a>
+                            <a class=" active 
+                            nav-link text-gray text-decoration-none" href="./">[Install]</a>
                         </li>
                         <li class="nav-item dropdown">
-                            <a class=" active 
+                            <a class="
                             nav-link dropdown-toggle text-decoration-none" href="#" data-bs-toggle="dropdown">[Build]</a>
                             <ul class="dropdown-menu">
                                     <!-- block dropdown-menu -->
     <li>
-        <a href="./" class="dropdown-item text-decoration-none  active ">Build</a>
+        <a href="../build/build/" class="dropdown-item text-decoration-none ">Build</a>
     </li>
 <!-- endblock -->
                             </ul>
@@ -112,7 +112,7 @@
             <main><!-- block search -->
 <div class="collapse" id="collapseExample">
     <div role="search" class="search-box">
-        <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+        <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
             <input type="text" name="q" class="search-query"
             placeholder="Search docs" title="Type search term here" />
         </form>
@@ -130,7 +130,7 @@
     <div class="sidebar navbar-collapse collapse card">
         <ul class="nav flex-column">
             
-            <li class="nav-item" data-bs-level="2"><a href="#building" class="nav-link">Building</a>
+            <li class="nav-item" data-bs-level="2"><a href="#build-from-source" class="nav-link">Build from source</a>
               <ul class="nav flex-column">
               </ul>
             </li>
@@ -145,40 +145,11 @@
     <article>
         <header>
             
-                <h1 class=" title" id="component-title">Build</h1>
+                <h1 class=" title" id="component-title">Install</h1>
             
         </header>
-        <p><h2 id="building">Building</h2>
-<p>You can customize the rendering backend and window system using build arguments.</p>
-<h3 id="options">Options</h3>
-<ul>
-<li>
-<p><code>-Drender-backend</code></p>
-<ul>
-<li><code>OpenGL</code></li>
-<li><code>Vulkan</code> (not fully supported yet)</li>
-</ul>
-</li>
-<li>
-<p><code>-Dwindow-system</code></p>
-<ul>
-<li><code>Xlib</code> (default on Linux)</li>
-<li><code>Xcb</code></li>
-<li><code>Win32</code> (default on Windows)</li>
-</ul>
-</li>
-</ul>
-<hr />
-<h3 id="recommended-build-options">recommended build options</h3>
-<h4 id="linux">linux</h4>
-<pre><code class="language-bash">zig build -Drender-backend=OpenGL
-</code></pre>
-<h4 id="windows">Windows</h4>
-<pre><code class="language-bash">zig build -Drender-backend=OpenGL
-</code></pre>
-<h4 id="cross-compile-to-windows-from-linux">Cross-compile to Windows from Linux</h4>
-<pre><code class="language-bash">zig build -Dtarget=x86_64-windows -Drender-backend=OpenGL
-</code></pre></p>
+        <p><h2 id="build-from-source">Build from source</h2>
+<p>more info about build from soruce <a href="../build/build/">here</a></p></p>
     </article>
 </section>
 <!-- endblock -->
@@ -193,13 +164,13 @@
                     <!-- block preview -->
     <div class="preview row row-cols-md-3 text-center pt-md-3" id="component-preview">
         <div class="col themed-grid-col">
-            <a rel="prev" href="../../install/" class="nav-link">
+            <a rel="prev" href=".." class="nav-link">
                 <i class="fa fa-arrow-left"></i> Previous
             </a>
         </div>
         <div class="col themed-grid-col"></div>
         <div class="col themed-grid-col">
-            <a rel="next" class="nav-link disabled">
+            <a rel="next" href="../build/build/" class="nav-link">
                 Next <i class="fa fa-arrow-right"></i>
             </a>
         </div>
@@ -229,11 +200,11 @@
             
         </div>
 
-            <script>var base_url = '../..';</script>
-            <script src="../../assets/js/jquery-3.3.1.slim.min.js""></script>
-            <script src="../../assets/js/bootstrap.bundle.min.js""></script>
-            <script src="../../assets/js/main.min.js""></script>
-                <script src="../../search/main.js" defer></script>
+            <script>var base_url = '..';</script>
+            <script src="../assets/js/jquery-3.3.1.slim.min.js""></script>
+            <script src="../assets/js/bootstrap.bundle.min.js""></script>
+            <script src="../assets/js/main.min.js""></script>
+                <script src="../search/main.js" defer></script>
 
     </body>
 
