@@ -13,7 +13,7 @@ git clone github.com/PaNDa2code/zerotty
 cd zerotty
 ```
 
-2. build the project, [more info](build.md)
+2. build the project, [more info](docs/build.md)
 ```bash
 zig build -Drender-backend=OpenGL
 ```
