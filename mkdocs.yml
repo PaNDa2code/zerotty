@@ -7,9 +7,5 @@ theme:
   name: simple-blog
   sidebar: true
   navigation_depth: 2
-  highlightjs: true
-  hljs_languages:
-    - bash
-    - zig
   logo: assets/favicon.png
   favicon: assets/favicon.png
