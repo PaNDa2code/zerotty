@@ -4,7 +4,10 @@ on:
     branches:
       - master
     paths:
+      - ".github/workflows/docs.yml"
+      - "mkdocs.yml"
       - "docs/**"
+
   workflow_dispatch:
 
 permissions:
