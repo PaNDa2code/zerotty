@@ -1,9 +1,9 @@
 const CircularBuffer = @This();
 
-const page_size = (if (builtin.os.tag == .windows) 64 else 8) * 1024;
+pub const page_size = std.heap.pageSize();
 
 view_size: usize = 0,
-buffer: []u8 = undefined,
+buffer: []align(page_size) u8 = undefined,
 start: usize = 0,
 len: usize = 0,
 
@@ -38,7 +38,7 @@ pub fn deinit(self: *CircularBuffer) void {
 }
 
 fn initWindows(self: *CircularBuffer, requsted_size: usize) CreateError!void {
-    const size = std.mem.alignForward(usize, requsted_size, 64 * 1024);
+    const size = std.mem.alignForward(usize, requsted_size, page_size);
 
     const palce_holder = win32.system.memory.VirtualAlloc2(
         null,
@@ -54,8 +54,7 @@ fn initWindows(self: *CircularBuffer, requsted_size: usize) CreateError!void {
         return CreateError.VMemoryReserveFailed;
     }
 
-    var flags: u32 = @intFromEnum(win32.system.memory.MEM_PRESERVE_PLACEHOLDER);
-    flags |= @intFromEnum(win32.system.memory.MEM_RELEASE);
+    const flags: u32 = @intFromEnum(win32.system.memory.MEM_PRESERVE_PLACEHOLDER) | @intFromEnum(win32.system.memory.MEM_RELEASE);
 
     if (std.os.windows.kernel32.VirtualFree(palce_holder, size, flags) == 0) {
         return CreateError.VMemorySplitingFailed;
@@ -112,7 +111,7 @@ fn initWindows(self: *CircularBuffer, requsted_size: usize) CreateError!void {
 
     errdefer _ = win32.system.memory.UnmapViewOfFile(view2);
 
-    self.buffer.ptr = @ptrCast(view1.?);
+    self.buffer.ptr = @alignCast(@ptrCast(view1.?));
     self.buffer.len = size * 2;
     self.view_size = size;
 }
@@ -189,7 +188,7 @@ fn deinitWindows(self: *CircularBuffer) void {
     _ = win32.system.memory.UnmapViewOfFile(self.buffer[self.view_size..].ptr);
 }
 
-fn write_commit(self: *CircularBuffer, bytes_count: usize) void {
+fn writeCommit(self: *CircularBuffer, bytes_count: usize) void {
     self.len += bytes_count;
     if (self.len > self.view_size) {
         self.start = self.len - self.view_size;
@@ -203,7 +202,7 @@ pub fn write(self: *CircularBuffer, buffer: []const u8) anyerror!usize {
     const write_start = self.start + self.len;
     const write_end = write_start + bytes;
     @memcpy(self.buffer[write_start..write_end], buffer[0..bytes]);
-    self.write_commit(bytes);
+    self.writeCommit(bytes);
     return bytes;
 }
 
