@@ -22,7 +22,7 @@ pub fn debugCallback(
             unreachable;
 
     const fmt_buf = "{s}: {?s}";
-    const fmt_args = .{( @tagName(t) ), if ( p_callback_data ) |p| p.p_message else null};
+    const fmt_args = .{ @tagName(t), if (p_callback_data) |p| p.p_message else null };
 
     if (message_severity.verbose_bit_ext)
         log.debug(fmt_buf, fmt_args)
@@ -35,13 +35,6 @@ pub fn debugCallback(
 
     return vk.FALSE;
 }
-
-const Severity = enum {
-    verbose,
-    info,
-    warning,
-    @"error",
-};
 
 const Types = enum {
     general,

@@ -1,5 +1,7 @@
 const PipeLine = @This();
 
+graphics_pipeline: vk.Pipeline = .null_handle,
+pipeline_layout: vk.PipelineLayout = .null_handle,
 vertex_shader_module: vk.ShaderModule = .null_handle,
 fragment_shader_module: vk.ShaderModule = .null_handle,
 
@@ -167,6 +169,8 @@ pub fn init(
     // };
 
     return .{
+        .graphics_pipeline = graphics_pipeline,
+        .pipeline_layout = pipeline_layout,
         .vertex_shader_module = vertex_shader_module,
         .fragment_shader_module = fragment_shader_module,
     };
@@ -178,6 +182,7 @@ pub fn deinit(
     dev: vk.Device,
     vkmemcb: *const vk.AllocationCallbacks,
 ) void {
+    vkd.destroyPipelineLayout(dev, self.pipeline_layout, vkmemcb);
     vkd.destroyShaderModule(dev, self.vertex_shader_module, vkmemcb);
     vkd.destroyShaderModule(dev, self.fragment_shader_module, vkmemcb);
 }

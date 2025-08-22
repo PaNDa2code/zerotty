@@ -89,6 +89,9 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
             present_mode = .immediate_khr;
     }
 
+    const formats = try vki.getPhysicalDeviceSurfaceFormatsAllocKHR(physical_device, surface, allocator);
+    defer allocator.free(formats);
+
     // std.debug.assert(caps.max_image_count > 1);
 
     var image_count = caps.min_image_count + 1;
@@ -99,7 +102,7 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
     const swap_chain_create_info: vk.SwapchainCreateInfoKHR = .{
         .surface = surface,
         .min_image_count = image_count,
-        .image_format = .r8g8b8a8_unorm,
+        .image_format = formats[0].format,
         .image_color_space = .srgb_nonlinear_khr,
         .image_extent = swap_chain_extent,
         .image_array_layers = 1,
@@ -133,7 +136,7 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
         .window_width = window.width,
         .cmd_pool = cmd_pool,
         .cmd_buffers = cmd_buffers,
-        .pipe_line = try .init(vkd, device, &vk_mem_cb, caps.current_extent),
+        .pipe_line = undefined, //try .init(vkd, device, &vk_mem_cb, caps.current_extent),
         .grid = try Grid.create(allocator, .{}),
     };
 }
@@ -212,27 +215,38 @@ fn createDevice(
     // var queue_families_count: u32 = undefined;
     // vki.getPhysicalDeviceQueueFamilyProperties();
 
-    const queue_create_info: vk.DeviceQueueCreateInfo = .{
-        .queue_family_index = 0,
-        .queue_count = 1,
-        .p_queue_priorities = &.{1},
-    };
-
-    const ext = [_][*:0]const u8{
-        "VK_KHR_swapchain",
-    };
-
-    const device_create_info: vk.DeviceCreateInfo = .{
-        .queue_create_info_count = 1,
-        .p_queue_create_infos = &.{queue_create_info},
-        .enabled_extension_count = ext.len,
-        .pp_enabled_extension_names = &ext,
-    };
-
     physical_device.* = .null_handle;
     var device: vk.Device = .null_handle;
 
     for (physical_devices, 0..) |phs_dev, i| {
+        const queue_families_indcies = try findQueueFamilies(vki, phs_dev, allocator);
+
+        if (!queue_families_indcies.isComplite()) continue;
+
+        const queue_create_info: vk.DeviceQueueCreateInfo = .{
+            .queue_family_index = @intCast(queue_families_indcies.graphics_family.?),
+            .queue_count = 1,
+            .p_queue_priorities = &.{1},
+        };
+
+        const ext = [_][*:0]const u8{
+            "VK_KHR_swapchain",
+        };
+
+        const vald = [_][*:0]const u8{
+            "VK_LAYER_KHRONOS_validation",
+        };
+
+        const device_create_info: vk.DeviceCreateInfo = .{
+            .queue_create_info_count = 1,
+            .p_queue_create_infos = &.{queue_create_info},
+            .enabled_extension_count = ext.len,
+            .pp_enabled_extension_names = &ext,
+
+            .enabled_layer_count = vald.len,
+            .pp_enabled_layer_names = &vald,
+        };
+
         device = vki.createDevice(phs_dev, &device_create_info, vk_mem_cb) catch continue;
         physical_device.* = phs_dev;
         std.log.info("Using GPU{}", .{i});
@@ -326,6 +340,37 @@ fn debugMessenger(
         &debug_utils_messenger_create_info,
         vk_mem_cb,
     );
+}
+
+const QueueFamilyIndices = struct {
+    graphics_family: ?usize = null,
+
+    pub fn isComplite(self: *const QueueFamilyIndices) bool {
+        return self.graphics_family != null;
+    }
+};
+
+fn findQueueFamilies(
+    vki: *const vk.InstanceWrapper,
+    physical_device: vk.PhysicalDevice,
+    allocator: Allocator,
+) !QueueFamilyIndices {
+    var indices = QueueFamilyIndices{};
+
+    const queue_families = try vki.getPhysicalDeviceQueueFamilyPropertiesAlloc(physical_device, allocator);
+    defer allocator.free(queue_families);
+
+    for (queue_families, 0..) |*q, i| {
+        if (q.queue_flags.graphics_bit)
+            indices.graphics_family = i;
+    }
+
+    return indices;
+}
+
+fn isDeviceSuitable(vki: *const vk.InstanceWrapper, dev: vk.Device, allocator: Allocator) !bool {
+    const indices = try findQueueFamilies(vki, dev, allocator);
+    return indices.isComplite();
 }
 
 fn createWindowSerface(
@@ -456,13 +501,14 @@ pub fn deinit(self: *VulkanRenderer) void {
     const vki = self.instance_wrapper;
     const vkd = self.device_wrapper;
 
-    self.pipe_line.deinit(vkd, self.device, &cb);
+    // self.pipe_line.deinit(vkd, self.device, &cb);
 
     freeCmdBuffers(self.vk_mem.allocator, vkd, self.device, self.cmd_pool, self.cmd_buffers, &cb);
 
     vkd.destroySwapchainKHR(self.device, self.swap_chain, &cb);
     vkd.destroyDevice(self.device, &cb);
 
+    vki.destroyDebugUtilsMessengerEXT(self.instance, self.debug_messenger, &cb);
     vki.destroySurfaceKHR(self.instance, self.surface, &cb);
     vki.destroyInstance(self.instance, &cb);
 
