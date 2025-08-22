@@ -9,7 +9,7 @@ cursor: Cursor,
 pub fn init(window: *Window, allocator: Allocator) !Renderer {
     const backend = try RendererBackend.init(window, allocator);
     var cursor = try Cursor.init();
-    cursor.row_len = backend.grid.columns;
+    cursor.row_len = backend.grid.cols;
     return .{
         .backend = backend,
         .fps = try FPS.init(),

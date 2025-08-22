@@ -7,6 +7,7 @@ window: c.xcb_window_t = undefined,
 renderer: Renderer = undefined,
 render_cb: ?*const fn (*Renderer) void = null,
 resize_cb: ?*const fn (width: u32, height: u32) void = null,
+keyboard_cb: ?*const fn (key: u8, press: bool) void = null,
 
 wm_delete_window_atom: c.xcb_atom_t = 0,
 

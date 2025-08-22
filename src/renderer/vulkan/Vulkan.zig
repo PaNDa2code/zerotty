@@ -17,7 +17,7 @@ cmd_buffers: []const vk.CommandBuffer,
 
 pipe_line: PipeLine,
 
-grid: @import("../Grid.zig") = undefined,
+grid: Grid,
 
 pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
     const vk_mem = try allocator.create(VkAllocatorAdapter);
@@ -29,7 +29,7 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
     const vkb = try allocator.create(vk.BaseWrapper);
     vkb.* = .load(baseGetInstanceProcAddress);
 
-    const instance = try createInstance(vkb, &vk_mem_cb);
+    const instance = try createInstance(vkb, allocator, &vk_mem_cb);
 
     const vki = try allocator.create(vk.InstanceWrapper);
     vki.* = .load(instance, vkb.dispatch.vkGetInstanceProcAddr.?);
@@ -41,7 +41,7 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
     var physical_device: vk.PhysicalDevice = .null_handle;
     const device = try createDevice(allocator, vki, instance, &vk_mem_cb, &physical_device);
 
-    const vkd = try allocator.create(vk.DeviceWrapper); 
+    const vkd = try allocator.create(vk.DeviceWrapper);
     vkd.* = vk.DeviceWrapper.load(device, vki.dispatch.vkGetDeviceProcAddr.?);
     errdefer vkd.destroyDevice(device, &vk_mem_cb);
 
@@ -131,6 +131,7 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
         .cmd_pool = cmd_pool,
         .cmd_buffers = cmd_buffers,
         .pipe_line = try .init(vkd, device, &vk_mem_cb, caps.current_extent),
+        .grid = try Grid.create(allocator, .{}),
     };
 }
 
@@ -243,6 +244,7 @@ fn createDevice(
 
 fn createInstance(
     vkb: *const vk.BaseWrapper,
+    allocator: Allocator,
     vk_mem_cb: *const vk.AllocationCallbacks,
 ) !vk.Instance {
     const app_info = vk.ApplicationInfo{
@@ -253,6 +255,13 @@ fn createInstance(
 
         // .p_engine_name = "no_engine",
         .engine_version = 0,
+    };
+
+    if (builtin.mode == .Debug and !try validation_layer.checkValidationLayerSupport(vkb, allocator))
+        @panic("Validation layer is not supported");
+
+    const validation_layers = [_][*:0]const u8{
+        "VK_LAYER_KHRONOS_validation",
     };
 
     const win32_exts = [_][*:0]const u8{
@@ -280,6 +289,8 @@ fn createInstance(
         .p_application_info = &app_info,
         .enabled_extension_count = extensions.len,
         .pp_enabled_extension_names = &extensions,
+        .enabled_layer_count = if (builtin.mode == .Debug) validation_layers.len else 0,
+        .pp_enabled_layer_names = if (builtin.mode == .Debug) &validation_layers else null,
     };
 
     return vkb.createInstance(&inst_info, vk_mem_cb);
@@ -474,9 +485,12 @@ const os_tag = builtin.os.tag;
 const vk = @import("vulkan");
 const common = @import("../common.zig");
 
+const validation_layer = @import("validation_layer.zig");
+
 const PipeLine = @import("PipeLine.zig");
 const Window = @import("../../window/root.zig").Window;
 const Allocator = std.mem.Allocator;
 const ColorRGBA = common.ColorRGBA;
 const DynamicLibrary = @import("../../DynamicLibrary.zig");
 const VkAllocatorAdapter = @import("VkAllocatorAdapter.zig");
+const Grid = @import("../Grid.zig");

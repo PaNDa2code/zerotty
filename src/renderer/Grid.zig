@@ -12,26 +12,21 @@ pub const Cell = packed struct {
 const test_cell = Cell;
 
 map: std.AutoArrayHashMap(Vec2(u32), Cell),
-rows: u32,
-columns: u32,
+rows: u32 = 0,
+cols: u32 = 0,
 
 pub const CellProgramOptions = struct {
-    cell_height: usize,
-    cell_width: usize,
-    screen_height: usize,
-    screen_width: usize,
+    rows: usize = 0,
+    cols: usize = 0,
 };
 
 pub fn create(allocator: Allocator, options: CellProgramOptions) !CellProgram {
-    const rows = options.screen_height / options.cell_height;
-    const columns = options.screen_width / options.cell_width;
-
     const map = std.AutoArrayHashMap(Vec2(u32), Cell).init(allocator);
 
     return .{
         .map = map,
-        .rows = @intCast(rows),
-        .columns = @intCast(columns),
+        .rows = @intCast(options.rows),
+        .cols = @intCast(options.cols),
     };
 }
 

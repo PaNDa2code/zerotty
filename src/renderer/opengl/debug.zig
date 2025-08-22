@@ -1,3 +1,5 @@
+const log = std.log.scoped(.OpenGL);
+
 pub fn openglDebugCallback(
     source: gl.@"enum",
     @"type": gl.@"enum",
@@ -7,7 +9,7 @@ pub fn openglDebugCallback(
     message: [*:0]const u8,
     _: ?*const anyopaque,
 ) callconv(gl.APIENTRY) void {
-    std.log.scoped(.OpenGL).debug("({s},{s},{s}): {s}", .{
+    log.debug("({s},{s},{s}): {s}", .{
         @tagName(@as(DebugType, @enumFromInt(@"type"))),
         @tagName(@as(DebugSource, @enumFromInt(source))),
         @tagName(@as(DebugSeverity, @enumFromInt(severity))),

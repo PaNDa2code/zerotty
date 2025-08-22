@@ -34,7 +34,7 @@ pub fn start(self: *App) !void {
     try self.buffer.init(1024 * 64);
     try self.pty.open(.{ .size = .{
         .height = @intCast(self.window.renderer.backend.grid.rows),
-        .width = @intCast(self.window.renderer.backend.grid.columns),
+        .width = @intCast(self.window.renderer.backend.grid.cols),
     } });
 
     self.child.unsetEvnVar("PS0");
@@ -87,7 +87,7 @@ pub fn drawCallBack(renderer: *Renderer) void {
 pub fn resizeCallBack(w: u32, h: u32) void {
     render.resize(w, h) catch unreachable;
     _pty.resize(.{
-        .width = @intCast(render.backend.grid.columns),
+        .width = @intCast(render.backend.grid.cols),
         .height = @intCast(render.backend.grid.rows),
     }) catch unreachable;
 }
