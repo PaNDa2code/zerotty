@@ -5,6 +5,7 @@ instance_wrapper: *vk.InstanceWrapper,
 device_wrapper: *vk.DeviceWrapper,
 
 instance: vk.Instance,
+debug_messenger: vk.DebugUtilsMessengerEXT,
 physical_device: vk.PhysicalDevice, // GPU
 device: vk.Device, // GPU drivers
 swap_chain: vk.SwapchainKHR,
@@ -35,6 +36,7 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
     vki.* = .load(instance, vkb.dispatch.vkGetInstanceProcAddr.?);
     errdefer vki.destroyInstance(instance, &vk_mem_cb);
 
+    const debug_messenger = try debugMessenger(vki, instance, &vk_mem_cb);
     const surface = try createWindowSerface(vki, instance, window, &vk_mem_cb);
     errdefer vki.destroySurfaceKHR(instance, surface, &vk_mem_cb);
 
@@ -120,6 +122,7 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
         .swap_chain = swap_chain,
         .device = device,
         .instance = instance,
+        .debug_messenger = debug_messenger,
         .physical_device = physical_device,
         .surface = surface,
         .base_wrapper = vkb,
@@ -279,6 +282,7 @@ fn createInstance(
 
     const extensions = [_][*:0]const u8{
         "VK_KHR_surface",
+        "VK_EXT_debug_utils",
     } ++ switch (build_options.@"window-system") {
         .Win32 => win32_exts,
         .Xlib => xlib_exts,
@@ -294,6 +298,34 @@ fn createInstance(
     };
 
     return vkb.createInstance(&inst_info, vk_mem_cb);
+}
+
+fn debugMessenger(
+    vki: *const vk.InstanceWrapper,
+    instance: vk.Instance,
+    vk_mem_cb: *const vk.AllocationCallbacks,
+) !vk.DebugUtilsMessengerEXT {
+    if (vki.dispatch.vkCreateDebugUtilsMessengerEXT == null)
+        @panic("createDebugUtilsMessengerEXT is null");
+    const debug_utils_messenger_create_info = vk.DebugUtilsMessengerCreateInfoEXT{
+        .message_severity = .{
+            .verbose_bit_ext = true,
+            .warning_bit_ext = true,
+            .error_bit_ext = true,
+        },
+        .message_type = .{
+            .general_bit_ext = true,
+            .validation_bit_ext = true,
+            .performance_bit_ext = true,
+        },
+        .pfn_user_callback = &validation_layer.debugCallback,
+    };
+
+    return vki.createDebugUtilsMessengerEXT(
+        instance,
+        &debug_utils_messenger_create_info,
+        vk_mem_cb,
+    );
 }
 
 fn createWindowSerface(

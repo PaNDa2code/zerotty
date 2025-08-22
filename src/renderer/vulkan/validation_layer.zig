@@ -3,17 +3,52 @@ const vk = @import("vulkan");
 
 const log = std.log.scoped(.Vulkan);
 
-fn debugCallback(
+pub fn debugCallback(
     message_severity: vk.DebugUtilsMessageSeverityFlagsEXT,
-    message_type: vk.DebugUtilsMessageTypeFlagsEXT,
-    p_callback_data: vk.DebugUtilsMessengerCallbackDataEXT,
-    p_user_data: ?*anyopaque,
-) vk.Bool32 {
-    _ = p_user_data; // autofix
-    _ = p_callback_data; // autofix
-    _ = message_type; // autofix
-    _ = message_severity; // autofix
+    message_types: vk.DebugUtilsMessageTypeFlagsEXT,
+    p_callback_data: ?*const vk.DebugUtilsMessengerCallbackDataEXT,
+    _: ?*anyopaque,
+) callconv(.C) vk.Bool32 {
+    const t: Types =
+        if (message_types.general_bit_ext)
+            .general
+        else if (message_types.validation_bit_ext)
+            .validation
+        else if (message_types.performance_bit_ext)
+            .performance
+        else if (message_types.performance_bit_ext)
+            .device_address_binding
+        else
+            unreachable;
+
+    const fmt_buf = "{s}: {?s}";
+    const fmt_args = .{( @tagName(t) ), if ( p_callback_data ) |p| p.p_message else null};
+
+    if (message_severity.verbose_bit_ext)
+        log.debug(fmt_buf, fmt_args)
+    else if (message_severity.info_bit_ext)
+        log.info(fmt_buf, fmt_args)
+    else if (message_severity.warning_bit_ext)
+        log.warn(fmt_buf, fmt_args)
+    else if (message_severity.error_bit_ext)
+        log.err(fmt_buf, fmt_args);
+
+    return vk.FALSE;
 }
+
+const Severity = enum {
+    verbose,
+    info,
+    warning,
+    @"error",
+};
+
+const Types = enum {
+    general,
+    validation,
+    performance,
+    device_address_binding,
+};
 
 pub fn checkValidationLayerSupport(vkb: *const vk.BaseWrapper, allocator: std.mem.Allocator) !bool {
     const available_layers = try vkb.enumerateInstanceLayerPropertiesAlloc(allocator);
