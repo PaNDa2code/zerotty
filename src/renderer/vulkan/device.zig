@@ -40,6 +40,8 @@ fn _createDevice(
         "VK_LAYER_KHRONOS_validation",
     };
 
+    const device_features: vk.PhysicalDeviceFeatures = .{};
+
     const device_create_info: vk.DeviceCreateInfo = .{
         .queue_create_info_count = 1,
         .p_queue_create_infos = &.{queue_create_info},
@@ -48,12 +50,9 @@ fn _createDevice(
 
         .enabled_layer_count = vald.len,
         .pp_enabled_layer_names = &vald,
+
+        .p_enabled_features = &device_features,
     };
 
-    const device = try vki.createDevice(physical_device, &device_create_info, vk_mem_cb);
-
-    if (device == .null_handle)
-        return error.DeviceCreationFailed;
-
-    return device;
+    return try vki.createDevice(physical_device, &device_create_info, vk_mem_cb);
 }

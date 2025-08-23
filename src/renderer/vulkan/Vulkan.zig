@@ -234,7 +234,6 @@ const DynamicLibrary = @import("../../DynamicLibrary.zig");
 const VkAllocatorAdapter = @import("VkAllocatorAdapter.zig");
 const Grid = @import("../Grid.zig");
 
-
 const createInstance = @import("instance.zig").createInstance;
 const setupDebugMessenger = @import("debug.zig").setupDebugMessenger;
 const createWindowSurface = @import("win_surface.zig").createWindowSurface;

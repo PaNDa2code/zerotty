@@ -21,7 +21,7 @@ fn _createInstance(
         .p_application_name = "zerotty",
 
         .application_version = 0,
-        .api_version = @bitCast(vk.HEADER_VERSION_COMPLETE),
+        .api_version = @bitCast(vk.API_VERSION_1_4),
 
         // .p_engine_name = "no_engine",
         .engine_version = 0,
