@@ -20,11 +20,15 @@ pipe_line: PipeLine,
 
 grid: Grid,
 
-const log = std.log.scoped(.Renderer);
+pub const log = std.log.scoped(.Renderer);
 
 pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
     var self: VulkanRenderer = undefined;
+    try self.setup(window, allocator);
+    return self;
+}
 
+pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void {
     self.vk_mem = try allocator.create(VkAllocatorAdapter);
     self.vk_mem.initInPlace(allocator);
     errdefer self.vk_mem.deinit();
@@ -33,174 +37,49 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
 
     self.base_wrapper = try allocAndLoad(vk.BaseWrapper, allocator, baseGetInstanceProcAddress, .{});
 
-    try @import("instance.zig").createInstance(&self);
+    try createInstance(self);
 
     const vki = try allocAndLoad(vk.InstanceWrapper, allocator, self.base_wrapper.dispatch.vkGetInstanceProcAddr.?, .{self.instance});
     errdefer vki.destroyInstance(self.instance, &vk_mem_cb);
 
     self.instance_wrapper = vki;
-    try @import("debug.zig").setupDebugMessenger(&self);
+    try setupDebugMessenger(self);
 
-    try @import("win_surface.zig").createWindowSurface(&self, window);
+    try createWindowSurface(self, window);
     errdefer vki.destroySurfaceKHR(self.instance, self.surface, &vk_mem_cb);
 
     var physical_devices: []vk.PhysicalDevice = &.{};
     var queue_family_indcies: []@import("physical_device.zig").QueueFamilyIndices = &.{};
 
-    try @import("physical_device.zig").pickPhysicalDevicesAlloc(&self, allocator, &physical_devices, &queue_family_indcies);
+    try pickPhysicalDevicesAlloc(self, allocator, &physical_devices, &queue_family_indcies);
 
     defer allocator.free(queue_family_indcies);
     defer allocator.free(physical_devices);
 
-    try @import("device.zig").createDevice(&self, physical_devices[0], queue_family_indcies[0]);
+    try createLogicalDevice(self, physical_devices[0], queue_family_indcies[0]);
     self.physical_device = physical_devices[0];
 
     const vkd = try allocAndLoad(vk.DeviceWrapper, allocator, vki.dispatch.vkGetDeviceProcAddr.?, .{self.device});
     errdefer vkd.destroyDevice(self.device, &vk_mem_cb);
 
-    const caps: vk.SurfaceCapabilitiesKHR =
-        try vki.getPhysicalDeviceSurfaceCapabilitiesKHR(self.physical_device, self.surface);
+    self.device_wrapper = vkd;
 
-    const swap_chain_extent: vk.Extent2D =
-        if (caps.current_extent.width == -1 or caps.current_extent.height == -1)
-            .{
-                .highet = window.height,
-                .width = window.width,
-            }
-        else
-            caps.current_extent;
+    try createSwapChain(self, allocator);
+    errdefer vkd.destroySwapchainKHR(self.device, self.swap_chain, &vk_mem_cb);
 
-    var present_modes_count: u32 = 0;
+    try allocCmdBuffers(self, allocator);
+    errdefer freeCmdBuffers(allocator, vkd, self.device, self.cmd_pool, self.cmd_buffers);
 
-    _ = try vki.getPhysicalDeviceSurfacePresentModesKHR(
-        self.physical_device,
-        self.surface,
-        &present_modes_count,
-        null,
-    );
+    self.grid = try Grid.create(allocator, .{});
 
-    const present_modes = try allocator.alloc(vk.PresentModeKHR, present_modes_count);
-    defer allocator.free(present_modes);
-
-    _ = try vki.getPhysicalDeviceSurfacePresentModesKHR(
-        self.physical_device,
-        self.surface,
-        &present_modes_count,
-        present_modes.ptr,
-    );
-
-    var present_mode: vk.PresentModeKHR = .fifo_khr;
-
-    for (present_modes) |mode| {
-        if (mode == .mailbox_khr) {
-            present_mode = .mailbox_khr;
-            break;
-        }
-        if (mode == .immediate_khr)
-            present_mode = .immediate_khr;
-    }
-
-    const formats = try vki.getPhysicalDeviceSurfaceFormatsAllocKHR(self.physical_device, self.surface, allocator);
-    defer allocator.free(formats);
-
-    std.debug.assert(caps.max_image_count > 1);
-
-    var image_count = caps.min_image_count + 1;
-
-    if (caps.max_image_count < image_count)
-        image_count = caps.max_image_count;
-
-    const swap_chain_create_info: vk.SwapchainCreateInfoKHR = .{
-        .surface = self.surface,
-        .min_image_count = image_count,
-        .image_format = formats[0].format,
-        .image_color_space = .srgb_nonlinear_khr,
-        .image_extent = swap_chain_extent,
-        .image_array_layers = 1,
-        .image_usage = .{ .color_attachment_bit = true },
-        .image_sharing_mode = .exclusive,
-        .queue_family_index_count = 1,
-        .p_queue_family_indices = &.{0},
-        .pre_transform = .{ .identity_bit_khr = true },
-        .composite_alpha = .{ .opaque_bit_khr = true },
-        .present_mode = present_mode,
-        .clipped = 0,
-    };
-
-    const swap_chain = try vkd.createSwapchainKHR(self.device, &swap_chain_create_info, &vk_mem_cb);
-
-    var cmd_pool: vk.CommandPool = .null_handle;
-    const cmd_buffers = try allocCmdBuffers(allocator, vkd, self.device, image_count, &cmd_pool, &vk_mem_cb);
-
-    return .{
-        .swap_chain = swap_chain,
-        .device = self.device,
-        .instance = self.instance,
-        .debug_messenger = self.debug_messenger,
-        .physical_device = self.physical_device,
-        .surface = self.surface,
-        .base_wrapper = self.base_wrapper,
-        .instance_wrapper = vki,
-        .device_wrapper = vkd,
-        .vk_mem = self.vk_mem,
-        .window_height = window.height,
-        .window_width = window.width,
-        .cmd_pool = cmd_pool,
-        .cmd_buffers = cmd_buffers,
-        .pipe_line = undefined, //try .init(vkd, device, &vk_mem_cb, caps.current_extent),
-        .grid = try Grid.create(allocator, .{}),
-    };
+    self.window_height = window.height;
+    self.window_width = window.width;
 }
 
 fn allocAndLoad(T: type, allocator: Allocator, loader: anytype, loader_args: anytype) !*T {
     const ptr = try allocator.create(T);
     ptr.* = @call(.auto, T.load, loader_args ++ .{loader});
     return ptr;
-}
-
-fn allocCmdBuffers(
-    allocator: Allocator,
-    vkd: *const vk.DeviceWrapper,
-    device: vk.Device,
-    primary_count: usize,
-    p_cmd_pool: *vk.CommandPool,
-    vk_mem_cb: *const vk.AllocationCallbacks,
-) ![]const vk.CommandBuffer {
-    const cmd_pool_create_info = vk.CommandPoolCreateInfo{
-        .flags = .{ .reset_command_buffer_bit = true },
-        .queue_family_index = 0,
-    };
-
-    const cmd_pool = try vkd.createCommandPool(device, &cmd_pool_create_info, vk_mem_cb);
-    errdefer vkd.destroyCommandPool(device, cmd_pool, vk_mem_cb);
-
-    const cmd_buffer_alloc_info = vk.CommandBufferAllocateInfo{
-        .command_pool = cmd_pool,
-        .command_buffer_count = @intCast(primary_count),
-        .level = .primary,
-    };
-
-    const cmd_buffers = try allocator.alloc(vk.CommandBuffer, primary_count);
-    errdefer allocator.free(cmd_buffers);
-
-    try vkd.allocateCommandBuffers(device, &cmd_buffer_alloc_info, cmd_buffers.ptr);
-
-    p_cmd_pool.* = cmd_pool;
-
-    return cmd_buffers;
-}
-
-fn freeCmdBuffers(
-    allocator: Allocator,
-    vkd: *const vk.DeviceWrapper,
-    device: vk.Device,
-    cmd_pool: vk.CommandPool,
-    buffers: []const vk.CommandBuffer,
-    vk_mem_cb: *const vk.AllocationCallbacks,
-) void {
-    vkd.freeCommandBuffers(device, cmd_pool, @intCast(buffers.len), buffers.ptr);
-    vkd.destroyCommandPool(device, cmd_pool, vk_mem_cb);
-    allocator.free(buffers);
 }
 
 fn setImageLayout(
@@ -354,3 +233,13 @@ const ColorRGBA = common.ColorRGBA;
 const DynamicLibrary = @import("../../DynamicLibrary.zig");
 const VkAllocatorAdapter = @import("VkAllocatorAdapter.zig");
 const Grid = @import("../Grid.zig");
+
+
+const createInstance = @import("instance.zig").createInstance;
+const setupDebugMessenger = @import("debug.zig").setupDebugMessenger;
+const createWindowSurface = @import("win_surface.zig").createWindowSurface;
+const pickPhysicalDevicesAlloc = @import("physical_device.zig").pickPhysicalDevicesAlloc;
+const createLogicalDevice = @import("device.zig").createDevice;
+const createSwapChain = @import("swap_chain.zig").createSwapChain;
+const allocCmdBuffers = @import("cmd_buffers.zig").allocCmdBuffers;
+const freeCmdBuffers = @import("cmd_buffers.zig").freeCmdBuffers;
