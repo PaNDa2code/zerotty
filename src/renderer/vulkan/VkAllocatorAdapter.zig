@@ -14,18 +14,23 @@ allocator: Allocator,
 record_map: RecordMap = .empty,
 
 pub fn init(allocator: Allocator) VkAllocatorAdapter {
-    return .{
-        .allocator = allocator,
-    };
+    var self: VkAllocatorAdapter = undefined;
+    self.initInPlace(allocator);
+    return self;
+}
+
+pub fn initInPlace(self: *VkAllocatorAdapter, allocator: Allocator) void {
+    self.allocator = allocator;
+    self.record_map = .empty;
 }
 
 pub fn deinit(self: *VkAllocatorAdapter) void {
     self.record_map.deinit(self.allocator);
 }
 
-pub fn vkAllocatorCallbacks(self: *VkAllocatorAdapter) vk.AllocationCallbacks {
+pub fn vkAllocatorCallbacks(self: *const VkAllocatorAdapter) vk.AllocationCallbacks {
     return .{
-        .p_user_data = self,
+        .p_user_data = @constCast(self),
         .pfn_allocation = VkAllocatorAdapter.vkAlloc,
         .pfn_reallocation = VkAllocatorAdapter.vkRealloc,
         .pfn_free = VkAllocatorAdapter.vkFree,

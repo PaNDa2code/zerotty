@@ -20,35 +20,46 @@ pipe_line: PipeLine,
 
 grid: Grid,
 
+const log = std.log.scoped(.Renderer);
+
 pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
-    const vk_mem = try allocator.create(VkAllocatorAdapter);
-    vk_mem.* = .init(allocator);
-    errdefer vk_mem.deinit();
+    var self: VulkanRenderer = undefined;
 
-    const vk_mem_cb = vk_mem.vkAllocatorCallbacks();
+    self.vk_mem = try allocator.create(VkAllocatorAdapter);
+    self.vk_mem.initInPlace(allocator);
+    errdefer self.vk_mem.deinit();
 
-    const vkb = try allocator.create(vk.BaseWrapper);
-    vkb.* = .load(baseGetInstanceProcAddress);
+    const vk_mem_cb = self.vk_mem.vkAllocatorCallbacks();
 
-    const instance = try createInstance(vkb, allocator, &vk_mem_cb);
+    self.base_wrapper = try allocAndLoad(vk.BaseWrapper, allocator, baseGetInstanceProcAddress, .{});
 
-    const vki = try allocator.create(vk.InstanceWrapper);
-    vki.* = .load(instance, vkb.dispatch.vkGetInstanceProcAddr.?);
-    errdefer vki.destroyInstance(instance, &vk_mem_cb);
+    try @import("instance.zig").createInstance(&self);
 
-    const debug_messenger = try debugMessenger(vki, instance, &vk_mem_cb);
-    const surface = try createWindowSerface(vki, instance, window, &vk_mem_cb);
-    errdefer vki.destroySurfaceKHR(instance, surface, &vk_mem_cb);
+    const vki = try allocAndLoad(vk.InstanceWrapper, allocator, self.base_wrapper.dispatch.vkGetInstanceProcAddr.?, .{self.instance});
+    errdefer vki.destroyInstance(self.instance, &vk_mem_cb);
 
-    var physical_device: vk.PhysicalDevice = .null_handle;
-    const device = try createDevice(allocator, vki, instance, &vk_mem_cb, &physical_device);
+    self.instance_wrapper = vki;
+    try @import("debug.zig").setupDebugMessenger(&self);
 
-    const vkd = try allocator.create(vk.DeviceWrapper);
-    vkd.* = vk.DeviceWrapper.load(device, vki.dispatch.vkGetDeviceProcAddr.?);
-    errdefer vkd.destroyDevice(device, &vk_mem_cb);
+    try @import("win_surface.zig").createWindowSurface(&self, window);
+    errdefer vki.destroySurfaceKHR(self.instance, self.surface, &vk_mem_cb);
+
+    var physical_devices: []vk.PhysicalDevice = &.{};
+    var queue_family_indcies: []@import("physical_device.zig").QueueFamilyIndices = &.{};
+
+    try @import("physical_device.zig").pickPhysicalDevicesAlloc(&self, allocator, &physical_devices, &queue_family_indcies);
+
+    defer allocator.free(queue_family_indcies);
+    defer allocator.free(physical_devices);
+
+    try @import("device.zig").createDevice(&self, physical_devices[0], queue_family_indcies[0]);
+    self.physical_device = physical_devices[0];
+
+    const vkd = try allocAndLoad(vk.DeviceWrapper, allocator, vki.dispatch.vkGetDeviceProcAddr.?, .{self.device});
+    errdefer vkd.destroyDevice(self.device, &vk_mem_cb);
 
     const caps: vk.SurfaceCapabilitiesKHR =
-        try vki.getPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface);
+        try vki.getPhysicalDeviceSurfaceCapabilitiesKHR(self.physical_device, self.surface);
 
     const swap_chain_extent: vk.Extent2D =
         if (caps.current_extent.width == -1 or caps.current_extent.height == -1)
@@ -62,8 +73,8 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
     var present_modes_count: u32 = 0;
 
     _ = try vki.getPhysicalDeviceSurfacePresentModesKHR(
-        physical_device,
-        surface,
+        self.physical_device,
+        self.surface,
         &present_modes_count,
         null,
     );
@@ -72,8 +83,8 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
     defer allocator.free(present_modes);
 
     _ = try vki.getPhysicalDeviceSurfacePresentModesKHR(
-        physical_device,
-        surface,
+        self.physical_device,
+        self.surface,
         &present_modes_count,
         present_modes.ptr,
     );
@@ -89,10 +100,10 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
             present_mode = .immediate_khr;
     }
 
-    const formats = try vki.getPhysicalDeviceSurfaceFormatsAllocKHR(physical_device, surface, allocator);
+    const formats = try vki.getPhysicalDeviceSurfaceFormatsAllocKHR(self.physical_device, self.surface, allocator);
     defer allocator.free(formats);
 
-    // std.debug.assert(caps.max_image_count > 1);
+    std.debug.assert(caps.max_image_count > 1);
 
     var image_count = caps.min_image_count + 1;
 
@@ -100,7 +111,7 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
         image_count = caps.max_image_count;
 
     const swap_chain_create_info: vk.SwapchainCreateInfoKHR = .{
-        .surface = surface,
+        .surface = self.surface,
         .min_image_count = image_count,
         .image_format = formats[0].format,
         .image_color_space = .srgb_nonlinear_khr,
@@ -116,22 +127,22 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
         .clipped = 0,
     };
 
-    const swap_chain = try vkd.createSwapchainKHR(device, &swap_chain_create_info, &vk_mem_cb);
+    const swap_chain = try vkd.createSwapchainKHR(self.device, &swap_chain_create_info, &vk_mem_cb);
 
     var cmd_pool: vk.CommandPool = .null_handle;
-    const cmd_buffers = try allocCmdBuffers(allocator, vkd, device, image_count, &cmd_pool, &vk_mem_cb);
+    const cmd_buffers = try allocCmdBuffers(allocator, vkd, self.device, image_count, &cmd_pool, &vk_mem_cb);
 
     return .{
         .swap_chain = swap_chain,
-        .device = device,
-        .instance = instance,
-        .debug_messenger = debug_messenger,
-        .physical_device = physical_device,
-        .surface = surface,
-        .base_wrapper = vkb,
+        .device = self.device,
+        .instance = self.instance,
+        .debug_messenger = self.debug_messenger,
+        .physical_device = self.physical_device,
+        .surface = self.surface,
+        .base_wrapper = self.base_wrapper,
         .instance_wrapper = vki,
         .device_wrapper = vkd,
-        .vk_mem = vk_mem,
+        .vk_mem = self.vk_mem,
         .window_height = window.height,
         .window_width = window.width,
         .cmd_pool = cmd_pool,
@@ -139,6 +150,12 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
         .pipe_line = undefined, //try .init(vkd, device, &vk_mem_cb, caps.current_extent),
         .grid = try Grid.create(allocator, .{}),
     };
+}
+
+fn allocAndLoad(T: type, allocator: Allocator, loader: anytype, loader_args: anytype) !*T {
+    const ptr = try allocator.create(T);
+    ptr.* = @call(.auto, T.load, loader_args ++ .{loader});
+    return ptr;
 }
 
 fn allocCmdBuffers(
@@ -184,241 +201,6 @@ fn freeCmdBuffers(
     vkd.freeCommandBuffers(device, cmd_pool, @intCast(buffers.len), buffers.ptr);
     vkd.destroyCommandPool(device, cmd_pool, vk_mem_cb);
     allocator.free(buffers);
-}
-fn createDevice(
-    allocator: Allocator,
-    vki: *const vk.InstanceWrapper,
-    instance: vk.Instance,
-    vk_mem_cb: *const vk.AllocationCallbacks,
-    physical_device: *vk.PhysicalDevice,
-) !vk.Device {
-    var physical_devices_count: u32 = 0;
-    _ = try vki.enumeratePhysicalDevices(instance, &physical_devices_count, null);
-
-    std.log.info("Vulkan detected {} GPUs", .{physical_devices_count});
-
-    const physical_devices = try allocator.alloc(vk.PhysicalDevice, physical_devices_count);
-    defer allocator.free(physical_devices);
-
-    _ = try vki.enumeratePhysicalDevices(instance, &physical_devices_count, physical_devices.ptr);
-
-    // sort physical devices pased on score
-    std.sort.heap(vk.PhysicalDevice, physical_devices, vki, physicalDeviceGt);
-
-    for (physical_devices, 0..) |pd, i| {
-        const props = vki.getPhysicalDeviceProperties(pd);
-        std.log.info("GPU{}: {s} - {s}", .{ i, props.device_name, @tagName(props.device_type) });
-        const deriver_version: vk.Version = @bitCast(props.driver_version);
-        std.log.info("driver version: {}.{}.{}.{}", .{ deriver_version.major, deriver_version.minor, deriver_version.patch, deriver_version.variant });
-    }
-
-    // var queue_families_count: u32 = undefined;
-    // vki.getPhysicalDeviceQueueFamilyProperties();
-
-    physical_device.* = .null_handle;
-    var device: vk.Device = .null_handle;
-
-    for (physical_devices, 0..) |phs_dev, i| {
-        const queue_families_indcies = try findQueueFamilies(vki, phs_dev, allocator);
-
-        if (!queue_families_indcies.isComplite()) continue;
-
-        const queue_create_info: vk.DeviceQueueCreateInfo = .{
-            .queue_family_index = @intCast(queue_families_indcies.graphics_family.?),
-            .queue_count = 1,
-            .p_queue_priorities = &.{1},
-        };
-
-        const ext = [_][*:0]const u8{
-            "VK_KHR_swapchain",
-        };
-
-        const vald = [_][*:0]const u8{
-            "VK_LAYER_KHRONOS_validation",
-        };
-
-        const device_create_info: vk.DeviceCreateInfo = .{
-            .queue_create_info_count = 1,
-            .p_queue_create_infos = &.{queue_create_info},
-            .enabled_extension_count = ext.len,
-            .pp_enabled_extension_names = &ext,
-
-            .enabled_layer_count = vald.len,
-            .pp_enabled_layer_names = &vald,
-        };
-
-        device = vki.createDevice(phs_dev, &device_create_info, vk_mem_cb) catch continue;
-        physical_device.* = phs_dev;
-        std.log.info("Using GPU{}", .{i});
-        break;
-    }
-
-    if (device == .null_handle)
-        return error.DeviceCreationFailed;
-
-    return device;
-}
-
-fn createInstance(
-    vkb: *const vk.BaseWrapper,
-    allocator: Allocator,
-    vk_mem_cb: *const vk.AllocationCallbacks,
-) !vk.Instance {
-    const app_info = vk.ApplicationInfo{
-        .p_application_name = "zerotty",
-
-        .application_version = 0,
-        .api_version = @bitCast(vk.HEADER_VERSION_COMPLETE),
-
-        // .p_engine_name = "no_engine",
-        .engine_version = 0,
-    };
-
-    if (builtin.mode == .Debug and !try validation_layer.checkValidationLayerSupport(vkb, allocator))
-        @panic("Validation layer is not supported");
-
-    const validation_layers = [_][*:0]const u8{
-        "VK_LAYER_KHRONOS_validation",
-    };
-
-    const win32_exts = [_][*:0]const u8{
-        "VK_KHR_win32_surface",
-    };
-
-    const xlib_exts = [_][*:0]const u8{
-        "VK_KHR_xlib_surface",
-        "VK_EXT_acquire_xlib_display",
-    };
-
-    const xcb_exts = [_][*:0]const u8{
-        "VK_KHR_xcb_surface",
-    };
-
-    const extensions = [_][*:0]const u8{
-        "VK_KHR_surface",
-        "VK_EXT_debug_utils",
-    } ++ switch (build_options.@"window-system") {
-        .Win32 => win32_exts,
-        .Xlib => xlib_exts,
-        .Xcb => xcb_exts,
-    };
-
-    const inst_info = vk.InstanceCreateInfo{
-        .p_application_info = &app_info,
-        .enabled_extension_count = extensions.len,
-        .pp_enabled_extension_names = &extensions,
-        .enabled_layer_count = if (builtin.mode == .Debug) validation_layers.len else 0,
-        .pp_enabled_layer_names = if (builtin.mode == .Debug) &validation_layers else null,
-    };
-
-    return vkb.createInstance(&inst_info, vk_mem_cb);
-}
-
-fn debugMessenger(
-    vki: *const vk.InstanceWrapper,
-    instance: vk.Instance,
-    vk_mem_cb: *const vk.AllocationCallbacks,
-) !vk.DebugUtilsMessengerEXT {
-    if (vki.dispatch.vkCreateDebugUtilsMessengerEXT == null)
-        @panic("createDebugUtilsMessengerEXT is null");
-    const debug_utils_messenger_create_info = vk.DebugUtilsMessengerCreateInfoEXT{
-        .message_severity = .{
-            .verbose_bit_ext = true,
-            .warning_bit_ext = true,
-            .error_bit_ext = true,
-        },
-        .message_type = .{
-            .general_bit_ext = true,
-            .validation_bit_ext = true,
-            .performance_bit_ext = true,
-        },
-        .pfn_user_callback = &validation_layer.debugCallback,
-    };
-
-    return vki.createDebugUtilsMessengerEXT(
-        instance,
-        &debug_utils_messenger_create_info,
-        vk_mem_cb,
-    );
-}
-
-const QueueFamilyIndices = struct {
-    graphics_family: ?usize = null,
-
-    pub fn isComplite(self: *const QueueFamilyIndices) bool {
-        return self.graphics_family != null;
-    }
-};
-
-fn findQueueFamilies(
-    vki: *const vk.InstanceWrapper,
-    physical_device: vk.PhysicalDevice,
-    allocator: Allocator,
-) !QueueFamilyIndices {
-    var indices = QueueFamilyIndices{};
-
-    const queue_families = try vki.getPhysicalDeviceQueueFamilyPropertiesAlloc(physical_device, allocator);
-    defer allocator.free(queue_families);
-
-    for (queue_families, 0..) |*q, i| {
-        if (q.queue_flags.graphics_bit)
-            indices.graphics_family = i;
-    }
-
-    return indices;
-}
-
-fn isDeviceSuitable(vki: *const vk.InstanceWrapper, dev: vk.Device, allocator: Allocator) !bool {
-    const indices = try findQueueFamilies(vki, dev, allocator);
-    return indices.isComplite();
-}
-
-fn createWindowSerface(
-    vki: *const vk.InstanceWrapper,
-    instance: vk.Instance,
-    window: *const Window,
-    vk_mem_cb: *const vk.AllocationCallbacks,
-) !vk.SurfaceKHR {
-    switch (build_options.@"window-system") {
-        .Win32 => {
-            const surface_info: vk.Win32SurfaceCreateInfoKHR = .{
-                .hwnd = @ptrCast(window.hwnd),
-                .hinstance = window.h_instance,
-            };
-            return vki.createWin32SurfaceKHR(instance, &surface_info, vk_mem_cb);
-        },
-        .Xlib => {
-            const surface_info: vk.XlibSurfaceCreateInfoKHR = .{
-                .window = window.w,
-                .dpy = @ptrCast(window.display),
-            };
-            return vki.createXlibSurfaceKHR(instance, &surface_info, vk_mem_cb);
-        },
-        .Xcb => {
-            const surface_info: vk.XcbSurfaceCreateInfoKHR = .{
-                .connection = @ptrCast(window.connection),
-                .window = window.window,
-            };
-            return vki.createXcbSurfaceKHR(instance, &surface_info, vk_mem_cb);
-        },
-    }
-}
-
-fn physicalDeviceScore(vki: *const vk.InstanceWrapper, physical_device: vk.PhysicalDevice) u32 {
-    var score: u32 = 0;
-    const device_props = vki.getPhysicalDeviceProperties(physical_device);
-    switch (device_props.device_type) {
-        .discrete_gpu => score += 2_000,
-        .integrated_gpu => score += 1_000,
-        else => {},
-    }
-    score += device_props.limits.max_image_dimension_2d;
-
-    return score;
-}
-
-fn physicalDeviceGt(vki: *const vk.InstanceWrapper, a: vk.PhysicalDevice, b: vk.PhysicalDevice) bool {
-    return physicalDeviceScore(vki, a) > physicalDeviceScore(vki, b);
 }
 
 fn setImageLayout(
@@ -490,8 +272,10 @@ fn setImageLayout(
 }
 
 fn baseGetInstanceProcAddress(_: vk.Instance, procname: [*:0]const u8) vk.PfnVoidFunction {
-    const vk_lib = DynamicLibrary.init(if (os_tag == .windows) "vulkan-1" else "libvulkan.so.1") catch return null;
-    return @ptrCast(vk_lib.getProcAddress(procname));
+    const vk_lib_name = if (os_tag == .windows) "vulkan-1" else "libvulkan.so.1";
+    var vk_lib = std.DynLib.open(vk_lib_name) catch return null;
+
+    return @ptrCast(vk_lib.lookup(*anyopaque, std.mem.span(procname)));
 }
 
 pub fn deinit(self: *VulkanRenderer) void {
@@ -562,8 +346,6 @@ const build_options = @import("build_options");
 const os_tag = builtin.os.tag;
 const vk = @import("vulkan");
 const common = @import("../common.zig");
-
-const validation_layer = @import("validation_layer.zig");
 
 const PipeLine = @import("PipeLine.zig");
 const Window = @import("../../window/root.zig").Window;

@@ -1,0 +1,86 @@
+const std = @import("std");
+const builtin = @import("builtin");
+const Allocator = std.mem.Allocator;
+
+const vk = @import("vulkan");
+const build_options = @import("build_options");
+
+const VulkanRenderer = @import("Vulkan.zig");
+
+pub fn pickPhysicalDevicesAlloc(self: *VulkanRenderer, allocator: Allocator, physical_devices: *[]vk.PhysicalDevice, queue_families_indices: *[]QueueFamilyIndices) !void {
+    const _physical_devices = try self.instance_wrapper.enumeratePhysicalDevicesAlloc(self.instance, allocator);
+    defer allocator.free(_physical_devices);
+
+    // sort physical devices pased on score
+    std.sort.heap(vk.PhysicalDevice, _physical_devices, self.instance_wrapper, physicalDeviceGt);
+
+    var comptable_physical_devices = std.ArrayList(vk.PhysicalDevice).init(allocator);
+    var _queue_families_indices = std.ArrayList(QueueFamilyIndices).init(allocator);
+
+    for (_physical_devices) |physical_device| {
+        const indices = try findQueueFamilies(self.instance_wrapper, physical_device, allocator);
+        if (indices.isComplite()) {
+            try comptable_physical_devices.append(physical_device);
+            try _queue_families_indices.append(indices);
+        }
+    }
+
+    // for (physical_devices, 0..) |pd, i| {
+    //     const props = self.instance_wrapper.getPhysicalDeviceProperties(pd);
+    //     log.info("GPU{}: {s} - {s}", .{ i, props.device_name, @tagName(props.device_type) });
+    //     const deriver_version: vk.Version = @bitCast(props.driver_version);
+    //     log.info("driver version: {}.{}.{}.{}", .{ deriver_version.major, deriver_version.minor, deriver_version.patch, deriver_version.variant });
+    // }
+
+    physical_devices.* = try comptable_physical_devices.toOwnedSlice();
+    queue_families_indices.* = try _queue_families_indices.toOwnedSlice();
+
+}
+
+fn physicalDeviceScore(vki: *const vk.InstanceWrapper, physical_device: vk.PhysicalDevice) u32 {
+    var score: u32 = 0;
+    const device_props = vki.getPhysicalDeviceProperties(physical_device);
+    switch (device_props.device_type) {
+        .discrete_gpu => score += 2_000,
+        .integrated_gpu => score += 1_000,
+        else => {},
+    }
+    score += device_props.limits.max_image_dimension_2d;
+
+    return score;
+}
+
+fn physicalDeviceGt(vki: *const vk.InstanceWrapper, a: vk.PhysicalDevice, b: vk.PhysicalDevice) bool {
+    return physicalDeviceScore(vki, a) > physicalDeviceScore(vki, b);
+}
+
+fn isDeviceSuitable(vki: *const vk.InstanceWrapper, dev: vk.PhysicalDevice, allocator: Allocator) !bool {
+    const indices = try findQueueFamilies(vki, dev, allocator);
+    return indices.isComplite();
+}
+
+pub const QueueFamilyIndices = struct {
+    graphics_family: ?usize = null,
+
+    pub fn isComplite(self: *const QueueFamilyIndices) bool {
+        return self.graphics_family != null;
+    }
+};
+
+fn findQueueFamilies(
+    vki: *const vk.InstanceWrapper,
+    physical_device: vk.PhysicalDevice,
+    allocator: Allocator,
+) !QueueFamilyIndices {
+    var indices = QueueFamilyIndices{};
+
+    const queue_families = try vki.getPhysicalDeviceQueueFamilyPropertiesAlloc(physical_device, allocator);
+    defer allocator.free(queue_families);
+
+    for (queue_families, 0..) |*q, i| {
+        if (q.queue_flags.graphics_bit)
+            indices.graphics_family = i;
+    }
+
+    return indices;
+}
