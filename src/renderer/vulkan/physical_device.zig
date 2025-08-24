@@ -7,6 +7,8 @@ const build_options = @import("build_options");
 
 const VulkanRenderer = @import("Vulkan.zig");
 
+const log = VulkanRenderer.log;
+
 pub fn pickPhysicalDevicesAlloc(self: *VulkanRenderer, allocator: Allocator, physical_devices: *[]vk.PhysicalDevice, queue_families_indices: *[]QueueFamilyIndices) !void {
     const _physical_devices = try self.instance_wrapper.enumeratePhysicalDevicesAlloc(self.instance, allocator);
     defer allocator.free(_physical_devices);
@@ -25,16 +27,25 @@ pub fn pickPhysicalDevicesAlloc(self: *VulkanRenderer, allocator: Allocator, phy
         }
     }
 
-    // for (physical_devices, 0..) |pd, i| {
-    //     const props = self.instance_wrapper.getPhysicalDeviceProperties(pd);
-    //     log.info("GPU{}: {s} - {s}", .{ i, props.device_name, @tagName(props.device_type) });
-    //     const deriver_version: vk.Version = @bitCast(props.driver_version);
-    //     log.info("driver version: {}.{}.{}.{}", .{ deriver_version.major, deriver_version.minor, deriver_version.patch, deriver_version.variant });
-    // }
+    for (_physical_devices, 0..) |pd, i| {
+        const props = self.instance_wrapper.getPhysicalDeviceProperties(pd);
+        const deriver_version: vk.Version = @bitCast(props.driver_version);
+        log.info(
+            "GPU{}: {s} - {s} ({}.{}.{}.{})",
+            .{
+                i,
+                props.device_name,
+                @tagName(props.device_type),
+                deriver_version.major,
+                deriver_version.minor,
+                deriver_version.patch,
+                deriver_version.variant,
+            },
+        );
+    }
 
     physical_devices.* = try comptable_physical_devices.toOwnedSlice();
     queue_families_indices.* = try _queue_families_indices.toOwnedSlice();
-
 }
 
 fn physicalDeviceScore(vki: *const vk.InstanceWrapper, physical_device: vk.PhysicalDevice) u32 {

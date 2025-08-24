@@ -44,7 +44,8 @@ fn _createDevice(
 
     const device_create_info: vk.DeviceCreateInfo = .{
         .queue_create_info_count = 1,
-        .p_queue_create_infos = &.{queue_create_info},
+        .p_queue_create_infos = @ptrCast(&queue_create_info),
+
         .enabled_extension_count = ext.len,
         .pp_enabled_extension_names = &ext,
 

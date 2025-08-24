@@ -56,8 +56,11 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     defer allocator.free(queue_family_indcies);
     defer allocator.free(physical_devices);
 
-    try createLogicalDevice(self, physical_devices[0], queue_family_indcies[0]);
-    self.physical_device = physical_devices[0];
+    for (physical_devices, queue_family_indcies, 0..) |p_dev, q_family, i| {
+        createLogicalDevice(self, p_dev, q_family) catch continue;
+        self.physical_device = p_dev;
+        log.info("using GPU{}", .{i});
+    }
 
     const vkd = try allocAndLoad(vk.DeviceWrapper, allocator, vki.dispatch.vkGetDeviceProcAddr.?, .{self.device});
     errdefer vkd.destroyDevice(self.device, &vk_mem_cb);
