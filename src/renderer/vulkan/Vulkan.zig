@@ -60,6 +60,7 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
         createLogicalDevice(self, p_dev, q_family) catch continue;
         self.physical_device = p_dev;
         log.info("using GPU{}", .{i});
+        break;
     }
 
     const vkd = try allocAndLoad(vk.DeviceWrapper, allocator, vki.dispatch.vkGetDeviceProcAddr.?, .{self.device});
