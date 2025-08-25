@@ -77,6 +77,8 @@ pub fn open(self: *Window, allocator: Allocator) !void {
     self.renderer = try Renderer.init(self, allocator);
 
     _ = win32wm.ShowWindow(hwnd, .{ .SHOWNORMAL = 1 });
+
+    self.setAcrylicBlur();
 }
 
 pub fn close(self: *Window) void {
@@ -148,6 +150,23 @@ fn WindowProc(self: *Window, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARA
     }
 }
 
+fn setAcrylicBlur(self: *Window) void {
+    const accent = ACCENT_POLICY{
+        .AccentState = .ACCENT_ENABLE_ACRYLICBLURBEHIND,
+        .AccentFlags = 0,
+        .GradientColor = 0x99_FF_FF_FF,
+        .AnimationId = 0,
+    };
+
+    const data = WINDOWCOMPOSITIONATTRIBDATA{
+        .Attrib = .WCA_ACCENT_POLICY,
+        .pvData = @constCast(&accent),
+        .cbData = @sizeOf(ACCENT_POLICY),
+    };
+
+    _ = SetWindowCompositionAttribute(self.hwnd, &data);
+}
+
 pub fn messageLoop(self: *Window) void {
     while (!self.exit) {
         self.pumpMessages();
@@ -185,3 +204,55 @@ const LPARAM = win32fnd.LPARAM;
 const Renderer = @import("../renderer/root.zig");
 
 const Allocator = std.mem.Allocator;
+
+extern "user32" fn SetWindowCompositionAttribute(
+    hwnd: HWND,
+    pwcad: *const WINDOWCOMPOSITIONATTRIBDATA,
+) callconv(std.os.windows.WINAPI) win32fnd.BOOL;
+
+const WINDOWCOMPOSITIONATTRIBDATA = extern struct {
+    Attrib: WINDOWCOMPOSITIONATTRIB,
+    pvData: ?*anyopaque,
+    cbData: c_uint,
+};
+
+const WINDOWCOMPOSITIONATTRIB = enum(c_int) {
+    WCA_UNDEFINED = 0,
+    WCA_NCRENDERING_ENABLED = 1,
+    WCA_NCRENDERING_POLICY = 2,
+    WCA_TRANSITIONS_FORCEDISABLED = 3,
+    WCA_ALLOW_NCPAINT = 4,
+    WCA_CAPTION_BUTTON_BOUNDS = 5,
+    WCA_NONCLIENT_RTL_LAYOUT = 6,
+    WCA_FORCE_ICONIC_REPRESENTATION = 7,
+    WCA_EXTENDED_FRAME_BOUNDS = 8,
+    WCA_HAS_ICONIC_BITMAP = 9,
+    WCA_THEME_ATTRIBUTES = 10,
+    WCA_NCRENDERING_EXILED = 11,
+    WCA_NCADORNMENTINFO = 12,
+    WCA_EXCLUDED_FROM_LIVEPREVIEW = 13,
+    WCA_VIDEO_OVERLAY_ACTIVE = 14,
+    WCA_FORCE_ACTIVEWINDOW_APPEARANCE = 15,
+    WCA_DISALLOW_PEEK = 16,
+    WCA_CLOAK = 17,
+    WCA_CLOAKED = 18,
+    WCA_ACCENT_POLICY = 19,
+    // ... more exist but 19 is the one we care about
+};
+
+const ACCENT_STATE = enum(c_int) {
+    ACCENT_DISABLED = 0,
+    ACCENT_ENABLE_GRADIENT = 1,
+    ACCENT_ENABLE_TRANSPARENTGRADIENT = 2,
+    ACCENT_ENABLE_BLURBEHIND = 3,
+    ACCENT_ENABLE_ACRYLICBLURBEHIND = 4,
+    ACCENT_ENABLE_HOSTBACKDROP = 5,
+    ACCENT_INVALID_STATE = 6,
+};
+
+const ACCENT_POLICY = extern struct {
+    AccentState: ACCENT_STATE,
+    AccentFlags: c_uint,
+    GradientColor: c_uint, // 0xAABBGGRR
+    AnimationId: c_uint,
+};
