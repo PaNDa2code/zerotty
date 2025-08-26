@@ -44,8 +44,8 @@ pub fn init(b: *Build, target: ?ResolvedTarget, optimize: ?OptimizeMode) Builder
         .target = target orelse b.standardTargetOptions(.{}),
         .optimize = optimize orelse b.standardOptimizeOption(.{}),
         .builder_step = b.step(b.fmt("Builder{}", .{counter.fetchAdd(1, .acq_rel)}), ""),
-        .import_table = .init(b.allocator),
-        .link_table = .init(b.allocator),
+        .import_table = .{},
+        .link_table = .{},
     };
 }
 
@@ -102,8 +102,10 @@ pub fn addExcutable(self: *Builder, name: []const u8) *Builder {
     const exe = self.b.addExecutable(.{
         .name = name,
         .root_module = self.getModule(),
-        .link_libc = self.needLibc(),
     });
+
+    if (self.needLibc())
+        exe.linkLibC();
 
     // debug builds needs a consol
     if (self.window_system == .Win32 and self.optimize != .Debug)

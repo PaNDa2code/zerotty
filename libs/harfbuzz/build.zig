@@ -10,10 +10,19 @@ pub fn build(b: *Build) void {
     const hurfbuzz_upstream = b.dependency("harfbuzz", .{});
     const freetype_upstream = b.dependency("freetype", .{});
 
-    const harfbuzz_lib = b.addStaticLibrary(.{
-        .name = "harfbuzz",
+    const harfbuzz_mod = b.addModule("harfbuzz", .{
+        .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
+    });
+
+    const harfbuzz_lib = b.addLibrary(.{
+        .name = "harfbuzz",
+        .linkage = .static,
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+        }),
     });
 
     harfbuzz_lib.addCSourceFile(.{
@@ -29,10 +38,6 @@ pub fn build(b: *Build) void {
         .{ .include_extensions = &.{".h"} },
     );
     harfbuzz_lib.addIncludePath(freetype_upstream.path("include"));
-
-    const harfbuzz_mod = b.addModule("harfbuzz", .{
-        .root_source_file = b.path("src/root.zig"),
-    });
 
     harfbuzz_mod.addIncludePath(hurfbuzz_upstream.path("src"));
     harfbuzz_mod.addIncludePath(freetype_upstream.path("include"));

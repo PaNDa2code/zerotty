@@ -5,7 +5,7 @@ You can customize the rendering backend and window system using build arguments.
 
 ## Build dependences
 
-- zig compiler (0.14.x)
+- zig compiler (0.15.1)
 - SPIR-V tools installed (optional)
 
 ## Options
