@@ -48,6 +48,9 @@ pub fn init(window: *Window, allocator: Allocator) InitError!OpenGLRenderer {
 
     self.bufs = BuffersManager.init(self.grid.data().len);
 
+    gl.Enable(gl.BLEND);
+    gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
     return self;
 }
 

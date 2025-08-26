@@ -150,21 +150,46 @@ fn WindowProc(self: *Window, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARA
     }
 }
 
+fn setBackDrop(self: *Window, enable: bool) !void {
+    const backdrop: DWM_SYSTEMBACKDROP_TYPE = if (enable) .TRANSIENTWINDOW else .NONE;
+    _ = DwmSetWindowAttribute(
+        self.hwnd,
+        .SYSTEMBACKDROP_TYPE,
+        &backdrop,
+        @sizeOf(DWM_SYSTEMBACKDROP_TYPE),
+    );
+}
+
 fn setAcrylicBlur(self: *Window) void {
-    const accent = ACCENT_POLICY{
-        .AccentState = .ACCENT_ENABLE_ACRYLICBLURBEHIND,
-        .AccentFlags = 0,
-        .GradientColor = 0x99_FF_FF_FF,
-        .AnimationId = 0,
+    const margins = win32.ui.controls.MARGINS{
+        .cxLeftWidth = 0,
+        .cxRightWidth = @intCast(self.width),
+        .cyTopHeight = 0,
+        .cyBottomHeight = @intCast(self.height),
     };
+    _ = win32dwm.DwmExtendFrameIntoClientArea(self.hwnd, &margins);
 
-    const data = WINDOWCOMPOSITIONATTRIBDATA{
-        .Attrib = .WCA_ACCENT_POLICY,
-        .pvData = @constCast(&accent),
-        .cbData = @sizeOf(ACCENT_POLICY),
-    };
+    const style = win32wm.GetWindowLong(self.hwnd, ._EXSTYLE);
+    _ = win32wm.SetWindowLong(self.hwnd, ._EXSTYLE, style | @as(i32, @bitCast(win32wm.WS_EX_LAYERED)));
 
-    _ = SetWindowCompositionAttribute(self.hwnd, &data);
+    try self.setBackDrop(true);
+
+    // _ = win32wm.SetLayeredWindowAttributes(self.hwnd, 0, 220, .{ .ALPHA = 1 });
+
+    // const accent = ACCENT_POLICY{
+    //     .AccentState = .ACCENT_ENABLE_ACRYLICBLURBEHIND,
+    //     .AccentFlags = 0,
+    //     .GradientColor = 0x99000000,
+    //     .AnimationId = 0,
+    // };
+    //
+    // const data = WINDOWCOMPOSITIONATTRIBDATA{
+    //     .Attrib = .WCA_ACCENT_POLICY,
+    //     .pvData = @constCast(&accent),
+    //     .cbData = @sizeOf(ACCENT_POLICY),
+    // };
+    //
+    // _ = SetWindowCompositionAttribute(self.hwnd, &data);
 }
 
 pub fn messageLoop(self: *Window) void {
@@ -205,11 +230,6 @@ const Renderer = @import("../renderer/root.zig");
 
 const Allocator = std.mem.Allocator;
 
-extern "user32" fn SetWindowCompositionAttribute(
-    hwnd: HWND,
-    pwcad: *const WINDOWCOMPOSITIONATTRIBDATA,
-) callconv(std.os.windows.WINAPI) win32fnd.BOOL;
-
 const WINDOWCOMPOSITIONATTRIBDATA = extern struct {
     Attrib: WINDOWCOMPOSITIONATTRIB,
     pvData: ?*anyopaque,
@@ -237,7 +257,6 @@ const WINDOWCOMPOSITIONATTRIB = enum(c_int) {
     WCA_CLOAK = 17,
     WCA_CLOAKED = 18,
     WCA_ACCENT_POLICY = 19,
-    // ... more exist but 19 is the one we care about
 };
 
 const ACCENT_STATE = enum(c_int) {
@@ -253,6 +272,36 @@ const ACCENT_STATE = enum(c_int) {
 const ACCENT_POLICY = extern struct {
     AccentState: ACCENT_STATE,
     AccentFlags: c_uint,
-    GradientColor: c_uint, // 0xAABBGGRR
+    GradientColor: c_uint,
     AnimationId: c_uint,
 };
+
+const DWMWINDOWATTRIBUTE = enum(c_uint) {
+    USE_IMMERSIVE_DARK_MODE = 20,
+    WINDOW_CORNER_PREFERENCE = 33,
+    BORDER_COLOR = 34,
+    CAPTION_COLOR = 35,
+    TEXT_COLOR = 36,
+    VISIBLE_FRAME_BORDER_THICKNESS = 37,
+    SYSTEMBACKDROP_TYPE = 38,
+};
+
+const DWM_SYSTEMBACKDROP_TYPE = enum(c_int) {
+    AUTO = 0,
+    NONE = 1,
+    MAINWINDOW = 2, // Mica
+    TRANSIENTWINDOW = 3, // Acrylic-like
+    TABBEDWINDOW = 4, // Mica Alt
+};
+
+extern "user32" fn SetWindowCompositionAttribute(
+    hwnd: HWND,
+    pwcad: *const WINDOWCOMPOSITIONATTRIBDATA,
+) callconv(std.os.windows.WINAPI) win32fnd.BOOL;
+
+extern "dwmapi" fn DwmSetWindowAttribute(
+    hwnd: HWND,
+    attr: DWMWINDOWATTRIBUTE,
+    attr_data: ?*const anyopaque,
+    attr_size: c_uint,
+) callconv(std.os.windows.WINAPI) win32fnd.HRESULT;

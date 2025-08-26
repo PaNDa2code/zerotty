@@ -15,7 +15,7 @@ pub fn new(allocator: Allocator) App {
         .allocator = allocator,
         .vt_parser = VTParser.init(vtParseCallback),
         .child = if (@import("builtin").os.tag == .windows)
-            .{ .exe_path = "powershell", .args = &.{ "powershell", "" } }
+            .{ .exe_path = "cmd", .args = &.{ "cmd", "" } }
         else
             .{ .exe_path = "bash", .args = &.{ "bash", "--norc", "--noprofile" } },
         .pty = undefined,
@@ -37,8 +37,8 @@ pub fn start(self: *App) !void {
         .width = @intCast(self.window.renderer.backend.grid.cols),
     } });
 
-    self.child.unsetEvnVar("PS0");
-    try self.child.setEnvVar(self.allocator, "PS1", "\\h@\\u:\\w> ");
+    // self.child.unsetEvnVar("PS0");
+    // try self.child.setEnvVar(self.allocator, "PS1", "\\h@\\u:\\w> ");
     try self.child.start(self.allocator, &self.pty);
 
     render = &self.window.renderer;
