@@ -33,6 +33,11 @@ jobs:
           fetch-depth: 0
           submodules: true
 
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y glslang-tools
+
       - name: Build release binaries
         run: zig build --release=fast \
               -Dtarget=${{ matrix.target_arch }}-${{ matrix.target_os }} \
