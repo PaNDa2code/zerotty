@@ -9,7 +9,12 @@ const VulkanRenderer = @import("Vulkan.zig");
 
 const log = VulkanRenderer.log;
 
-pub fn pickPhysicalDevicesAlloc(self: *VulkanRenderer, allocator: Allocator, physical_devices: *[]vk.PhysicalDevice, queue_families_indices: *[]QueueFamilyIndices) !void {
+pub fn pickPhysicalDevicesAlloc(
+    self: *VulkanRenderer,
+    allocator: Allocator,
+    physical_devices: *[]vk.PhysicalDevice,
+    queue_families_indices: *[]QueueFamilyIndices,
+) !void {
     const _physical_devices = try self.instance_wrapper.enumeratePhysicalDevicesAlloc(self.instance, allocator);
     defer allocator.free(_physical_devices);
 
@@ -20,10 +25,11 @@ pub fn pickPhysicalDevicesAlloc(self: *VulkanRenderer, allocator: Allocator, phy
     var _queue_families_indices = std.ArrayList(QueueFamilyIndices).init(allocator);
 
     for (_physical_devices) |physical_device| {
-        const indices = try findQueueFamilies(self.instance_wrapper, physical_device, allocator);
-        if (indices.isComplite()) {
+        const indices = try findQueueFamilies(self.instance_wrapper, physical_device, self.surface, allocator);
+
+        if (indices) |ind| {
             try comptable_physical_devices.append(physical_device);
-            try _queue_families_indices.append(indices);
+            try _queue_families_indices.append(ind);
         }
     }
 
@@ -71,27 +77,41 @@ fn isDeviceSuitable(vki: *const vk.InstanceWrapper, dev: vk.PhysicalDevice, allo
 }
 
 pub const QueueFamilyIndices = struct {
-    graphics_family: ?usize = null,
-
-    pub fn isComplite(self: *const QueueFamilyIndices) bool {
-        return self.graphics_family != null;
-    }
+    graphics_family: u32,
+    present_family: u32,
 };
 
 fn findQueueFamilies(
     vki: *const vk.InstanceWrapper,
     physical_device: vk.PhysicalDevice,
+    surface: vk.SurfaceKHR,
     allocator: Allocator,
-) !QueueFamilyIndices {
-    var indices = QueueFamilyIndices{};
-
+) !?QueueFamilyIndices {
     const queue_families = try vki.getPhysicalDeviceQueueFamilyPropertiesAlloc(physical_device, allocator);
     defer allocator.free(queue_families);
 
+    var graphics_family: ?u32 = null;
+    var present_family: ?u32 = null;
+
     for (queue_families, 0..) |*q, i| {
         if (q.queue_flags.graphics_bit)
-            indices.graphics_family = i;
+            graphics_family = @intCast(i);
+
+        const surface_support = try vki.getPhysicalDeviceSurfaceSupportKHR(
+            physical_device,
+            @intCast(i),
+            surface,
+        );
+
+        if (surface_support == vk.TRUE)
+            present_family = @intCast(i);
+
+        if (graphics_family != null and present_family != null)
+            return .{
+                .graphics_family = graphics_family.?,
+                .present_family = present_family.?,
+            };
     }
 
-    return indices;
+    return null;
 }

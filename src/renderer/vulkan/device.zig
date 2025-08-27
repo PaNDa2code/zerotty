@@ -12,12 +12,16 @@ pub fn createDevice(
     physical_device: vk.PhysicalDevice,
     queue_families_indcies: @import("physical_device.zig").QueueFamilyIndices,
 ) !void {
+    errdefer self.device = .null_handle;
+
     self.device = try _createDevice(
         self.instance_wrapper,
         &self.vk_mem.vkAllocatorCallbacks(),
         physical_device,
         queue_families_indcies,
     );
+
+    self.queue_family_indcies = queue_families_indcies;
 }
 
 fn _createDevice(
@@ -27,7 +31,7 @@ fn _createDevice(
     queue_families_indcies: @import("physical_device.zig").QueueFamilyIndices,
 ) !vk.Device {
     const queue_create_info: vk.DeviceQueueCreateInfo = .{
-        .queue_family_index = @intCast(queue_families_indcies.graphics_family.?),
+        .queue_family_index = queue_families_indcies.graphics_family,
         .queue_count = 1,
         .p_queue_priorities = &.{1},
     };
@@ -55,5 +59,5 @@ fn _createDevice(
         .p_enabled_features = &device_features,
     };
 
-    return try vki.createDevice(physical_device, &device_create_info, vk_mem_cb);
+    return vki.createDevice(physical_device, &device_create_info, vk_mem_cb);
 }

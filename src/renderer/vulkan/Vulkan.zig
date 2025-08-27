@@ -8,6 +8,8 @@ instance: vk.Instance,
 debug_messenger: vk.DebugUtilsMessengerEXT,
 physical_device: vk.PhysicalDevice, // GPU
 device: vk.Device, // GPU drivers
+graphics_queue: vk.Queue,
+present_queue: vk.Queue,
 swap_chain: vk.SwapchainKHR,
 surface: vk.SurfaceKHR, // Window surface
 vk_mem: *VkAllocatorAdapter,
@@ -16,8 +18,9 @@ window_width: u32,
 cmd_pool: vk.CommandPool,
 cmd_buffers: []const vk.CommandBuffer,
 
-pipe_line: PipeLine,
+queue_family_indcies: QueueFamilyIndices,
 
+pipe_line: PipeLine,
 grid: Grid,
 
 pub const log = std.log.scoped(.Renderer);
@@ -30,43 +33,58 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
 
 pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void {
     self.vk_mem = try allocator.create(VkAllocatorAdapter);
+    errdefer allocator.destroy(self.vk_mem);
+
     self.vk_mem.initInPlace(allocator);
     errdefer self.vk_mem.deinit();
 
     const vk_mem_cb = self.vk_mem.vkAllocatorCallbacks();
 
     self.base_wrapper = try allocAndLoad(vk.BaseWrapper, allocator, baseGetInstanceProcAddress, .{});
+    errdefer allocator.destroy(self.base_wrapper);
 
     try createInstance(self);
 
     const vki = try allocAndLoad(vk.InstanceWrapper, allocator, self.base_wrapper.dispatch.vkGetInstanceProcAddr.?, .{self.instance});
     errdefer vki.destroyInstance(self.instance, &vk_mem_cb);
+    errdefer allocator.destroy(vki);
 
     self.instance_wrapper = vki;
     try setupDebugMessenger(self);
+    errdefer vki.destroyDebugUtilsMessengerEXT(self.instance, self.debug_messenger, &vk_mem_cb);
 
     try createWindowSurface(self, window);
     errdefer vki.destroySurfaceKHR(self.instance, self.surface, &vk_mem_cb);
 
     var physical_devices: []vk.PhysicalDevice = &.{};
-    var queue_family_indcies: []@import("physical_device.zig").QueueFamilyIndices = &.{};
+    var queue_family_indcies: []QueueFamilyIndices = &.{};
 
     try pickPhysicalDevicesAlloc(self, allocator, &physical_devices, &queue_family_indcies);
 
     defer allocator.free(queue_family_indcies);
     defer allocator.free(physical_devices);
 
-    for (physical_devices, queue_family_indcies, 0..) |p_dev, q_family, i| {
-        createLogicalDevice(self, p_dev, q_family) catch continue;
-        self.physical_device = p_dev;
-        log.info("using GPU{}", .{i});
-        break;
-    }
+    self.device = .null_handle;
+
+    // for (physical_devices, queue_family_indcies, 0..) |p_dev, queue_indces, i| {
+    const p_dev = physical_devices[0];
+    const queue_indces = queue_family_indcies[0];
+
+    try createLogicalDevice(self, p_dev, queue_indces); // catch continue;
+    self.physical_device = p_dev;
+    // log.info("using GPU{}", .{i});
+    // }
+
+    if (self.device == .null_handle)
+        return error.DeviceCreationFailed;
 
     const vkd = try allocAndLoad(vk.DeviceWrapper, allocator, vki.dispatch.vkGetDeviceProcAddr.?, .{self.device});
     errdefer vkd.destroyDevice(self.device, &vk_mem_cb);
+    errdefer allocator.destroy(vkd);
 
     self.device_wrapper = vkd;
+
+    getQueues(self);
 
     try createSwapChain(self, allocator);
     errdefer vkd.destroySwapchainKHR(self.device, self.swap_chain, &vk_mem_cb);
@@ -238,11 +256,14 @@ const DynamicLibrary = @import("../../DynamicLibrary.zig");
 const VkAllocatorAdapter = @import("VkAllocatorAdapter.zig");
 const Grid = @import("../Grid.zig");
 
+const QueueFamilyIndices = @import("physical_device.zig").QueueFamilyIndices;
+
 const createInstance = @import("instance.zig").createInstance;
 const setupDebugMessenger = @import("debug.zig").setupDebugMessenger;
 const createWindowSurface = @import("win_surface.zig").createWindowSurface;
 const pickPhysicalDevicesAlloc = @import("physical_device.zig").pickPhysicalDevicesAlloc;
 const createLogicalDevice = @import("device.zig").createDevice;
+const getQueues = @import("queues.zig").getQueues;
 const createSwapChain = @import("swap_chain.zig").createSwapChain;
 const allocCmdBuffers = @import("cmd_buffers.zig").allocCmdBuffers;
 const freeCmdBuffers = @import("cmd_buffers.zig").freeCmdBuffers;

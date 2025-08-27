@@ -67,6 +67,7 @@ fn _createSwapChain(
 
     const formats = try vki.getPhysicalDeviceSurfaceFormatsAllocKHR(physical_device, surface, allocator);
     defer allocator.free(formats);
+    std.log.debug("formats = {any}", .{formats});
 
     var image_count = caps.min_image_count + 1;
 
