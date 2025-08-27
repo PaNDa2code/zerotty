@@ -11,11 +11,11 @@ jobs:
       matrix:
         include:
           - target_os: native # building for linux needs to be native
-            target_arch: x64_64
+            target_arch: x86_64
             render_backend: OpenGL
 
           - target_os: windows
-            target_arch: x64_64
+            target_arch: x86_64
             render_backend: OpenGL
 
 
