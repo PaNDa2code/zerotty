@@ -28,7 +28,7 @@ jobs:
           version: 0.14.0
 
       - name: Check out code
-        uses: actions/checkout@5
+        uses: actions/checkout@4
         with:
           fetch-depth: 0
 
