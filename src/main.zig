@@ -18,7 +18,21 @@ pub fn main() !void {
 
 export fn wWinMain() callconv(std.os.windows.WINAPI) i32 {
     main() catch |e| {
-        std.debug.panic("main() returns error: {}", .{e});
+        var buffer: [50]u8 = undefined;
+
+        const message = std.fmt.bufPrintZ(
+            buffer[0..],
+            "main() returns error: {}",
+            .{e},
+        ) catch undefined;
+
+        _ = @import("win32").ui.windows_and_messaging.MessageBoxA(
+            null,
+            message.ptr,
+            "failure",
+            .{},
+        );
+
         return -1;
     };
     return 0;
