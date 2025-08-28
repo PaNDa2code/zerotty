@@ -20,10 +20,9 @@ fn _createInstance(
     const app_info = vk.ApplicationInfo{
         .p_application_name = "zerotty",
 
-        .application_version = 0,
+        .application_version = @bitCast(vk.makeApiVersion(0, 0, 0, 0)),
         .api_version = @bitCast(vk.API_VERSION_1_4),
 
-        // .p_engine_name = "no_engine",
         .engine_version = 0,
     };
 
@@ -40,7 +39,7 @@ fn _createInstance(
 
     const xlib_exts = [_][*:0]const u8{
         "VK_KHR_xlib_surface",
-        "VK_EXT_acquire_xlib_display",
+        // "VK_EXT_acquire_xlib_display",
     };
 
     const xcb_exts = [_][*:0]const u8{
@@ -49,12 +48,14 @@ fn _createInstance(
 
     const extensions = [_][*:0]const u8{
         "VK_KHR_surface",
-        "VK_EXT_debug_utils",
     } ++ switch (build_options.@"window-system") {
         .Win32 => win32_exts,
         .Xlib => xlib_exts,
         .Xcb => xcb_exts,
-    };
+    } ++ if (builtin.mode == .Debug)
+        .{"VK_EXT_debug_utils"}
+    else
+        .{};
 
     const inst_info = vk.InstanceCreateInfo{
         .p_application_info = &app_info,
