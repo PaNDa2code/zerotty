@@ -8,7 +8,6 @@ on:
 jobs:
   build:
     strategy:
-      fail-fast: false
       matrix:
         include:
           - target_os: native # building for linux needs to be native
@@ -37,7 +36,16 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y glslang-tools
+          sudo apt-get install -y \
+            glslang-tools \
+            libx11-dev \
+            libxext-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxfixes-dev \
+            libxrender-dev \
+            libgl1-mesa-dev \
+            libglu1-mesa-dev
 
       - name: Build release binaries
         run: zig build --release=fast -Dtarget=${{ matrix.target_arch }}-${{ matrix.target_os }} -Drender-backend=${{ matrix.render_backend }}
