@@ -4,7 +4,11 @@ id: switch (os) {
     .windows => win32fnd.HANDLE,
     .macos, .linux => posix.pid_t,
     else => @compileError("os is not supported"),
-} = undefined,
+} = switch (os) {
+    .windows => win32fnd.INVALID_HANDLE_VALUE,
+    .macos, .linux => 0,
+    else => @compileError("os is not supported"),
+},
 
 exe_path: []const u8,
 args: []const []const u8 = &.{""},
@@ -34,7 +38,7 @@ pub fn terminate(self: *ChildProcess) void {
     }
 }
 
-pub fn wait(self: *ChildProcess) !void {
+pub fn wait(self: *const ChildProcess) !void {
     return switch (os) {
         .windows => self.waitWindows(),
         .linux, .macos => self.waitPosix(),
@@ -44,6 +48,7 @@ pub fn wait(self: *ChildProcess) !void {
 
 pub fn deinit(self: *ChildProcess) void {
     if (self.env_map) |*map| map.deinit();
+    self.* = .{ .exe_path = "" };
 }
 
 fn startWindows(self: *ChildProcess, arina: Allocator, pty: ?*Pty) !void {
@@ -131,7 +136,7 @@ fn terminateWindows(self: *ChildProcess) void {
     _ = win32thread.TerminateProcess(self.id, 0);
 }
 
-fn waitWindows(self: *ChildProcess) !void {
+fn waitWindows(self: *const ChildProcess) !void {
     if (win32thread.WaitForSingleObject(self.id, std.math.maxInt(u32)) != 0) {
         return error.WatingFailed;
     }
