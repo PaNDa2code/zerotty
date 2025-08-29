@@ -88,7 +88,7 @@ fn _createSwapChain(
         .pre_transform = .{ .identity_bit_khr = true },
         .composite_alpha = .{ .opaque_bit_khr = true },
         .present_mode = present_mode,
-        .clipped = 0,
+        .clipped = .false,
     };
 
     return try vkd.createSwapchainKHR(device, &swap_chain_create_info, vk_mem_cb);

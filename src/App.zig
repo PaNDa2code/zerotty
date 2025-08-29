@@ -13,7 +13,7 @@ pub fn new(allocator: Allocator) App {
     return .{
         .window = Window.new("zerotty", 720, 1280),
         .allocator = allocator,
-        .vt_parser = VTParser.init(vtParseCallback),
+        .vt_parser = VTParser.init(vtParseCallback, null),
         .child = if (@import("builtin").os.tag == .windows)
             .{ .exe_path = "cmd", .args = &.{ "cmd", "" } }
         else

@@ -45,7 +45,7 @@ pub fn init(b: *Build, target: ?ResolvedTarget, optimize: ?OptimizeMode) Builder
         .optimize = optimize orelse b.standardOptimizeOption(.{}),
         .builder_step = b.step(b.fmt("Builder{}", .{counter.fetchAdd(1, .acq_rel)}), ""),
         .import_table = .init(b.allocator),
-        .link_table = .init(b.allocator),
+        .link_table = .empty,
     };
 }
 
@@ -102,8 +102,10 @@ pub fn addExcutable(self: *Builder, name: []const u8) *Builder {
     const exe = self.b.addExecutable(.{
         .name = name,
         .root_module = self.getModule(),
-        .link_libc = self.needLibc(),
     });
+
+    if (self.needLibc())
+        exe.linkLibC();
 
     // debug builds needs a consol
     if (self.window_system == .Win32 and self.optimize != .Debug)
@@ -245,12 +247,12 @@ fn addImports(self: *Builder) void {
 
     self.import_table.put("assets", assets_mod) catch unreachable;
 
-    const zigimg = self.b.dependency("zigimg", .{
-        .target = self.target,
-        .optimize = self.optimize,
-    });
-    const zigimg_mod = zigimg.module("zigimg");
-    self.import_table.put("zigimg", zigimg_mod) catch unreachable;
+    // const zigimg = self.b.dependency("zigimg", .{
+    //     .target = self.target,
+    //     .optimize = self.optimize,
+    // });
+    // const zigimg_mod = zigimg.module("zigimg");
+    // self.import_table.put("zigimg", zigimg_mod) catch unreachable;
 }
 
 fn linkSystemLibrarys(self: *Builder, module: *Build.Module) void {

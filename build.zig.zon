@@ -29,8 +29,8 @@
             .lazy = true,
         },
         .zigglgen = .{
-            .url = "git+https://github.com/castholm/zigglgen.git#d5f381759825ee0bac29bc294d47aa05be4ab7b5",
-            .hash = "zigglgen-0.4.0-bmyqLX_gLQDFXilQ5VQ9fJeOHKU1RFrggOzRqTGBX79W",
+            .url = "git+https://github.com/castholm/zigglgen#259f5b98ae7b09067f663ebe5a2f523ecea1b314",
+            .hash = "zigglgen-0.4.0-bmyqLTJ6LgDqTGk7h4OfNjAwj8g1-OIKSoq2sqkqniR5",
             .lazy = true,
         },
         .vulkan_headers = .{
@@ -39,8 +39,8 @@
             .lazy = true,
         },
         .vulkan = .{
-            .url = "git+https://github.com/Snektron/vulkan-zig#0e164cd7306d8d0491982f7102d4291fb5e0c5fa",
-            .hash = "vulkan-0.0.0-r7Ytx11UAwDj8RT0-qNjGxpRlTA4KfA7-4Urki6eTGJL",
+            .url = "git+https://github.com/Snektron/vulkan-zig#f879074293f0e2f718c93fd19cc0a96260a3aa52",
+            .hash = "vulkan-0.0.0-r7Ytx6hBAwBUnt0XA-uOkR2hda4fAHFhQITNTgJpnFkY",
             .lazy = true,
         },
         .emsdk = .{
@@ -48,10 +48,10 @@
             .hash = "N-V-__8AAEWFDwBdd7oE1EcCE3lK2y01-2ourXGKhpZeaZxQ",
             .lazy = true,
         },
-        .zigimg = .{
-            .url = "git+https://github.com/zigimg/zigimg#31bd433201d12d6aa700074d751a7db4555cdb0d",
-            .hash = "zigimg-0.1.0-8_eo2qClEgC8dTSiSO6vqGe7mdtIkobGi-Uc4d0Eo7_2",
-        },
+        // .zigimg = .{
+        //     .url = "git+https://github.com/zigimg/zigimg#31bd433201d12d6aa700074d751a7db4555cdb0d",
+        //     .hash = "zigimg-0.1.0-8_eo2qClEgC8dTSiSO6vqGe7mdtIkobGi-Uc4d0Eo7_2",
+        // },
         .glslang = .{
             .url = "git+https://github.com/PaNDa2code/glslang-zig#7b15bbef199ab1c3aec18f62b98e6924d9441d7e",
             .hash = "glslang-1.4.309-eMn68KLGCQDAuHVUzugaYOOEhbkyHmN526R7mHIq9YUs",

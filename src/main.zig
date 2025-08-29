@@ -16,13 +16,13 @@ pub fn main() !void {
     app.loop();
 }
 
-pub const panic = std.debug.FullPanic(panic_handler);
+pub const panic = std.debug.FullPanic(panicHandle);
 
-fn panic_handler(msg: []const u8, first_trace_addr: ?usize) noreturn {
+fn panicHandle(msg: []const u8, first_trace_addr: ?usize) noreturn {
     std.debug.defaultPanic(msg, first_trace_addr);
 }
 
-export fn wWinMain() callconv(std.os.windows.WINAPI) i32 {
+export fn wWinMain() callconv(.winapi) i32 {
     main() catch |e| {
         std.debug.panic("{}", .{e});
     };
