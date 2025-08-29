@@ -19,6 +19,8 @@ pub const ShellEnum = enum {
 pub const PtySize = packed struct {
     width: u16,
     height: u16,
+    // x_pixel: u16 = 0,
+    // y_pixel: u16 = 0,
 };
 
 pub const PtyOptions = struct {

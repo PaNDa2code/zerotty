@@ -7,7 +7,7 @@ child: ?switch (builtin.os.tag) {
     .macos, .linux => posix.pid_t,
     else => @compileError("os is not supported"),
 } = null,
-size: struct { height: u16, width: u16 },
+size: PtySize,
 id: u32,
 
 pub fn open(self: *Pty, options: PtyOptions) !void {
@@ -30,6 +30,7 @@ pub fn open(self: *Pty, options: PtyOptions) !void {
 
     self.master = master;
     self.slave = slave;
+    self.child = null;
 }
 
 pub fn close(self: *Pty) void {

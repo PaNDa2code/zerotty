@@ -50,8 +50,10 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     errdefer allocator.destroy(vki);
 
     self.instance_wrapper = vki;
-    try setupDebugMessenger(self);
-    errdefer vki.destroyDebugUtilsMessengerEXT(self.instance, self.debug_messenger, &vk_mem_cb);
+    if (builtin.mode == .Debug) {
+        try setupDebugMessenger(self);
+        errdefer vki.destroyDebugUtilsMessengerEXT(self.instance, self.debug_messenger, &vk_mem_cb);
+    }
 
     try createWindowSurface(self, window);
     errdefer vki.destroySurfaceKHR(self.instance, self.surface, &vk_mem_cb);

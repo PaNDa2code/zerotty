@@ -205,7 +205,7 @@ fn terminatePosix(self: *ChildProcess) void {
     _ = posix.kill(self.id, posix.SIG.KILL) catch {};
 }
 
-fn waitPosix(self: *ChildProcess) !void {
+fn waitPosix(self: *const ChildProcess) !void {
     _ = posix.waitpid(self.id, 0);
 }
 

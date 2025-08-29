@@ -37,8 +37,9 @@ pub fn deinit(self: *Keyboard) void {
 pub fn pushEvent(self: *Keyboard, event: KeyEvent) !void {
     try self.event_queue.append(event);
     switch (event.type) {
-        .Press => self.state.set(event.code),
-        .Release => self.state.unset(event.code),
+        .press => self.state.set(event.code),
+        .release => self.state.unset(event.code),
+        .repeat => {},
     }
 }
 

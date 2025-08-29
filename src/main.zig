@@ -16,24 +16,15 @@ pub fn main() !void {
     app.loop();
 }
 
+pub const panic = std.debug.FullPanic(panic_handler);
+
+fn panic_handler(msg: []const u8, first_trace_addr: ?usize) noreturn {
+    std.debug.defaultPanic(msg, first_trace_addr);
+}
+
 export fn wWinMain() callconv(std.os.windows.WINAPI) i32 {
     main() catch |e| {
-        var buffer: [50]u8 = undefined;
-
-        const message = std.fmt.bufPrintZ(
-            buffer[0..],
-            "main() returns error: {}",
-            .{e},
-        ) catch undefined;
-
-        _ = @import("win32").ui.windows_and_messaging.MessageBoxA(
-            null,
-            message.ptr,
-            "failure",
-            .{},
-        );
-
-        return -1;
+        std.debug.panic("{}", .{e});
     };
     return 0;
 }
@@ -41,11 +32,5 @@ export fn wWinMain() callconv(std.os.windows.WINAPI) i32 {
 pub const UNICODE = true;
 
 test {
-    // std.testing.refAllDecls(@import("ChildProcess.zig"));
-    // std.testing.refAllDecls(@import("CircularBuffer.zig"));
-    // std.testing.refAllDecls(@import("DynamicLibrary.zig"));
-    // std.testing.refAllDecls(@import("Keyboard.zig"));
-    // std.testing.refAllDecls(@import("parser.zig"));
-    // std.testing.refAllDecls(@import("pty/root.zig"));
-    std.testing.refAllDecls(@import("font/root.zig"));
+    std.testing.refAllDecls(@import("test.zig"));
 }
