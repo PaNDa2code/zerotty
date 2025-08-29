@@ -215,7 +215,6 @@ fn addImports(self: *Builder) void {
         .target = self.target,
         .optimize = self.optimize,
     });
-    const freetype_lib = freetype.artifact("freetype");
 
     const harfbuzz = self.b.dependency("harfbuzz", .{
         .target = self.target,
@@ -224,7 +223,6 @@ fn addImports(self: *Builder) void {
     });
 
     const harfbuzz_mod = harfbuzz.module("harfbuzz");
-    harfbuzz_mod.linkLibrary(freetype_lib);
 
     const freetype_mod = freetype.module("freetype");
 

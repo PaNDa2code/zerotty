@@ -195,7 +195,9 @@ pub fn deinit(self: *VulkanRenderer) void {
     vkd.destroySwapchainKHR(self.device, self.swap_chain, &cb);
     vkd.destroyDevice(self.device, &cb);
 
-    vki.destroyDebugUtilsMessengerEXT(self.instance, self.debug_messenger, &cb);
+    if (builtin.mode == .Debug)
+        vki.destroyDebugUtilsMessengerEXT(self.instance, self.debug_messenger, &cb);
+
     vki.destroySurfaceKHR(self.instance, self.surface, &cb);
     vki.destroyInstance(self.instance, &cb);
 
