@@ -48,7 +48,7 @@ fn debugCallback(
     message_types: vk.DebugUtilsMessageTypeFlagsEXT,
     p_callback_data: ?*const vk.DebugUtilsMessengerCallbackDataEXT,
     _: ?*anyopaque,
-) callconv(.C) vk.Bool32 {
+) callconv(.c) vk.Bool32 {
     const t: Types =
         if (message_types.general_bit_ext)
             .general
@@ -69,7 +69,7 @@ fn debugCallback(
     else if (message_severity.error_bit_ext)
         log.err(fmt_buf, fmt_args);
 
-    return vk.FALSE;
+    return .false;
 }
 
 const Types = enum {

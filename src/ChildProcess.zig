@@ -159,10 +159,11 @@ fn startPosix(self: *ChildProcess, arina: std.mem.Allocator, pty: ?*Pty) !void {
         var it = env_map.iterator();
         var i: usize = 0;
         while (it.next()) |entry| : (i += 1) {
-            envZ[i] = try std.fmt.allocPrintZ(
+            envZ[i] = try std.fmt.allocPrintSentinel(
                 arina,
                 "{s}={s}",
                 .{ entry.key_ptr.*, entry.value_ptr.* },
+                0,
             );
         }
         break :envz envZ.ptr;

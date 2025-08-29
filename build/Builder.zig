@@ -44,8 +44,8 @@ pub fn init(b: *Build, target: ?ResolvedTarget, optimize: ?OptimizeMode) Builder
         .target = target orelse b.standardTargetOptions(.{}),
         .optimize = optimize orelse b.standardOptimizeOption(.{}),
         .builder_step = b.step(b.fmt("Builder{}", .{counter.fetchAdd(1, .acq_rel)}), ""),
-        .import_table = .{},
-        .link_table = .{},
+        .import_table = .init(b.allocator),
+        .link_table = .empty,
     };
 }
 
@@ -247,12 +247,12 @@ fn addImports(self: *Builder) void {
 
     self.import_table.put("assets", assets_mod) catch unreachable;
 
-    const zigimg = self.b.dependency("zigimg", .{
-        .target = self.target,
-        .optimize = self.optimize,
-    });
-    const zigimg_mod = zigimg.module("zigimg");
-    self.import_table.put("zigimg", zigimg_mod) catch unreachable;
+    // const zigimg = self.b.dependency("zigimg", .{
+    //     .target = self.target,
+    //     .optimize = self.optimize,
+    // });
+    // const zigimg_mod = zigimg.module("zigimg");
+    // self.import_table.put("zigimg", zigimg_mod) catch unreachable;
 }
 
 fn linkSystemLibrarys(self: *Builder, module: *Build.Module) void {

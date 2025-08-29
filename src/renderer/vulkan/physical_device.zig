@@ -16,14 +16,14 @@ pub fn pickPhysicalDevicesAlloc(self: *VulkanRenderer, allocator: Allocator, phy
     // sort physical devices pased on score
     std.sort.heap(vk.PhysicalDevice, _physical_devices, self.instance_wrapper, physicalDeviceGt);
 
-    var comptable_physical_devices = std.ArrayList(vk.PhysicalDevice).init(allocator);
-    var _queue_families_indices = std.ArrayList(QueueFamilyIndices).init(allocator);
+    var comptable_physical_devices = try std.ArrayList(vk.PhysicalDevice).initCapacity(allocator, 1);
+    var _queue_families_indices = try std.ArrayList(QueueFamilyIndices).initCapacity(allocator, 1);
 
     for (_physical_devices) |physical_device| {
         const indices = try findQueueFamilies(self.instance_wrapper, physical_device, allocator);
         if (indices.isComplite()) {
-            try comptable_physical_devices.append(physical_device);
-            try _queue_families_indices.append(indices);
+            try comptable_physical_devices.append(allocator, physical_device);
+            try _queue_families_indices.append(allocator, indices);
         }
     }
 
@@ -44,8 +44,8 @@ pub fn pickPhysicalDevicesAlloc(self: *VulkanRenderer, allocator: Allocator, phy
         );
     }
 
-    physical_devices.* = try comptable_physical_devices.toOwnedSlice();
-    queue_families_indices.* = try _queue_families_indices.toOwnedSlice();
+    physical_devices.* = try comptable_physical_devices.toOwnedSlice(allocator);
+    queue_families_indices.* = try _queue_families_indices.toOwnedSlice(allocator);
 }
 
 fn physicalDeviceScore(vki: *const vk.InstanceWrapper, physical_device: vk.PhysicalDevice) u32 {
