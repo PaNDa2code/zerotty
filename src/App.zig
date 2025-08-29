@@ -32,10 +32,12 @@ var child_stdin: std.fs.File = undefined;
 pub fn start(self: *App) !void {
     try self.window.open(self.allocator);
     try self.buffer.init(1024 * 64);
-    try self.pty.open(.{ .size = .{
-        .height = @intCast(self.window.renderer.backend.grid.rows),
-        .width = @intCast(self.window.renderer.backend.grid.cols),
-    } });
+    try self.pty.open(.{
+        .size = .{
+            .height = 10, // @intCast(self.window.renderer.backend.grid.rows),
+            .width = 10, // @intCast(self.window.renderer.backend.grid.cols),
+        },
+    });
 
     // self.child.unsetEvnVar("PS0");
     // try self.child.setEnvVar(self.allocator, "PS1", "\\h@\\u:\\w> ");
@@ -58,7 +60,7 @@ pub fn start(self: *App) !void {
 pub fn pty_read_callback(_: *const EventLoop.Event, buf: []u8, data: ?*anyopaque) void {
     std.log.info("pty_read_callback {}", .{buf.len});
     std.log.info("{x}", .{buf});
-    const app: *App = @alignCast(@ptrCast(data));
+    const app: *App = @ptrCast(@alignCast(data));
     app.vt_parser.parse(buf);
 }
 

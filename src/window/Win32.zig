@@ -297,11 +297,11 @@ const DWM_SYSTEMBACKDROP_TYPE = enum(c_int) {
 extern "user32" fn SetWindowCompositionAttribute(
     hwnd: HWND,
     pwcad: *const WINDOWCOMPOSITIONATTRIBDATA,
-) callconv(std.os.windows.WINAPI) win32fnd.BOOL;
+) callconv(.winapi) win32fnd.BOOL;
 
 extern "dwmapi" fn DwmSetWindowAttribute(
     hwnd: HWND,
     attr: DWMWINDOWATTRIBUTE,
     attr_data: ?*const anyopaque,
     attr_size: c_uint,
-) callconv(std.os.windows.WINAPI) win32fnd.HRESULT;
+) callconv(.winapi) win32fnd.HRESULT;

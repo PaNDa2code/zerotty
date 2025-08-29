@@ -100,8 +100,8 @@ fn startWindows(self: *ChildProcess, arina: Allocator, pty: ?*Pty) !void {
 
     var env_block: ?*anyopaque = null;
     if (self.env_map) |envmap| {
-        var buffer = std.ArrayList(u8).init(arina);
-        var writer = buffer.writer();
+        var buffer = try std.ArrayList(u8).initCapacity(arina, 1024);
+        var writer = buffer.writer(arina);
 
         var it = envmap.iterator();
         while (it.next()) |entry| {
