@@ -160,7 +160,7 @@ pub fn renaderGrid(self: *OpenGLRenderer) void {
         gl.TRIANGLES,
         6,
         gl.UNSIGNED_INT,
-        null,
+        0,
         @intCast(self.grid.data().len),
     );
 }

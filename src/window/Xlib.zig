@@ -35,7 +35,7 @@ pub fn open(self: *Window, allocator: Allocator) !void {
     // x11 window is created inside opengl context creator
     self.renderer = try Renderer.init(self, allocator);
 
-    const name = try std.fmt.allocPrintZ(allocator, "{s}", .{self.title});
+    const name = try allocator.dupeZ(self.title);
     _ = c.XStoreName(@ptrCast(display), self.w, name.ptr);
     allocator.free(name);
 

@@ -124,7 +124,7 @@ fn extentionSupported(glx_exts: []const u8, ext: []const u8) bool {
     return false;
 }
 
-fn ctxErrorHandler(_: ?*c.x11.Display, _: [*c]c.x11.XErrorEvent) callconv(.C) c_int {
+fn ctxErrorHandler(_: ?*c.x11.Display, _: [*c]c.x11.XErrorEvent) callconv(.c) c_int {
     ctxErrorOccurred.store(true, .seq_cst);
     return 0;
 }
@@ -218,26 +218,26 @@ const PFNGLXCREATECONTEXTATTRIBSARBPROC = *const fn (
     share_context: ?*opaque {},
     direct: u32,
     attrib_list: [*:0]const c_int,
-) callconv(.C) c.glx.GLXContext;
+) callconv(.c) c.glx.GLXContext;
 
 pub const PFNGLXMAKECURRENTPROC = *const fn (
     display: ?*c.x11.Display,
     drawable: usize,
     ctx: ?*anyopaque,
-) callconv(.C) c_int;
+) callconv(.c) c_int;
 
 pub const PFNGLXSWAPBUFFERSPROC = *const fn (
     dpy: ?*c.x11.Display,
     drawable: usize,
-) callconv(.C) void;
+) callconv(.c) void;
 
 pub const PFNGLXSWAPINTERVALEXTPROC = *const fn (
     dpy: ?*c.x11.Display,
     drawable: usize,
     interval: c_int,
-) callconv(.C) void;
+) callconv(.c) void;
 
-extern "GL" fn glXGetProcAddress(procName: [*:0]const u8) callconv(.C) ?*const anyopaque;
+extern "GL" fn glXGetProcAddress(procName: [*:0]const u8) callconv(.c) ?*const anyopaque;
 
 pub const glGetProcAddress = glXGetProcAddress;
 

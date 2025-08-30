@@ -91,8 +91,8 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
         pin.x += bitmap.width + padding_x;
     }
 
-    if (builtin.mode == .Debug)
-        try saveAtlas(allocator, "temp/atlas.png", pixels, tex_width, tex_height);
+    // if (builtin.mode == .Debug)
+    //     try saveAtlas(allocator, "temp/atlas.png", pixels, tex_width, tex_height);
 
     return .{
         .buffer = pixels,

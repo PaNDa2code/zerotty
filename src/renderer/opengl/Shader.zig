@@ -28,7 +28,7 @@ pub fn attachShaderSPIRV(self: *const ShaderProgram, buffer: []const u8, shader_
     gl.SpecializeShaderARB(shader, "main", 0, null, null);
 
     var stat: i32 = 0;
-    gl.GetShaderiv(shader, gl.COMPILE_STATUS, &stat);
+    gl.GetShaderiv(shader, gl.COMPILE_STATUS, @ptrCast(&stat));
     if (stat == gl.FALSE) {
         return error.VertexShaderCompilationFailed;
     }

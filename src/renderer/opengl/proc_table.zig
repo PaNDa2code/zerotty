@@ -19,7 +19,7 @@ const glGetProcAddress = switch (os) {
 
 const Loader = struct {
     gl_lib: DynamicLibrary,
-    glGetProcAddress: *const fn ([*:0]const u8) callconv(.C) isize = @ptrCast(&glGetProcAddress),
+    glGetProcAddress: *const fn ([*:0]const u8) callconv(.c) isize = @ptrCast(&glGetProcAddress),
 
     pub fn getProcAddress(self: *const Loader, name: [*:0]const u8) ?*const anyopaque {
         const address = self.glGetProcAddress(name);
