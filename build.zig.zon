@@ -12,9 +12,7 @@
             .path = "./libs/vtparse",
         },
         .freetype = .{
-            .url = "git+https://github.com/paNDa2code/zig_freetype2#db97286e1b162a5a29921117b4cd6b76d145ab02",
-            .hash = "zig_freetype2-0.0.0-Yvn9x-1wAACotLZRS9wfsZ2KSGxDmMyIESBLWt0Vj4J9",
-            // .path = "./libs/freetype",
+            .path = "./libs/freetype",
         },
         .harfbuzz = .{
             .path = "./libs/harfbuzz",
