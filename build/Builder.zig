@@ -81,14 +81,13 @@ pub fn getModule(self: *Builder) *Build.Module {
     });
 
     self.addImports();
+    self.linkLibrarys(mod);
 
     var modules_iter = self.import_table.iterator();
 
     while (modules_iter.next()) |entry| {
         mod.addImport(entry.key_ptr.*, entry.value_ptr.*);
     }
-
-    self.linkSystemLibrarys(mod);
 
     return mod;
 }
@@ -253,7 +252,7 @@ fn addImports(self: *Builder) void {
     // self.import_table.put("zigimg", zigimg_mod) catch unreachable;
 }
 
-fn linkSystemLibrarys(self: *Builder, module: *Build.Module) void {
+fn linkLibrarys(self: *Builder, module: *Build.Module) void {
     switch (self.window_system) {
         .Win32 => {},
         .Xlib => {
@@ -261,7 +260,15 @@ fn linkSystemLibrarys(self: *Builder, module: *Build.Module) void {
             if (self.render_backend == .OpenGL) module.linkSystemLibrary("GL", .{});
         },
         .Xcb => {
-            module.linkSystemLibrary("xcb", .{});
+            if (self.b.lazyDependency("xcb", .{
+                .target = self.target,
+                .optimize = self.optimize,
+                .linkage = .static,
+            })) |dep| {
+                const libxcb = dep.artifact("xcb");
+                module.linkLibrary(libxcb);
+            }
+            // module.linkSystemLibrary("xcb", .{});
         },
     }
 }

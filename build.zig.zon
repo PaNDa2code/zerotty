@@ -57,6 +57,10 @@
             .hash = "glslang-1.4.309-eMn68KLGCQDAuHVUzugaYOOEhbkyHmN526R7mHIq9YUs",
             .lazy = true,
         },
+        .xcb = .{
+            .url = "https://github.com/PaNDa2code/xcb_zig/archive/ac4fa73fbc63551b2c7c627dae3226b5d8ad6775.tar.gz",
+            .hash = "xcb-0.1.16-6nhs4FeQAgA6RHTEgfeQBOMjYO3qyKOSkEERsCJfWwJI",
+        },
     },
     .paths = .{
         "build.zig",
