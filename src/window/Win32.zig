@@ -169,8 +169,8 @@ fn setAcrylicBlur(self: *Window) void {
     };
     _ = win32dwm.DwmExtendFrameIntoClientArea(self.hwnd, &margins);
 
-    const style = win32wm.GetWindowLong(self.hwnd, ._EXSTYLE);
-    _ = win32wm.SetWindowLong(self.hwnd, ._EXSTYLE, style | @as(i32, @bitCast(win32wm.WS_EX_LAYERED)));
+    const style = win32wm.GetWindowLongW(self.hwnd, ._EXSTYLE);
+    _ = win32wm.SetWindowLongW(self.hwnd, ._EXSTYLE, style | @as(i32, @bitCast(win32wm.WS_EX_LAYERED)));
 
     try self.setBackDrop(true);
 

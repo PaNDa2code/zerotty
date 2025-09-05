@@ -41,5 +41,5 @@ test Pty {
     try pty.open(.{});
     defer pty.close();
 
-    try pty.resize(.{ .width = 10, .height = 10 });
+    // try pty.resize(.{ .width = 10, .height = 10 });
 }

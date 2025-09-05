@@ -117,7 +117,10 @@ pub fn close(self: *Pty) void {
 }
 
 pub fn resize(self: *Pty, size: PtySize) !void {
-    const hresult = win32con.ResizePseudoConsole(self.h_pesudo_console, @bitCast(size));
+    const hresult = win32con.ResizePseudoConsole(
+        self.h_pesudo_console,
+        .{ .X = @bitCast(size.width), .Y = @bitCast(size.height) },
+    );
     if (hresult < 0) {
         return error.PtyResizeFailed;
     }
