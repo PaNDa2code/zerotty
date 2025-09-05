@@ -1,0 +1,33 @@
+name: unit_test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        arch: [x64, arm64]
+
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Install zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.15.1
+
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Build project
+        run: zig build
+
+      - name: Run tests
+        run: zig build test
