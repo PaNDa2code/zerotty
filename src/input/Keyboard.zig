@@ -18,24 +18,26 @@ pub const KeyEvent = struct {
 
 const KeyboardEventQueue = std.ArrayList(KeyEvent);
 
+allocator: Allocator,
 event_queue: KeyboardEventQueue,
 state: KeyboardState,
 auto_repeat_enabled: bool,
 
 pub fn init(allocator: Allocator) Keyboard {
     return .{
-        .event_queue = KeyboardEventQueue.init(allocator),
+        .allocator = allocator,
+        .event_queue = .empty,
         .state = KeyboardState.initEmpty(),
         .auto_repeat_enabled = false,
     };
 }
 
 pub fn deinit(self: *Keyboard) void {
-    self.event_queue.deinit();
+    self.event_queue.deinit(self.allocator);
 }
 
 pub fn pushEvent(self: *Keyboard, event: KeyEvent) !void {
-    try self.event_queue.append(event);
+    try self.event_queue.append(self.allocator, event);
     switch (event.type) {
         .press => self.state.set(event.code),
         .release => self.state.unset(event.code),
