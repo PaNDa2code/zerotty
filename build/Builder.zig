@@ -11,6 +11,7 @@ builder_step: *Build.Step,
 main_module: ?*Build.Module = null,
 import_table: std.StringArrayHashMap(*Build.Module),
 link_table: std.ArrayList(*Build.Step.Compile),
+linkage: std.builtin.LinkMode,
 
 root_source_file: ?Build.LazyPath = null,
 
@@ -39,13 +40,16 @@ pub const OptionsModule = struct {
 var counter: std.atomic.Value(u32) = .init(0);
 
 pub fn init(b: *Build, target: ?ResolvedTarget, optimize: ?OptimizeMode) Builder {
+    const target_ = target orelse b.standardTargetOptions(.{});
+    const is_gnu = target_.result.isGnuLibC();
     return .{
         .b = b,
-        .target = target orelse b.standardTargetOptions(.{}),
+        .target = target_,
         .optimize = optimize orelse b.standardOptimizeOption(.{}),
         .builder_step = b.step(b.fmt("Builder{}", .{counter.fetchAdd(1, .acq_rel)}), ""),
         .import_table = .init(b.allocator),
         .link_table = .empty,
+        .linkage = if (is_gnu) .dynamic else .static,
     };
 }
 
@@ -263,7 +267,7 @@ fn linkLibrarys(self: *Builder, module: *Build.Module) void {
             if (self.b.lazyDependency("xcb", .{
                 .target = self.target,
                 .optimize = self.optimize,
-                .linkage = .static,
+                .linkage = self.linkage,
             })) |dep| {
                 const libxcb = dep.artifact("xcb");
                 module.linkLibrary(libxcb);
