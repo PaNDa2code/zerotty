@@ -30,8 +30,8 @@ pub fn open(self: *Window, allocator: Allocator) !void {
         return error.XCBConnectionError;
     }
 
-    const setup = c.xcb_get_setup(self.connection);
-    self.screen = c.xcb_setup_roots_iterator(setup).data.?;
+    const setup = c.xcb_get_setup(self.connection) orelse return error.NoSetup;
+    self.screen = c.xcb_setup_roots_iterator(setup).data orelse return error.NoScreen;
 
     const window_id = c.xcb_generate_id(self.connection);
     self.window = window_id;
@@ -44,7 +44,7 @@ pub fn open(self: *Window, allocator: Allocator) !void {
             c.XCB_EVENT_MASK_STRUCTURE_NOTIFY,
     };
 
-    _ = c.xcb_create_window(
+    const create_cookie = c.xcb_create_window_checked(
         self.connection,
         self.screen.*.root_depth, // depth
         window_id, // window id
@@ -60,10 +60,15 @@ pub fn open(self: *Window, allocator: Allocator) !void {
         &value_list,
     );
 
-    // Set window title
+    if (c.xcb_request_check(self.connection, create_cookie)) |err| {
+        defer c.free(err);
+        return error.CreateWindowFailed;
+    }
+
     const title = try allocator.dupeZ(u8, self.title);
     defer allocator.free(title);
-    _ = c.xcb_change_property(
+
+    const title_cookie = c.xcb_change_property_checked(
         self.connection,
         c.XCB_PROP_MODE_REPLACE,
         window_id,
@@ -74,11 +79,21 @@ pub fn open(self: *Window, allocator: Allocator) !void {
         title.ptr,
     );
 
-    // Map (show) the window
-    _ = c.xcb_map_window(self.connection, window_id);
+    if (c.xcb_request_check(self.connection, title_cookie)) |err| {
+        defer c.free(err);
+        return error.SetTitleFailed;
+    }
 
-    // Flush all commands
-    _ = c.xcb_flush(self.connection);
+    const map_cookie = c.xcb_map_window_checked(self.connection, window_id);
+
+    if (c.xcb_request_check(self.connection, map_cookie)) |err| {
+        defer c.free(err);
+        return error.MapWindowFailed;
+    }
+
+    if (c.xcb_flush(self.connection) <= 0) {
+        return error.FlushFailed;
+    }
 
     // var img = try zigimg.ImageUnmanaged.fromMemory(allocator, assets.icons.@"logo_32x32.png");
     // defer img.deinit(allocator);
@@ -114,7 +129,7 @@ pub fn open(self: *Window, allocator: Allocator) !void {
     //     buffer.ptr,
     // );
 
-    _ = c.xcb_change_property(
+    const wm_cookie = c.xcb_change_property_checked(
         self.connection,
         c.XCB_PROP_MODE_REPLACE,
         self.window,
@@ -124,6 +139,11 @@ pub fn open(self: *Window, allocator: Allocator) !void {
         1,
         &self.wm_delete_window_atom,
     );
+
+    if (c.xcb_request_check(self.connection, wm_cookie)) |err| {
+        defer c.free(err);
+        return error.SetProtocolsFailed;
+    }
 
     self.renderer = try Renderer.init(self, allocator);
 }
