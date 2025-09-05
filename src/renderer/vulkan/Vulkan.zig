@@ -68,14 +68,14 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
 
     self.device = .null_handle;
 
-    // for (physical_devices, queue_family_indcies, 0..) |p_dev, queue_indces, i| {
-    const p_dev = physical_devices[0];
-    const queue_indces = queue_family_indcies[0];
+    for (physical_devices, queue_family_indcies, 0..) |p_dev, queue_indces, i| {
+        // const p_dev = physical_devices[0];
+        // const queue_indces = queue_family_indcies[0];
 
-    try createLogicalDevice(self, p_dev, queue_indces); // catch continue;
-    self.physical_device = p_dev;
-    // log.info("using GPU{}", .{i});
-    // }
+        createLogicalDevice(self, p_dev, queue_indces) catch continue;
+        self.physical_device = p_dev;
+        log.info("using GPU{}", .{i});
+    }
 
     if (self.device == .null_handle)
         return error.DeviceCreationFailed;
@@ -175,10 +175,11 @@ fn setImageLayout(
 }
 
 fn baseGetInstanceProcAddress(_: vk.Instance, procname: [*:0]const u8) vk.PfnVoidFunction {
-    const vk_lib_name = if (os_tag == .windows) "vulkan-1" else "libvulkan.so.1";
-    var vk_lib = std.DynLib.open(vk_lib_name) catch return null;
-
-    return @ptrCast(vk_lib.lookup(*anyopaque, std.mem.span(procname)));
+    const vk_lib_name = if (os_tag == .windows) "vulkan" else "libvulkan.so";
+    // var vk_lib = std.DynLib.open(vk_lib_name) catch return null;
+    // return @ptrCast(vk_lib.lookup(*anyopaque, std.mem.span(procname)));
+    var vk_lib = DynamicLibrary.init(vk_lib_name) catch return null;
+    return @ptrCast(vk_lib.getProcAddress(procname));
 }
 
 pub fn deinit(self: *VulkanRenderer) void {
