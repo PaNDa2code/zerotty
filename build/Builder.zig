@@ -12,6 +12,7 @@ main_module: ?*Build.Module = null,
 import_table: std.StringArrayHashMap(*Build.Module),
 link_table: std.ArrayList(*Build.Step.Compile),
 linkage: std.builtin.LinkMode,
+use_llvm: bool = false,
 
 root_source_file: ?Build.LazyPath = null,
 
@@ -62,6 +63,10 @@ pub fn setWindowSystem(self: *Builder, system: WindowSystem) *Builder {
     self.window_system = system;
     return self;
 }
+pub fn useLLVM(self: *Builder, set: bool) *Builder {
+    self.use_llvm = set;
+    return self;
+}
 
 pub fn setRootFile(self: *Builder, path: Build.LazyPath) *Builder {
     self.root_source_file = path;
@@ -106,6 +111,7 @@ pub fn addExcutable(self: *Builder, name: []const u8) *Builder {
     const exe = self.b.addExecutable(.{
         .name = name,
         .root_module = self.getModule(),
+        .use_llvm = self.use_llvm,
     });
 
     if (self.needLibc())
@@ -265,7 +271,9 @@ fn linkLibrarys(self: *Builder, module: *Build.Module) void {
             if (self.render_backend == .OpenGL) module.linkSystemLibrary("GL", .{});
         },
         .Xcb => {
-            if (self.b.lazyDependency("xcb", .{
+            if (self.target.query.isNativeOs())
+                module.linkSystemLibrary("xcb", .{})
+            else if (self.b.lazyDependency("xcb", .{
                 .target = self.target,
                 .optimize = self.optimize,
                 .linkage = self.linkage,
@@ -273,7 +281,6 @@ fn linkLibrarys(self: *Builder, module: *Build.Module) void {
                 const libxcb = dep.artifact("xcb");
                 module.linkLibrary(libxcb);
             }
-            // module.linkSystemLibrary("xcb", .{});
         },
     }
 }
