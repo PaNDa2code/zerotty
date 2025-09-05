@@ -41,6 +41,7 @@ var counter: std.atomic.Value(u32) = .init(0);
 
 pub fn init(b: *Build, target: ?ResolvedTarget, optimize: ?OptimizeMode) Builder {
     const target_ = target orelse b.standardTargetOptions(.{});
+    const is_native = target_.query.isNativeOs();
     const is_gnu = target_.result.isGnuLibC();
     return .{
         .b = b,
@@ -49,7 +50,7 @@ pub fn init(b: *Build, target: ?ResolvedTarget, optimize: ?OptimizeMode) Builder
         .builder_step = b.step(b.fmt("Builder{}", .{counter.fetchAdd(1, .acq_rel)}), ""),
         .import_table = .init(b.allocator),
         .link_table = .empty,
-        .linkage = if (is_gnu) .dynamic else .static,
+        .linkage = if (is_gnu and is_native) .dynamic else .static,
     };
 }
 
