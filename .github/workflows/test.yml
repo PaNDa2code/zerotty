@@ -26,8 +26,5 @@ jobs:
           fetch-depth: 0
           submodules: true
 
-      - name: Build project
-        run: zig build
-
-      - name: Run tests
+      - name: Build and Run tests
         run: zig build test
