@@ -17,6 +17,9 @@
         .harfbuzz = .{
             .path = "./libs/harfbuzz",
         },
+        .xcb = .{
+            .path = "./libs/xcb_zig"
+        },
 
         .zigwin32 = .{
             .url = "git+https://github.com/marlersoft/zigwin32#9d399c0895de4746c1fcab366841e2ab031b0429",
@@ -56,10 +59,6 @@
             .url = "git+https://github.com/PaNDa2code/glslang-zig#7b15bbef199ab1c3aec18f62b98e6924d9441d7e",
             .hash = "glslang-1.4.309-eMn68KLGCQDAuHVUzugaYOOEhbkyHmN526R7mHIq9YUs",
             .lazy = true,
-        },
-        .xcb = .{
-            .url = "https://github.com/PaNDa2code/xcb_zig/archive/ac4fa73fbc63551b2c7c627dae3226b5d8ad6775.tar.gz",
-            .hash = "xcb-0.1.16-6nhs4FeQAgA6RHTEgfeQBOMjYO3qyKOSkEERsCJfWwJI",
         },
     },
     .paths = .{

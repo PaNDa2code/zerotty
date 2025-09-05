@@ -4,3 +4,6 @@
 [submodule "libs/freetype"]
 	path = libs/freetype
   url = https://github.com/panda2code/zig_freetype2
+[submodule "libs/xcb_zig"]
+	path = libs/xcb_zig
+	url = https://github.com/panda2code/xcb_zig
