@@ -8,11 +8,8 @@ jobs:
   build-and-test:
     strategy:
       fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        arch: [x64]
 
-    runs-on: ${{ matrix.os }}
+    runs-on: self-hosted
     
     steps:
       - name: Install zig
@@ -25,17 +22,6 @@ jobs:
         with:
           fetch-depth: 0
           submodules: true
-
-      - name: Cache zig build output
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/zig
-            zig-cache
-            .zig-cache
-          key: zig-${{ matrix.zig }}-${{ matrix.arch }}-${{ runner.os }}-${{ hashFiles('build.zig', 'build.zig.zon', 'build/**/*.zig') }}
-          restore-keys: |
-            zig-${{ matrix.zig }}-${{ matrix.arch }}-${{ runner.os }}-
 
       - name: Build and Run tests
         run: zig build test
