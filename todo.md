@@ -1,10 +1,10 @@
-- Core features:
+### Core features:
 
 - [ ] vt500 escape support
 - [ ] tab system
 - [ ] user config
 
-- Renderer:
+### Renderer:
 
 - [ ] stable renderer interface (dynamic runtime backend)
 - [ ] vulkan backend
@@ -12,7 +12,7 @@
 - [ ] GPU font rastrizer
 - [ ] kitty graphics protocol support
 
-- Platform Support:
+### Platform Support:
 
 - [x] linux
 - [x] windows 
@@ -21,7 +21,7 @@
 - [ ] android
 - [ ] IOS
 
-- System:
+### System:
 
 - [x] pty
 - [x] memory mapped buffer
@@ -30,7 +30,7 @@
 - [ ] keyboard and mouse input handler
 - [ ] C# or any interpreted programming language for plugins interfaces
 
-- CI/CD:
+### CI/CD:
 
 - [x] docs
 - [ ] release
