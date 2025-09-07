@@ -1,13 +1,18 @@
 - [ ] parse vt500 escape sequences
 - [ ] stable renderer interface (dynamic runtime backend)
+- [ ] vulkan backend
+- [x] opengl backend
+- [ ] GPU font rastrizer
+- [ ] kitty graphics protocol support
 - [x] pty
 - [x] memory mapped buffer
 - [ ] asynchronous io backend
-- [ ] asynchronous event loop
+- [ ] asynchronous event loop (IO, Window Events)
 - [ ] keyboard and mouse input handler
+- [ ] user config
 - [x] support linux
 - [x] support windows 
-- [ ] support macOS (not natively)
+- [ ] support macOS
 - [ ] support wasm
 - [ ] support IOS and android
 - [ ] CI automation scripts
