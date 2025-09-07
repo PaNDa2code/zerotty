@@ -173,7 +173,7 @@ fn setImageLayout(
 }
 
 fn baseGetInstanceProcAddress(_: vk.Instance, procname: [*:0]const u8) vk.PfnVoidFunction {
-    const vk_lib_name = if (os_tag == .windows) "vulkan" else "libvulkan.so";
+    const vk_lib_name = if (os_tag == .windows) "vulkan-1.dll" else "libvulkan.so.1";
     // var vk_lib = std.DynLib.open(vk_lib_name) catch return null;
     // return @ptrCast(vk_lib.lookup(*anyopaque, std.mem.span(procname)));
     var vk_lib = DynamicLibrary.init(vk_lib_name) catch return null;

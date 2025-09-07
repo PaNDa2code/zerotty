@@ -12,7 +12,6 @@ main_module: ?*Build.Module = null,
 import_table: std.StringArrayHashMap(*Build.Module),
 link_table: std.ArrayList(*Build.Step.Compile),
 linkage: std.builtin.LinkMode,
-use_llvm: bool = false,
 
 root_source_file: ?Build.LazyPath = null,
 
@@ -63,10 +62,6 @@ pub fn setWindowSystem(self: *Builder, system: WindowSystem) *Builder {
     self.window_system = system;
     return self;
 }
-pub fn useLLVM(self: *Builder, set: bool) *Builder {
-    self.use_llvm = set;
-    return self;
-}
 
 pub fn setRootFile(self: *Builder, path: Build.LazyPath) *Builder {
     self.root_source_file = path;
@@ -111,23 +106,22 @@ pub fn addExcutable(self: *Builder, name: []const u8) *Builder {
     const exe = self.b.addExecutable(.{
         .name = name,
         .root_module = self.getModule(),
-        .use_llvm = self.use_llvm,
     });
 
-    if (self.needLibc())
-        exe.linkLibC();
-
     // debug builds needs a consol
-    if (self.window_system == .Win32 and self.optimize != .Debug)
+    if (self.window_system == .Win32 and self.optimize != .Debug) {
         exe.subsystem = .Windows;
-
-    self.exe = exe;
+        exe.mingw_unicode_entry_point = true;
+        exe.bundle_compiler_rt = true;
+    }
 
     self.builder_step.dependOn(&exe.step);
 
     exe.addWin32ResourceFile(.{
         .file = self.b.path("assets/zerotty.rc"),
     });
+
+    self.exe = exe;
 
     return self;
 }

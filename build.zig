@@ -20,9 +20,6 @@ pub fn build(b: *Build) !void {
             else => .Xlib,
         };
 
-    const use_llvm: bool = b.option(bool, "use_llvm", "") orelse
-        if (builder.optimize == .Debug) false else true;
-
     const options = b.addOptions();
     options.addOption(Builder.RenderBackend, "render-backend", render_backend);
     options.addOption(Builder.WindowSystem, "window-system", window_system);
@@ -32,7 +29,6 @@ pub fn build(b: *Build) !void {
         .setWindowSystem(window_system)
         .addOptionsModule("build_options", options)
         .addExcutable("zerotty")
-        .useLLVM(use_llvm)
         .addCheckStep()
         .addRunStep()
         .apply();
