@@ -1,0 +1,14 @@
+- [ ] parse vt500 escape sequences
+- [ ] stable renderer interface (dynamic runtime backend)
+- [x] pty
+- [x] memory mapped buffer
+- [ ] asynchronous io backend
+- [ ] asynchronous event loop
+- [ ] keyboard and mouse input handler
+- [x] support linux
+- [x] support windows 
+- [ ] support macOS (not natively)
+- [ ] support wasm
+- [ ] support IOS and android
+- [ ] CI automation scripts
+- [ ] C# or any interpreted programming language for plugins interfaces

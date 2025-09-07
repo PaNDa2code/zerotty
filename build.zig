@@ -33,7 +33,7 @@ pub fn build(b: *Build) !void {
         .addOptionsModule("build_options", options)
         .addExcutable("zerotty")
         .useLLVM(use_llvm)
-        // .addCheckStep()
+        .addCheckStep()
         .addRunStep()
         .apply();
 
