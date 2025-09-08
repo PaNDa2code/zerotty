@@ -27,24 +27,16 @@ jobs:
           fetch-depth: 0
           submodules: true
 
-      - name: Install requirements (Linux only)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            glslang-tools \
-            python3 \
-            libxcb1 \
-            libxcb1-dev
+      - name: Build and Run tests
+        run: zig build -Dtarget=native_${{ runner.os }}-gnu test
 
       - name: Cache zig build
         uses: actions/cache@v4
         with:
           path: .zig-cache
-          key: ${{ runner.os }}-zig-${{ hashFiles('build.zig', 'build.zig.zon') }}-${{ github.sha }}
+          key: ${{ runner.os }}-zig-${{ hashFiles('build.zig', 'build.zig.zon', 'build/**/*.zig') }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-zig-${{ hashFiles('build.zig', 'build.zig.zon') }}-
+            ${{ runner.os }}-zig-${{ hashFiles('build.zig', 'build.zig.zon', 'build/**/*.zig') }}-
             ${{ runner.os }}-zig-
 
-      - name: Build and Run tests
-        run: zig build test
+
