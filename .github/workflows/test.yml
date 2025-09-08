@@ -27,12 +27,15 @@ jobs:
           fetch-depth: 0
           submodules: true
 
-      - name: Install requirements
+      - name: Install requirements (Linux only)
+        if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             glslang-tools \
-            python3
+            python3 \
+            libxcb1 \
+            libxcb1-dev
 
       - name: Cache zig build
         uses: actions/cache@v4
