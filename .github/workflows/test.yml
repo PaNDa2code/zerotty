@@ -13,7 +13,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
 
-    runs-on: ${{ master.os }}
+    runs-on: ${{ matrix.os }}
     
     steps:
       - name: Install zig
