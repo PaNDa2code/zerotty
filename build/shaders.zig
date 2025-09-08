@@ -7,7 +7,12 @@ pub const CompiledShader = struct {
     path: Build.LazyPath,
 };
 
-pub fn compiledShadersPathes(b: *Build, dir: Build.LazyPath, files: []const []const u8, renderer: anytype) ![]CompiledShader {
+pub fn compiledShadersPathes(
+    b: *Build,
+    dir: Build.LazyPath,
+    files: []const []const u8,
+    renderer: anytype,
+) ![]CompiledShader {
     const shader_pathes = try b.allocator.alloc(CompiledShader, files.len);
 
     const glslang_tools_installed =
@@ -47,7 +52,7 @@ pub fn compiledShadersPathes(b: *Build, dir: Build.LazyPath, files: []const []co
         const shader_spv_path = glslangValidator_cmd.addOutputFileArg(output_basename);
 
         const output_path =
-            if (b.release_mode == .off) blk: {
+            if (b.release_mode != .off) blk: {
                 const spirv_opt_cmd =
                     if (glslang_tools_installed)
                         b.addSystemCommand(&.{"spirv-opt"})
