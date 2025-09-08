@@ -71,7 +71,7 @@ pub fn compiledShadersPathes(
 
         shader_pathes[i] = .{
             .name = output_basename,
-            .path = output_path,
+            .path = output_path.dupe(b),
         };
     }
 
