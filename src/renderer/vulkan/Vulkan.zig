@@ -208,7 +208,7 @@ pub fn deinit(self: *VulkanRenderer) void {
     allocator.destroy(self.vk_mem);
 }
 
-pub fn clearBuffer(self: *VulkanRenderer, color: ColorRGBA) void {
+pub fn clearBuffer(self: *VulkanRenderer, color: ColorRGBAf32) void {
     _ = self;
     _ = color;
 }
@@ -232,8 +232,8 @@ pub fn setCell(
     row: u32,
     col: u32,
     char_code: u32,
-    fg_color: ?ColorRGBA,
-    bg_color: ?ColorRGBA,
+    fg_color: ?ColorRGBAu8,
+    bg_color: ?ColorRGBAu8,
 ) !void {
     _ = self; // autofix
     _ = row; // autofix
@@ -254,7 +254,8 @@ const common = @import("../common.zig");
 const PipeLine = @import("PipeLine.zig");
 const Window = @import("../../window/root.zig").Window;
 const Allocator = std.mem.Allocator;
-const ColorRGBA = common.ColorRGBA;
+const ColorRGBAu8 = common.ColorRGBAu8;
+const ColorRGBAf32 = common.ColorRGBAf32;
 const DynamicLibrary = @import("../../DynamicLibrary.zig");
 const VkAllocatorAdapter = @import("VkAllocatorAdapter.zig");
 const Grid = @import("../Grid.zig");
