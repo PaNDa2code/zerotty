@@ -27,6 +27,13 @@ jobs:
           fetch-depth: 0
           submodules: true
 
+      - name: Install requirements
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            glslang-tools \
+            python3
+
       - name: Cache zig build
         uses: actions/cache@v4
         with:
