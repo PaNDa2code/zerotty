@@ -28,7 +28,7 @@ jobs:
           submodules: true
 
       - name: Build and Run tests
-        run: zig build -Dtarget=native_${{ runner.os }}-gnu test
+        run: zig build -Dtarget=native-${{ runner.os }}-gnu test
 
       - name: Cache zig build
         uses: actions/cache@v4
