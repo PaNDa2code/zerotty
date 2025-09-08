@@ -2,14 +2,18 @@ name: unit_test
 
 on:
   push:
+    brances: ["master"]
   pull_request:
+    brances: ["master"]
 
 jobs:
   build-and-test:
     strategy:
       fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
 
-    runs-on: ubuntu-latest
+    runs-on: ${{ master.os }}
     
     steps:
       - name: Install zig
