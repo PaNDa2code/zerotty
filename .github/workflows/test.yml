@@ -2,9 +2,9 @@ name: unit_test
 
 on:
   push:
-    brances: ["master"]
+    branches: ["master"]
   pull_request:
-    brances: ["master"]
+    branches: ["master"]
 
 jobs:
   build-and-test:
