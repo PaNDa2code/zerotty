@@ -11,7 +11,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            zig-triple: x86_64-linux-gnu
+          - os: ubuntu-latest-arm
+            zig-triple: aarch64-linux-gnu
+          - os: windows-latest
+            zig-triple: x86_64-windows-gnu
 
     runs-on: ${{ matrix.os }}
     
@@ -28,7 +34,7 @@ jobs:
           submodules: true
 
       - name: Build and Run tests
-        run: zig build -Dtarget=native-${{ runner.os }}-gnu test
+        run: zig build -Dtarget=${{ matrix.zig-triple }} test
 
       - name: Cache zig build
         uses: actions/cache@v4
