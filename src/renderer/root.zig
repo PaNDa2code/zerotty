@@ -21,7 +21,7 @@ pub fn deinit(self: *Renderer) void {
     self.backend.deinit();
 }
 
-pub fn clearBuffer(self: *Renderer, color: ColorRGBA) void {
+pub fn clearBuffer(self: *Renderer, color: ColorRGBAf32) void {
     self.backend.clearBuffer(color);
 }
 
@@ -38,8 +38,8 @@ pub fn setCell(
     row: u32,
     col: u32,
     char_code: u32,
-    fg_color: ?ColorRGBA,
-    bg_color: ?ColorRGBA,
+    fg_color: ?ColorRGBAu8,
+    bg_color: ?ColorRGBAu8,
 ) !void {
     try self.backend.setCell(row, col, char_code, fg_color, bg_color);
 }
@@ -69,4 +69,5 @@ pub const FPS = @import("FPS.zig");
 pub const Cursor = @import("Cursor.zig");
 const Window = @import("../window/root.zig").Window;
 const Allocator = @import("std").mem.Allocator;
-const ColorRGBA = @import("common.zig").ColorRGBA;
+const ColorRGBAu8 = @import("common.zig").ColorRGBAu8;
+const ColorRGBAf32 = @import("common.zig").ColorRGBAf32;

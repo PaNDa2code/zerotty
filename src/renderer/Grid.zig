@@ -4,8 +4,8 @@ pub const Cell = packed struct {
     row: u32, // location 1
     col: u32, // location 2
     char: u32, // location 3
-    fg_color: ColorRGBA, // location 4
-    bg_color: ColorRGBA, // location 5
+    fg_color: ColorRGBAu8, // location 4
+    bg_color: ColorRGBAu8, // location 5
     glyph_info: Atlas.GlyphInfo = undefined, // location 6, 7, 8
 };
 
@@ -51,7 +51,7 @@ pub fn set(self: *CellProgram, cell: Cell) !void {
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const common = @import("common.zig");
-const ColorRGBA = common.ColorRGBA;
+const ColorRGBAu8 = common.RGBAu8;
 const math = @import("math.zig");
 const Vec2 = math.Vec2;
 

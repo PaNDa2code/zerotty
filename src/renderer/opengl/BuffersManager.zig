@@ -108,11 +108,11 @@ fn initInstanceBuffer(self: *BuffersManager, instance_len: usize) void {
     gl.VertexAttribDivisor(3, 1); // char
 
     gl.EnableVertexAttribArray(4);
-    gl.VertexAttribPointer(4, 4, gl.FLOAT, gl.FALSE, @sizeOf(Cell), @offsetOf(Cell, "fg_color"));
+    gl.VertexAttribPointer(4, 4, gl.UNSIGNED_BYTE, gl.TRUE, @sizeOf(Cell), @offsetOf(Cell, "fg_color"));
     gl.VertexAttribDivisor(4, 1); // fg_color
 
     gl.EnableVertexAttribArray(5);
-    gl.VertexAttribPointer(5, 4, gl.FLOAT, gl.FALSE, @sizeOf(Cell), @offsetOf(Cell, "bg_color"));
+    gl.VertexAttribPointer(5, 4, gl.UNSIGNED_BYTE, gl.TRUE, @sizeOf(Cell), @offsetOf(Cell, "bg_color"));
     gl.VertexAttribDivisor(5, 1); // bg_color
 
     gl.EnableVertexAttribArray(6);

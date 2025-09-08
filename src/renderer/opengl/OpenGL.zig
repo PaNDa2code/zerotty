@@ -121,7 +121,7 @@ pub fn deinit(self: *OpenGLRenderer) void {
     self.grid.free();
 }
 
-pub fn clearBuffer(self: *OpenGLRenderer, color: ColorRGBA) void {
+pub fn clearBuffer(self: *OpenGLRenderer, color: ColorRGBA32) void {
     _ = self;
     gl.ClearColor(color.r, color.g, color.b, color.a);
     gl.Clear(gl.COLOR_BUFFER_BIT);
@@ -180,8 +180,8 @@ pub fn setCell(
     row: u32,
     col: u32,
     char_code: u32,
-    fg_color: ?ColorRGBA,
-    bg_color: ?ColorRGBA,
+    fg_color: ?ColorRGBAu8,
+    bg_color: ?ColorRGBAu8,
 ) !void {
     try self.grid.set(.{
         .row = row,
@@ -211,7 +211,8 @@ const font = @import("../../font/root.zig");
 const Window = @import("../../window/root.zig").Window;
 const Atlas = font.Atlas;
 const common = @import("../common.zig");
-const ColorRGBA = common.ColorRGBA;
+const ColorRGBA32 = common.ColorRGBAf32;
+const ColorRGBAu8 = common.ColorRGBAu8;
 const math = @import("../math.zig");
 const Vec2 = math.Vec2;
 const Vec4 = math.Vec4;
