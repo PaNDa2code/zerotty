@@ -17,12 +17,6 @@
         .harfbuzz = .{
             .path = "./libs/harfbuzz",
         },
-        .xcb = .{
-            .path = "./libs/xcb_zig",
-        },
-        .zerio = .{
-            .path = "./libs/zerio",
-        },
 
         .zigwin32 = .{
             .url = "git+https://github.com/marlersoft/zigwin32#9d399c0895de4746c1fcab366841e2ab031b0429",
@@ -62,6 +56,14 @@
             .url = "git+https://github.com/PaNDa2code/glslang-zig#7b15bbef199ab1c3aec18f62b98e6924d9441d7e",
             .hash = "glslang-1.4.309-eMn68KLGCQDAuHVUzugaYOOEhbkyHmN526R7mHIq9YUs",
             .lazy = true,
+        },
+        .xcb = .{
+            .url = "git+https://github.com/PaNDa2code/xcb_zig#b38f8534ac3112961e57dba53c97781eddf42832",
+            .hash = "xcb-0.1.17-6nhs4N6dAgAw9NlVIuY555PIZ9XrQfGIZYhzcfUlJm_P",
+        },
+        .zerio = .{
+            .url = "git+https://github.com/PaNDa2code/zerio#843f88ca070c89f49b94dfa2afcee0d8803be932",
+            .hash = "zerio-0.0.0-8FcMxS9IAACsAJt9K9G2wK236Xks7qUBKVro-dWOLkx_",
         },
     },
     .paths = .{
