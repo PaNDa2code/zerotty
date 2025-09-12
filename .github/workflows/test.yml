@@ -20,7 +20,7 @@ jobs:
           version: 0.15.1
 
       - name: Install build deps (Linux)
-        if: runner.os == "Linux"
+        if: runner.os == 'Linux'
         run: sudo apt update && sudo apt install \
           libxcb1-dev \
           glslang-tools \
