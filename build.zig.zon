@@ -18,7 +18,10 @@
             .path = "./libs/harfbuzz",
         },
         .xcb = .{
-            .path = "./libs/xcb_zig"
+            .path = "./libs/xcb_zig",
+        },
+        .zerio = .{
+            .path = "./libs/zerio",
         },
 
         .zigwin32 = .{

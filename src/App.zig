@@ -5,7 +5,7 @@ child: ChildProcess,
 vt_parser: VTParser,
 allocator: Allocator,
 
-io_event_loop: EventLoop,
+io_event_loop: zerio.EventLoop,
 
 const App = @This();
 
@@ -26,7 +26,7 @@ pub fn new(allocator: Allocator) App {
 
 var render: *Renderer = undefined;
 var _pty: *Pty = undefined;
-var evloop: *EventLoop = undefined;
+var evloop: *zerio.EventLoop = undefined;
 var child_stdin: std.fs.File = undefined;
 
 pub fn start(self: *App) !void {
@@ -47,21 +47,24 @@ pub fn start(self: *App) !void {
     _pty = &self.pty;
     evloop = &self.io_event_loop;
 
-    self.io_event_loop = try .init();
+    self.io_event_loop = try zerio.EventLoop.init(self.allocator, 8);
+
+    try self.io_event_loop.read(self.child.stdout.?, self.buffer.buffer, &pty_read_callback, self);
 
     child_stdin = self.child.stdin.?;
-    const master_file = try AysncFile.init(self.child.stdout.?.handle);
 
-    const master_event = try master_file.asyncRead(self.allocator, self.buffer.buffer, &pty_read_callback, self);
-
-    try self.io_event_loop.addEvent(self.allocator, master_event);
+    try evloop.run();
 }
 
-pub fn pty_read_callback(_: *const EventLoop.Event, buf: []u8, data: ?*anyopaque) void {
+pub fn pty_read_callback(ev: *const zerio.EventLoop.Event, n: usize, data: ?*anyopaque) zerio.EventLoop.CallbackAction {
+    const buf = ev.request.op_data.read[0..n];
+
     std.log.info("pty_read_callback {}", .{buf.len});
     std.log.info("{x}", .{buf});
     const app: *App = @ptrCast(@alignCast(data));
     app.vt_parser.parse(buf);
+
+    return .destroy;
 }
 
 fn keyboard_cb(code: u8, press: bool) void {
@@ -181,11 +184,12 @@ const CircularBuffer = @import("CircularBuffer.zig");
 const ChildProcess = @import("ChildProcess.zig");
 const Renderer = @import("renderer/root.zig");
 const FPS = @import("renderer/FPS.zig");
-const AysncFile = @import("io/File.zig");
-const EventLoop = @import("io/EventLoop.zig");
+// const AysncFile = @import("io/File.zig");
+// const EventLoop = @import("io/EventLoop.zig");
 const VTParser = vtparse.VTParser;
 const Allocator = std.mem.Allocator;
 
 const std = @import("std");
 const build_options = @import("build_options");
 const vtparse = @import("vtparse");
+const zerio = @import("zerio");

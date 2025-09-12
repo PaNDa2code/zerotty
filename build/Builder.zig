@@ -230,9 +230,17 @@ fn addImports(self: *Builder) void {
 
     const freetype_mod = freetype.module("freetype");
 
+    const zerio = self.b.dependency("zerio", .{
+        .target = self.target,
+        .optimize = self.optimize,
+    });
+
+    const zerio_mod = zerio.module("zerio");
+
     self.import_table.put("vtparse", vtparse_mod) catch unreachable;
     self.import_table.put("freetype", freetype_mod) catch unreachable;
     self.import_table.put("harfbuzz", harfbuzz_mod) catch unreachable;
+    self.import_table.put("zerio", zerio_mod) catch unreachable;
 
     const compiled_shaders = @import("shaders.zig").compiledShadersPathes(
         self.b,

@@ -7,3 +7,6 @@
 [submodule "libs/xcb_zig"]
 	path = libs/xcb_zig
 	url = https://github.com/panda2code/xcb_zig
+[submodule "libs/zerio"]
+	path = libs/zerio
+	url = https://github.com/panda2code/zerio
