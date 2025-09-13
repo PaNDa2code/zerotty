@@ -27,25 +27,6 @@ zig build -Drender-backend=OpenGL
 Developed primarily in **Zig**, leveraging its capabilities for cross-compilation and system-level programming.
 
 ---
-
-## Platform & Architecture Support
-
-Current compatibility status across platforms and architectures:
-
-|OperatingSystem|`x86_64`|`ARM64`|`ARMv7`|
-|:-------------:|:------:|:-----:|:-----:|
-|**Linux**|🚧|🚧|🚧|
-|**Windows**|🚧|🚧|❌|
-|**macOS**|🚧|❌|❌|
-|**Android**|❌|❌|❌|
-|**iOS**|❌|❌|❌|
-
-* **✅ Supported:** Functional and stable.
-* **🚧 Experimental:** Under development; may have issues.
-* **❌ Not Supported:** No current compatibility.
-
----
-
 ## Core Principles
 * **Native Performance:** Prioritizes direct system interaction for speed.
 * **Minimal Dependencies:** Reduces overhead and complexity.
