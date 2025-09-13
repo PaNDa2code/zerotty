@@ -31,7 +31,8 @@ jobs:
             libxkbcommon-dev \
             mesa-vulkan-drivers \
             spirv-tools \
-            glslang-dev
+            glslang-dev \
+            liburing-dev
 
       - name: Check out code
         uses: actions/checkout@v4
