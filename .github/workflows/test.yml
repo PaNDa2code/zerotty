@@ -11,7 +11,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            target: x86_64-linux-gnu
+
+          - os: windows-latest
+            target: x86_64-windows-gnu
+
     runs-on: ${{ matrix.os }}
     
     steps:
@@ -20,20 +26,6 @@ jobs:
         with:
           version: 0.15.1
 
-      - name: Install build deps (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libxcb1-dev \
-            libx11-dev \
-            libx11-xcb-dev \
-            libxkbcommon-dev \
-            mesa-vulkan-drivers \
-            spirv-tools \
-            glslang-dev \
-            liburing-dev
-
       - name: Check out code
         uses: actions/checkout@v4
         with:
@@ -41,7 +33,7 @@ jobs:
           submodules: true
 
       - name: Build and Run tests
-        run: zig build test
+        run: zig build -Dtarget=${{ matrix.target }} test
 
       - name: Cache zig build
         uses: actions/cache@v4
