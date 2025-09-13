@@ -53,7 +53,7 @@
         //     .hash = "zigimg-0.1.0-8_eo2qClEgC8dTSiSO6vqGe7mdtIkobGi-Uc4d0Eo7_2",
         // },
         .glslang = .{
-            .url = "git+https://github.com/PaNDa2code/glslang-zig#7b15bbef199ab1c3aec18f62b98e6924d9441d7e",
+            .url = "git+https://github.com/Games-by-Mason/glslang-zig#7b15bbef199ab1c3aec18f62b98e6924d9441d7e",
             .hash = "glslang-1.4.309-eMn68KLGCQDAuHVUzugaYOOEhbkyHmN526R7mHIq9YUs",
             .lazy = true,
         },
