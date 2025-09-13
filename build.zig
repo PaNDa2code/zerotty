@@ -6,6 +6,8 @@ const Builder = @import("build/Builder.zig");
 pub fn build(b: *Build) !void {
     var builder = Builder.init(b, b.standardTargetOptions(.{}), b.standardOptimizeOption(.{}));
 
+    const no_lsp_check = b.option(bool, "no-lsp-check", "") orelse false;
+
     const render_backend: Builder.RenderBackend =
         b.option(Builder.RenderBackend, "render-backend", "") orelse DEFULAT_RENDER_BACKEND;
 
@@ -29,7 +31,7 @@ pub fn build(b: *Build) !void {
         .setWindowSystem(window_system)
         .addOptionsModule("build_options", options)
         .addExcutable("zerotty")
-        .addCheckStep()
+        .addCheckStep(!no_lsp_check)
         .addRunStep()
         .apply();
 

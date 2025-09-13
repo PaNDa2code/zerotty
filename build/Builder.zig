@@ -68,8 +68,9 @@ pub fn setRootFile(self: *Builder, path: Build.LazyPath) *Builder {
     return self;
 }
 
-pub fn addCheckStep(self: *Builder) *Builder {
-    @import("check.zig").addCheckStep(self.b) catch unreachable;
+pub fn addCheckStep(self: *Builder, add: bool) *Builder {
+    if (add)
+        @import("check.zig").addCheckStep(self.b) catch unreachable;
     return self;
 }
 

@@ -33,7 +33,7 @@ jobs:
           submodules: true
 
       - name: Build and Run tests
-        run: zig build -Dtarget=${{ matrix.target }} test
+        run: zig build -Dtarget=${{ matrix.target }} test -Dno-lsp-check
 
       - name: Cache zig build
         uses: actions/cache@v4
