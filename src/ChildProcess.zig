@@ -260,16 +260,16 @@ pub fn unsetEvnVar(self: *ChildProcess, name: []const u8) void {
 }
 
 test ChildProcess {
-    // var pty: Pty = undefined;
-    // try pty.open(.{});
-    // defer pty.close();
+    var pty: Pty = undefined;
+    try pty.open(.{});
+    defer pty.close();
 
     var child: ChildProcess = .{
         .exe_path = if (os == .windows) "cmd" else "bash",
         .args = &.{},
     };
 
-    try child.start(std.testing.allocator, null);
+    try child.start(std.testing.allocator, &pty);
     defer child.terminate();
     // try child.wait();
 }
