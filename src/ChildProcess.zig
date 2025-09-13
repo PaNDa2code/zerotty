@@ -261,7 +261,9 @@ pub fn unsetEvnVar(self: *ChildProcess, name: []const u8) void {
 
 test ChildProcess {
     var pty: Pty = undefined;
-    try pty.open(.{});
+    try pty.open(.{
+        .size = .{ .height = 100, .width = 100 },
+    });
     defer pty.close();
 
     var child: ChildProcess = .{
