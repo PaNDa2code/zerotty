@@ -242,18 +242,18 @@ fn addImports(self: *Builder) void {
     self.import_table.put("harfbuzz", harfbuzz_mod) catch unreachable;
     self.import_table.put("zerio", zerio_mod) catch unreachable;
 
-    const compiled_shaders = @import("shaders.zig").compiledShadersPathes(
-        self.b,
-        self.b.path("src/renderer/shaders"),
-        &.{ "cell.frag", "cell.vert" },
-        self.render_backend,
-    ) catch unreachable;
+    // const compiled_shaders = @import("shaders.zig").compiledShadersPathes(
+    //     self.b,
+    //     self.b.path("src/renderer/shaders"),
+    //     &.{ "cell.frag", "cell.vert" },
+    //     self.render_backend,
+    // ) catch unreachable;
 
     const assets_mod = self.b.addModule("assets", .{
         .root_source_file = self.b.path("assets/assets.zig"),
     });
 
-    @import("shaders.zig").addCompiledShadersToModule(compiled_shaders, assets_mod);
+    // @import("shaders.zig").addCompiledShadersToModule(compiled_shaders, assets_mod);
 
     self.import_table.put("assets", assets_mod) catch unreachable;
 
