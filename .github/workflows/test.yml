@@ -22,9 +22,16 @@ jobs:
 
       - name: Install build deps (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt update && sudo apt install \
-          libxcb1-dev \
-          glslang-tools \
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxcb1-dev \
+            libx11-dev \
+            libx11-xcb-dev \
+            libxkbcommon-dev \
+            mesa-vulkan-drivers \
+            spirv-tools \
+            glslang-dev
 
       - name: Check out code
         uses: actions/checkout@v4
