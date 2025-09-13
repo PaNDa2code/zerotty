@@ -89,7 +89,7 @@ pub fn open(self: *Pty, options: PtyOptions) !void {
     );
 
     if (win32.zig.FAILED(hresult) or isInvaliedOrNull(h_pesudo_console)) {
-        return error.CreatePseudoConsoleFailed;
+        win32.zig.panicHresult("CreatePseudoConsole", hresult);
     }
 
     self.h_pesudo_console = h_pesudo_console.?;
