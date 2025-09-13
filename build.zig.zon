@@ -62,8 +62,8 @@
             .hash = "xcb-0.1.17-6nhs4N6dAgAw9NlVIuY555PIZ9XrQfGIZYhzcfUlJm_P",
         },
         .zerio = .{
-            .url = "git+https://github.com/PaNDa2code/zerio#843f88ca070c89f49b94dfa2afcee0d8803be932",
-            .hash = "zerio-0.0.0-8FcMxS9IAACsAJt9K9G2wK236Xks7qUBKVro-dWOLkx_",
+            .url = "git+https://github.com/PaNDa2code/zerio#95179cb254b7dc2bbe39c5d1f4f2dad678ac6e76",
+            .hash = "zerio-0.0.0-8FcMxU9JAABpH1Jpg4EVMx-Eeb8mVRajGj8zUr1o9BwA",
         },
     },
     .paths = .{
