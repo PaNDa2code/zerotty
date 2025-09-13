@@ -29,7 +29,7 @@ pub fn build(b: *Build) !void {
         .setWindowSystem(window_system)
         .addOptionsModule("build_options", options)
         .addExcutable("zerotty")
-        .addCheckStep()
+        // .addCheckStep()
         .addRunStep()
         .apply();
 
