@@ -17,6 +17,9 @@
         .harfbuzz = .{
             .path = "./libs/harfbuzz",
         },
+        .zerio = .{
+            .path = "./libs/zerio",
+        },
 
         .zigwin32 = .{
             .url = "git+https://github.com/marlersoft/zigwin32#9d399c0895de4746c1fcab366841e2ab031b0429",
@@ -60,10 +63,6 @@
         .xcb = .{
             .url = "git+https://github.com/PaNDa2code/xcb_zig#b38f8534ac3112961e57dba53c97781eddf42832",
             .hash = "xcb-0.1.17-6nhs4N6dAgAw9NlVIuY555PIZ9XrQfGIZYhzcfUlJm_P",
-        },
-        .zerio = .{
-            .url = "git+https://github.com/panda2code/zerio#d47cfb92dc4455f1b4d872f35700519b2597eb4c",
-            .hash = "zerio-0.0.0-8FcMxdJLAAC5fdvah-RQoqQ3yRQWCoFxN8YgFpVXPTE4",
         },
     },
     .paths = .{
