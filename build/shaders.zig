@@ -24,7 +24,7 @@ pub fn compiledShadersPathes(
     var glslangValidator: ?*Build.Step.Compile = null;
 
     if (!glslang_tools_installed) {
-        glslang = b.lazyDependency("glslang", .{ .optimize = .ReleaseFast }) orelse return shader_pathes;
+        glslang = b.lazyDependency("glslang", .{ .optimize = .ReleaseFast }) orelse return &.{};
         glslangValidator = glslang.?.artifact("glslangValidator");
         spirv_opt = glslang.?.artifact("spirv-opt");
     }
