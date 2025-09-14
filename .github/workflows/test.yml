@@ -44,4 +44,13 @@ jobs:
             ${{ runner.os }}-zig-${{ hashFiles('build.zig', 'build.zig.zon', 'build/**/*.zig') }}-
             ${{ runner.os }}-zig-
 
+      - name: Make test badge
+        uses: action-badges/core@0.3.1
+        with:
+          label: test-${{ matrix.target }}
+          message: ${{ job.status }}
+          message-color: ${{ job.status == 'success' && 'green' || 'red' }}
+          file-name: badges/test-${{ matrix.target }}.svg
+          badge-branch: badges
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
 
