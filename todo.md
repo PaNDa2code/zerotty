@@ -1,7 +1,7 @@
 ### Core features:
 
 - [ ] vt500 escape support
-- [ ] tab system
+- [ ] optional tab system
 - [ ] user config
 
 ### Renderer:
@@ -29,10 +29,11 @@
 - [ ] asynchronous event loop (IO, Window Events)
 - [ ] keyboard and mouse input handler
 - [ ] C# or any interpreted programming language for plugins interfaces
+- [ ] ConEmu "Progress Bar" sequences
 
 ### CI/CD:
 
 - [x] docs
 - [ ] release
-- [ ] test
+- [x] test
 - [ ] benchmarks 
