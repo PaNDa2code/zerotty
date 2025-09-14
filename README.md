@@ -26,6 +26,15 @@ zig build -Drender-backend=OpenGL
 ## Technologies
 Developed primarily in **Zig**, leveraging its capabilities for cross-compilation and system-level programming.
 
+## Tests
+
+The following badges show the results of running `zig build -Dtarget={{ target }} test` via [test.yml](.github/workflows/test.yml).
+
+| Status   |
+|----------|
+| ![linux-test](https://raw.githubusercontent.com/PaNDa2code/zerotty/badges/.badges/master/badges/test-x86_64-linux-gnu.svg) |
+| ![windows-test](https://raw.githubusercontent.com/PaNDa2code/zerotty/badges/.badges/master/badges/test-x86_64-windows-gnu.svg) |
+
 ---
 ## Core Principles
 * **Native Performance:** Prioritizes direct system interaction for speed.
