@@ -19,6 +19,8 @@ fn isInvaliedOrNull(handle: ?HANDLE) bool {
     return handle == null or handle == win32fnd.INVALID_HANDLE_VALUE;
 }
 
+var random = std.Random.DefaultPrng.init(0xAA);
+
 pub fn open(self: *Pty, options: PtyOptions) !void {
     var stdin_read: ?HANDLE = undefined;
     var stdin_write: ?HANDLE = undefined;
@@ -28,7 +30,7 @@ pub fn open(self: *Pty, options: PtyOptions) !void {
 
     var buffer: [1024]u8 = undefined;
 
-    const stdin_pipe_name = try std.fmt.bufPrintZ(buffer[0..], "\\\\.\\pipe\\{s}", .{"stdin"});
+    const stdin_pipe_name = try std.fmt.bufPrintZ(buffer[0..], "\\\\.\\pipe\\{s}-{}", .{ "stdin", random.next() });
 
     stdin_read = win32pipe.CreateNamedPipeA(
         stdin_pipe_name,
@@ -41,6 +43,10 @@ pub fn open(self: *Pty, options: PtyOptions) !void {
         null,
     );
 
+    if (isInvaliedOrNull(stdin_read)) {
+        std.debug.panic("CreateNamedPipeA: {s}", .{@tagName(win32.foundation.GetLastError())});
+    }
+
     stdin_write = win32fs.CreateFileA(
         stdin_pipe_name,
         win32fs.FILE_GENERIC_WRITE,
@@ -50,7 +56,12 @@ pub fn open(self: *Pty, options: PtyOptions) !void {
         .{ .FILE_FLAG_OVERLAPPED = 1 },
         null,
     );
-    const stdout_pipe_name = try std.fmt.bufPrintZ(buffer[0..], "\\\\.\\pipe\\{s}", .{"stdout"});
+
+    if (isInvaliedOrNull(stdin_write)) {
+        std.debug.panic("CreateFileA: {s}", .{@tagName(win32.foundation.GetLastError())});
+    }
+
+    const stdout_pipe_name = try std.fmt.bufPrintZ(buffer[0..], "\\\\.\\pipe\\{s}-{}", .{ "stdout", random.next() });
 
     stdout_read = win32pipe.CreateNamedPipeA(
         stdout_pipe_name,
@@ -63,6 +74,10 @@ pub fn open(self: *Pty, options: PtyOptions) !void {
         null,
     );
 
+    if (isInvaliedOrNull(stdout_read)) {
+        std.debug.panic("CreateNamedPipeA: {s}", .{@tagName(win32.foundation.GetLastError())});
+    }
+
     stdout_write = win32fs.CreateFileA(
         stdout_pipe_name,
         win32fs.FILE_GENERIC_WRITE,
@@ -73,10 +88,14 @@ pub fn open(self: *Pty, options: PtyOptions) !void {
         null,
     );
 
-    // if (win32pipe.CreatePipe(&stdin_read, &stdin_write, null, 0) == 0 or isInvaliedOrNull(stdin_read) or isInvaliedOrNull(stdin_write)) {
+    if (isInvaliedOrNull(stdout_write)) {
+        std.debug.panic("CreateFileA: {s}", .{@tagName(win32.foundation.GetLastError())});
+    }
+
+    // if (isInvaliedOrNull(stdin_read) or isInvaliedOrNull(stdin_write)) {
     //     return error.PipeCreationFailed;
     // }
-    // if (win32pipe.CreatePipe(&stdout_read, &stdout_write, null, 0) == 0 or isInvaliedOrNull(stdout_read) or isInvaliedOrNull(stdout_write)) {
+    // if (isInvaliedOrNull(stdout_read) or isInvaliedOrNull(stdout_write)) {
     //     return error.PipeCreationFailed;
     // }
 
@@ -113,6 +132,8 @@ pub fn close(self: *Pty) void {
         _ = win32fs.ReadFile(self.master_read, &buffer, to_read, &bytes_read, null);
     }
 
+    _ = win32fnd.CloseHandle(self.master_read);
+    _ = win32fnd.CloseHandle(self.master_write);
     win32con.ClosePseudoConsole(self.h_pesudo_console);
 }
 
