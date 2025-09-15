@@ -34,8 +34,8 @@ pub fn start(self: *App) !void {
     try self.buffer.init(1024 * 64);
     try self.pty.open(.{
         .size = .{
-            .height = 10, // @intCast(self.window.renderer.backend.grid.rows),
-            .width = 10, // @intCast(self.window.renderer.backend.grid.cols),
+            .height = @intCast(self.window.renderer.backend.grid.rows),
+            .width = @intCast(self.window.renderer.backend.grid.cols),
         },
     });
 
@@ -52,24 +52,18 @@ pub fn start(self: *App) !void {
     try self.io_event_loop.read(self.child.stdout.?, self.buffer.buffer, &pty_read_callback, self);
 
     child_stdin = self.child.stdin.?;
-
-    try evloop.run();
 }
 
 pub fn pty_read_callback(ev: *const zerio.EventLoop.Event, n: usize, data: ?*anyopaque) zerio.EventLoop.CallbackAction {
     const buf = ev.request.op_data.read[0..n];
-
-    std.log.info("pty_read_callback {}", .{buf.len});
-    std.log.info("{x}", .{buf});
     const app: *App = @ptrCast(@alignCast(data));
     app.vt_parser.parse(buf);
-
-    return .destroy;
+    return .retry;
 }
 
 fn keyboard_cb(code: u8, press: bool) void {
-    std.log.debug("code = {}, press = {}", .{ code, press });
-    child_stdin.writeAll(&.{code}) catch unreachable;
+    if (press)
+        child_stdin.writeAll(&.{code}) catch unreachable;
 }
 
 pub fn loop(self: *App) void {
@@ -78,11 +72,11 @@ pub fn loop(self: *App) void {
     self.window.keyboard_cb = &keyboard_cb;
     while (!self.window.exit) {
         self.window.pumpMessages();
+        evloop.poll() catch unreachable;
     }
 }
 
 pub fn drawCallBack(renderer: *Renderer) void {
-    evloop.run() catch unreachable;
     renderer.clearBuffer(.Gray);
     renderer.renaderGrid();
     renderer.presentBuffer();

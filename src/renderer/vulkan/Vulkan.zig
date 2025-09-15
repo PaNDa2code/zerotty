@@ -11,6 +11,11 @@ device: vk.Device, // GPU drivers
 graphics_queue: vk.Queue,
 present_queue: vk.Queue,
 swap_chain: vk.SwapchainKHR,
+swap_chain_images: []vk.Image,
+swap_chain_format: vk.Format,
+swap_chain_extent: vk.Extent2D,
+swap_chain_image_views: []vk.ImageView,
+
 surface: vk.SurfaceKHR, // Window surface
 vk_mem: *VkAllocatorAdapter,
 window_height: u32,
@@ -191,6 +196,10 @@ pub fn deinit(self: *VulkanRenderer) void {
 
     freeCmdBuffers(self.vk_mem.allocator, vkd, self.device, self.cmd_pool, self.cmd_buffers, &cb);
 
+    for (self.swap_chain_image_views) |view| {
+        vkd.destroyImageView(self.device, view, &cb);
+    }
+
     vkd.destroySwapchainKHR(self.device, self.swap_chain, &cb);
     vkd.destroyDevice(self.device, &cb);
 
@@ -199,6 +208,9 @@ pub fn deinit(self: *VulkanRenderer) void {
 
     vki.destroySurfaceKHR(self.instance, self.surface, &cb);
     vki.destroyInstance(self.instance, &cb);
+
+    allocator.free(self.swap_chain_images);
+    allocator.free(self.swap_chain_image_views);
 
     allocator.destroy(self.base_wrapper);
     allocator.destroy(self.instance_wrapper);
