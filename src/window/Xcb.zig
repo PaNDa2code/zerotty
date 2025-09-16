@@ -36,17 +36,38 @@ pub fn open(self: *Window, allocator: Allocator) !void {
     const window_id = c.xcb_generate_id(self.connection);
     self.window = window_id;
 
-    const value_mask: u32 = c.XCB_CW_BACK_PIXEL | c.XCB_CW_EVENT_MASK;
+    // https://stackoverflow.com/questions/43218127/x11-xlib-xcb-creating-a-window-requires-border-pixel-if-specifying-colormap-wh
+    const value_mask: u32 = c.XCB_CW_BACK_PIXEL | c.XCB_CW_EVENT_MASK | c.XCB_CW_COLORMAP | c.XCB_CW_BORDER_PIXEL;
+
+    const visual = get_argb_visual(self.screen) orelse return error.NoVisual;
+
+    const colormap_id = c.xcb_generate_id(self.connection);
+
+    const colormap_cookie = c.xcb_create_colormap_checked(
+        self.connection,
+        c.XCB_COLORMAP_ALLOC_NONE,
+        colormap_id,
+        self.screen.*.root,
+        visual,
+    );
+
+    if (c.xcb_request_check(self.connection, colormap_cookie)) |err| {
+        defer c.free(err);
+        return error.ColorMapCreationFailed;
+    }
+
     const value_list = [_]u32{
-        self.screen.*.black_pixel,
+        0,
+        0,
         c.XCB_EVENT_MASK_EXPOSURE |
             c.XCB_EVENT_MASK_KEY_PRESS |
             c.XCB_EVENT_MASK_STRUCTURE_NOTIFY,
+        colormap_id,
     };
 
     const create_cookie = c.xcb_create_window_checked(
         self.connection,
-        self.screen.*.root_depth, // depth
+        32, // depth
         window_id, // window id
         self.screen.*.root, // parent window
         0,
@@ -55,12 +76,13 @@ pub fn open(self: *Window, allocator: Allocator) !void {
         @intCast(self.height), // width, height
         0, // border width
         c.XCB_WINDOW_CLASS_INPUT_OUTPUT,
-        self.screen.*.root_visual,
+        visual,
         value_mask,
         &value_list,
     );
 
     if (c.xcb_request_check(self.connection, create_cookie)) |err| {
+        std.debug.print("err: {}\n", .{err.*.error_code});
         defer c.free(err);
         return error.CreateWindowFailed;
     }
@@ -145,6 +167,25 @@ pub fn open(self: *Window, allocator: Allocator) !void {
         return error.SetProtocolsFailed;
     }
 
+    const opacity: u32 = 0;
+    const opacity_atom = get_atom(self.connection, "_NET_WM_WINDOW_OPACITY") orelse return;
+
+    const opacity_cookie = c.xcb_change_property_checked(
+        self.connection,
+        c.XCB_PROP_MODE_REPLACE,
+        self.window,
+        opacity_atom,
+        c.XCB_ATOM_CARDINAL,
+        32,
+        1,
+        &opacity,
+    );
+
+    if (c.xcb_request_check(self.connection, opacity_cookie)) |err| {
+        defer c.free(err);
+        return error.SetOpacityFailed;
+    }
+
     self.renderer = try Renderer.init(self, allocator);
 }
 
@@ -183,6 +224,23 @@ pub fn close(self: *Window) void {
     _ = c.xcb_destroy_window(self.connection, self.window);
     c.xcb_disconnect(self.connection);
     self.renderer.deinit();
+}
+
+fn get_argb_visual(screen: *c.xcb_screen_t) ?u32 {
+    var visual_iter = c.xcb_screen_allowed_depths_iterator(screen);
+    while (visual_iter.rem != 0) : (c.xcb_depth_next(&visual_iter)) {
+        const depth = visual_iter.data;
+
+        if (depth.*.depth != 32) continue;
+
+        var visual_list = c.xcb_depth_visuals_iterator(depth);
+
+        while (visual_list.rem != 0) : (c.xcb_visualtype_next(&visual_list)) {
+            if (visual_list.data.*._class == c.XCB_VISUAL_CLASS_TRUE_COLOR)
+                return visual_list.data.*.visual_id;
+        }
+    }
+    return null;
 }
 
 fn get_atom(conn: *c.xcb_connection_t, atom_name: []const u8) ?c.xcb_atom_t {
