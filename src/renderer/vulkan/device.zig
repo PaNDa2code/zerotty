@@ -36,13 +36,16 @@ fn _createDevice(
         .p_queue_priorities = &.{1},
     };
 
-    const ext = [_][*:0]const u8{
+    const extensions = [_][*:0]const u8{
         "VK_KHR_swapchain",
     };
 
-    const vald = [_][*:0]const u8{
+    const validation_layer_extensions = [_][*:0]const u8{
         "VK_LAYER_KHRONOS_validation",
     };
+
+    const layer_extensions = [_][*:0]const u8{} ++
+        if (build_options.@"renderer-debug") validation_layer_extensions else [_][*:0]const u8{};
 
     const device_features: vk.PhysicalDeviceFeatures = .{};
 
@@ -50,11 +53,11 @@ fn _createDevice(
         .queue_create_info_count = 1,
         .p_queue_create_infos = @ptrCast(&queue_create_info),
 
-        .enabled_extension_count = ext.len,
-        .pp_enabled_extension_names = &ext,
+        .enabled_extension_count = extensions.len,
+        .pp_enabled_extension_names = &extensions,
 
-        .enabled_layer_count = vald.len,
-        .pp_enabled_layer_names = &vald,
+        .enabled_layer_count = layer_extensions.len,
+        .pp_enabled_layer_names = &layer_extensions,
 
         .p_enabled_features = &device_features,
     };

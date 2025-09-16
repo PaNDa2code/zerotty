@@ -6,8 +6,6 @@ const Builder = @import("build/Builder.zig");
 pub fn build(b: *Build) !void {
     var builder = Builder.init(b, b.standardTargetOptions(.{}), b.standardOptimizeOption(.{}));
 
-    const no_lsp_check = b.option(bool, "no-lsp-check", "") orelse false;
-
     const render_backend: Builder.RenderBackend =
         b.option(Builder.RenderBackend, "render-backend", "") orelse DEFULAT_RENDER_BACKEND;
 
@@ -22,9 +20,18 @@ pub fn build(b: *Build) !void {
             else => .Xlib,
         };
 
+    const no_lsp_check = b.option(bool, "no-lsp-check", "Disables step \"check\" used by zls") orelse false;
+
+    const disable_renderer_debug = b.option(
+        bool,
+        "disable-renderer-debug",
+        "Disable debugging for renderer backends (Vulkan validation layers, OpenGL debug callbacks)",
+    ) orelse if (builder.optimize == .Debug) false else true;
+
     const options = b.addOptions();
     options.addOption(Builder.RenderBackend, "render-backend", render_backend);
     options.addOption(Builder.WindowSystem, "window-system", window_system);
+    options.addOption(bool, "renderer-debug", !disable_renderer_debug);
 
     builder.setRootFile(b.path("src/main.zig"))
         .setRenderBackend(render_backend)

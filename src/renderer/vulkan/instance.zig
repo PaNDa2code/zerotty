@@ -33,6 +33,9 @@ fn _createInstance(
         "VK_LAYER_KHRONOS_validation",
     };
 
+    const layers = [_][*:0]const u8{} ++
+        if (build_options.@"renderer-debug") validation_layers else [_][*:0]const u8{};
+
     const win32_exts = [_][*:0]const u8{
         "VK_KHR_win32_surface",
     };
@@ -61,8 +64,8 @@ fn _createInstance(
         .p_application_info = &app_info,
         .enabled_extension_count = extensions.len,
         .pp_enabled_extension_names = &extensions,
-        .enabled_layer_count = if (builtin.mode == .Debug) validation_layers.len else 0,
-        .pp_enabled_layer_names = if (builtin.mode == .Debug) &validation_layers else null,
+        .enabled_layer_count = layers.len,
+        .pp_enabled_layer_names = &layers,
     };
 
     return vkb.createInstance(&inst_info, vk_mem_cb);

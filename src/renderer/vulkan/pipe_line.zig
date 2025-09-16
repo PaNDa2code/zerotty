@@ -1,36 +1,47 @@
-const PipeLine = @This();
+const std = @import("std");
+const builtin = @import("builtin");
+const Allocator = std.mem.Allocator;
 
-graphics_pipeline: vk.Pipeline = .null_handle,
-pipeline_layout: vk.PipelineLayout = .null_handle,
-vertex_shader_module: vk.ShaderModule = .null_handle,
-fragment_shader_module: vk.ShaderModule = .null_handle,
+const vk = @import("vulkan");
 
-layout: vk.PipelineLayout = .null_handle,
-handle: vk.Pipeline = .null_handle,
+const assets = @import("assets");
+const shader_utils = @import("shader_utils.zig");
 
-renderer_pass: vk.RenderPass = .null_handle,
-subpass_index: u32 = 0,
+const VulkanRenderer = @import("Vulkan.zig");
 
 const vert_shader_spv = &assets.shaders.cell_vert;
 const frag_shader_spv = &assets.shaders.cell_frag;
 
-pub fn init(
+pub fn createPipeLine(self: *VulkanRenderer) !void {
+    self.pipe_line = try _createPipeLine(
+        self.device_wrapper,
+        self.device,
+            &self.pipe_line_layout,
+        self.render_pass,
+        self.swap_chain_extent,
+        &self.vk_mem.vkAllocatorCallbacks(),
+    );
+}
+
+fn _createPipeLine(
     vkd: *const vk.DeviceWrapper,
     dev: vk.Device,
-    vkmemcb: *const vk.AllocationCallbacks,
+    p_pipe_line_layout: *vk.PipelineLayout,
+    render_pass: vk.RenderPass,
     swap_chain_extent: vk.Extent2D,
-) !PipeLine {
-    if (dev == .null_handle)
-        return error.InvalidArgument;
-
+    vkmemcb: *const vk.AllocationCallbacks,
+) !vk.Pipeline {
     const vertex_shader_module = try shader_utils.compileSpirv(vert_shader_spv, dev, vkd, vkmemcb);
-    const fragment_shader_module = try shader_utils.compileSpirv(frag_shader_spv, dev, vkd, vkmemcb);
+    defer vkd.destroyShaderModule(dev, vertex_shader_module, vkmemcb);
 
     const vert_shader_creation_info: vk.PipelineShaderStageCreateInfo = .{
         .stage = .{ .vertex_bit = true },
         .module = vertex_shader_module,
         .p_name = "main",
     };
+
+    const fragment_shader_module = try shader_utils.compileSpirv(frag_shader_spv, dev, vkd, vkmemcb);
+    defer vkd.destroyShaderModule(dev, fragment_shader_module, vkmemcb);
 
     const frag_shader_creation_info: vk.PipelineShaderStageCreateInfo = .{
         .stage = .{ .fragment_bit = true },
@@ -51,7 +62,7 @@ pub fn init(
 
     const input_assembly_info: vk.PipelineInputAssemblyStateCreateInfo = .{
         .topology = .triangle_list,
-        .primitive_restart_enable = vk.FALSE,
+        .primitive_restart_enable = .false,
     };
 
     const viewport: vk.Viewport = .{
@@ -76,29 +87,29 @@ pub fn init(
     };
 
     const rasterizer_state_create_info: vk.PipelineRasterizationStateCreateInfo = .{
-        .depth_clamp_enable = vk.FALSE,
-        .rasterizer_discard_enable = vk.FALSE,
+        .depth_clamp_enable = .false,
+        .rasterizer_discard_enable = .false,
         .polygon_mode = .fill,
         .line_width = 1,
         .cull_mode = .{ .back_bit = true },
         .front_face = .clockwise,
-        .depth_bias_enable = vk.FALSE,
+        .depth_bias_enable = .false,
         .depth_bias_constant_factor = 0,
         .depth_bias_clamp = 0,
         .depth_bias_slope_factor = 0,
     };
 
     const multisampling: vk.PipelineMultisampleStateCreateInfo = .{
-        .sample_shading_enable = 0,
+        .sample_shading_enable = .false,
         .rasterization_samples = .{ .@"1_bit" = true },
         .flags = .{},
         .min_sample_shading = 0,
-        .alpha_to_coverage_enable = vk.FALSE,
-        .alpha_to_one_enable = vk.FALSE,
+        .alpha_to_coverage_enable = .false,
+        .alpha_to_one_enable = .false,
     };
 
     const color_blend_attachment: vk.PipelineColorBlendAttachmentState = .{
-        .blend_enable = vk.FALSE,
+        .blend_enable = .false,
         .src_color_blend_factor = .one,
         .dst_color_blend_factor = .zero,
         .color_blend_op = .add,
@@ -114,14 +125,13 @@ pub fn init(
     };
 
     const color_blend_state: vk.PipelineColorBlendStateCreateInfo = .{
-        .logic_op_enable = vk.FALSE,
+        .logic_op_enable = .false,
         .logic_op = .copy,
         .attachment_count = 1,
         .p_attachments = &.{color_blend_attachment},
         .blend_constants = .{ 0, 0, 0, 0 },
     };
 
-    // Create an empty pipeline layout
     var pipeline_layout_info: vk.PipelineLayoutCreateInfo = .{
         .set_layout_count = 0,
         .p_set_layouts = null,
@@ -131,7 +141,6 @@ pub fn init(
 
     const pipeline_layout = try vkd.createPipelineLayout(dev, &pipeline_layout_info, vkmemcb);
 
-    // Fill graphics pipeline create info
     const pipeline_info: vk.GraphicsPipelineCreateInfo = .{
         .stage_count = shader_stages.len,
         .p_stages = &shader_stages,
@@ -144,50 +153,28 @@ pub fn init(
         .p_color_blend_state = &color_blend_state,
         .p_dynamic_state = &dynamic_stats_create_info,
         .layout = pipeline_layout,
-        // .render_pass = self.renderer_pass, // Make sure you set this before calling init
-        .subpass = 0, //self.subpass_index,
+        .render_pass = render_pass,
+        .subpass = 0,
         .base_pipeline_handle = .null_handle,
         .base_pipeline_index = -1,
     };
 
     var graphics_pipeline: vk.Pipeline = undefined;
 
-    const res = try vkd.createGraphicsPipelines(dev, .null_handle, 1, &.{pipeline_info}, vkmemcb, @ptrCast(&graphics_pipeline));
-
+    const res = try vkd.createGraphicsPipelines(
+        dev,
+        .null_handle,
+        1,
+        &.{pipeline_info},
+        vkmemcb,
+        @ptrCast(&graphics_pipeline),
+    );
     switch (res) {
         .success => {},
         else => @panic("creating vulkan pipeline didn't succeed"),
     }
 
-    // return .{
-    //     .vertex_shader_module = vertex_shader_module,
-    //     .fragment_shader_module = fragment_shader_module,
-    //     .layout = pipeline_layout,
-    //     .handle = graphics_pipeline,
-    //     // .renderer_pass = self.renderer_pass,
-    //     // .subpass_index = self.subpass_index,
-    // };
+    p_pipe_line_layout.* = pipeline_layout;
 
-    return .{
-        .graphics_pipeline = graphics_pipeline,
-        .pipeline_layout = pipeline_layout,
-        .vertex_shader_module = vertex_shader_module,
-        .fragment_shader_module = fragment_shader_module,
-    };
+    return graphics_pipeline;
 }
-
-pub fn deinit(
-    self: *PipeLine,
-    vkd: *const vk.DeviceWrapper,
-    dev: vk.Device,
-    vkmemcb: *const vk.AllocationCallbacks,
-) void {
-    vkd.destroyPipelineLayout(dev, self.pipeline_layout, vkmemcb);
-    vkd.destroyShaderModule(dev, self.vertex_shader_module, vkmemcb);
-    vkd.destroyShaderModule(dev, self.fragment_shader_module, vkmemcb);
-}
-
-const std = @import("std");
-const vk = @import("vulkan");
-const assets = @import("assets");
-const shader_utils = @import("shader_utils.zig");

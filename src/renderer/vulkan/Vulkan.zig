@@ -22,10 +22,12 @@ window_height: u32,
 window_width: u32,
 cmd_pool: vk.CommandPool,
 cmd_buffers: []const vk.CommandBuffer,
+render_pass: vk.RenderPass,
+pipe_line: vk.Pipeline,
+pipe_line_layout: vk.PipelineLayout,
 
 queue_family_indcies: QueueFamilyIndices,
 
-pipe_line: PipeLine,
 grid: Grid,
 
 pub const log = std.log.scoped(.Renderer);
@@ -55,7 +57,7 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     errdefer allocator.destroy(vki);
 
     self.instance_wrapper = vki;
-    if (builtin.mode == .Debug) {
+    if (build_options.@"renderer-debug") {
         try setupDebugMessenger(self);
         errdefer vki.destroyDebugUtilsMessengerEXT(self.instance, self.debug_messenger, &vk_mem_cb);
     }
@@ -93,6 +95,12 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
 
     try createSwapChain(self, allocator);
     errdefer vkd.destroySwapchainKHR(self.device, self.swap_chain, &vk_mem_cb);
+
+    try createRenderPass(self);
+    errdefer vkd.destroyRenderPass(self.device, self.render_pass, &vk_mem_cb);
+
+    try createPipeLine(self);
+    errdefer vkd.destroyPipeline(self.device, self.pipe_line, &vk_mem_cb);
 
     try allocCmdBuffers(self, allocator);
     errdefer freeCmdBuffers(allocator, vkd, self.device, self.cmd_pool, self.cmd_buffers);
@@ -200,10 +208,14 @@ pub fn deinit(self: *VulkanRenderer) void {
         vkd.destroyImageView(self.device, view, &cb);
     }
 
+    vkd.destroyPipeline(self.device, self.pipe_line, &cb);
+    vkd.destroyRenderPass(self.device, self.render_pass, &cb);
+    vkd.destroyPipelineLayout(self.device, self.pipe_line_layout, &cb);
+
     vkd.destroySwapchainKHR(self.device, self.swap_chain, &cb);
     vkd.destroyDevice(self.device, &cb);
 
-    if (builtin.mode == .Debug)
+    if (build_options.@"renderer-debug")
         vki.destroyDebugUtilsMessengerEXT(self.instance, self.debug_messenger, &cb);
 
     vki.destroySurfaceKHR(self.instance, self.surface, &cb);
@@ -263,7 +275,6 @@ const os_tag = builtin.os.tag;
 const vk = @import("vulkan");
 const common = @import("../common.zig");
 
-const PipeLine = @import("PipeLine.zig");
 const Window = @import("../../window/root.zig").Window;
 const Allocator = std.mem.Allocator;
 const ColorRGBAu8 = common.ColorRGBAu8;
@@ -281,5 +292,7 @@ const pickPhysicalDevicesAlloc = @import("physical_device.zig").pickPhysicalDevi
 const createLogicalDevice = @import("device.zig").createDevice;
 const getQueues = @import("queues.zig").getQueues;
 const createSwapChain = @import("swap_chain.zig").createSwapChain;
+const createRenderPass = @import("render_pass.zig").createRenderPass;
+const createPipeLine = @import("pipe_line.zig").createPipeLine;
 const allocCmdBuffers = @import("cmd_buffers.zig").allocCmdBuffers;
 const freeCmdBuffers = @import("cmd_buffers.zig").freeCmdBuffers;
