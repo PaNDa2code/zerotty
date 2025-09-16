@@ -72,12 +72,12 @@ pub fn loop(self: *App) void {
     self.window.keyboard_cb = &keyboard_cb;
     while (!self.window.exit) {
         self.window.pumpMessages();
-        evloop.poll() catch unreachable;
     }
 }
 
 pub fn drawCallBack(renderer: *Renderer) void {
-    renderer.clearBuffer(.Gray);
+    evloop.poll() catch unreachable;
+    renderer.clearBuffer(.Black);
     renderer.renaderGrid();
     renderer.presentBuffer();
     // std.io.getStdOut().writer().print("\rFPS = {d:.2}", .{renderer.getFps()}) catch unreachable;

@@ -114,7 +114,8 @@ fn WindowProc(self: *Window, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARA
             win32wm.PostQuitMessage(0);
             return 0;
         },
-        win32wm.WM_KEYDOWN, win32wm.WM_SYSKEYDOWN => {
+        // win32wm.WM_KEYDOWN, win32wm.WM_SYSKEYDOWN => {
+        win32wm.WM_CHAR => {
             if (wparam == @intFromEnum(win32.ui.input.keyboard_and_mouse.VK_ESCAPE)) {
                 win32wm.PostQuitMessage(0);
             }

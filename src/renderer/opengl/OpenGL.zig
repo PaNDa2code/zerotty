@@ -188,7 +188,7 @@ pub fn setCell(
         .col = col,
         .char = char_code,
         .fg_color = fg_color orelse .White,
-        .bg_color = bg_color orelse .Gray,
+        .bg_color = bg_color orelse .Black,
         .glyph_info = self.atlas.glyph_lookup_map.get(char_code) orelse self.atlas.glyph_lookup_map.get(' ').?,
     });
 }
