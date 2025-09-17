@@ -10,7 +10,7 @@ width: u32,
 renderer: Renderer = undefined,
 render_cb: ?*const fn (*Renderer) void = null,
 resize_cb: ?*const fn (width: u32, height: u32) void = null,
-keyboard_cb: ?*const fn (key: u8, press: bool) void = null,
+keyboard_cb: ?*const fn (utf32: u32, press: bool) void = null,
 
 pub fn new(title: []const u8, height: u32, width: u32) Window {
     return .{

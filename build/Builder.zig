@@ -274,6 +274,8 @@ fn linkLibrarys(self: *Builder, module: *Build.Module) void {
             if (self.render_backend == .OpenGL) module.linkSystemLibrary("GL", .{});
         },
         .Xcb => {
+            module.linkSystemLibrary("xkbcommon", .{});
+            module.linkSystemLibrary("xkbcommon-x11", .{});
             if (self.target.query.isNativeOs())
                 module.linkSystemLibrary("xcb", .{})
             else if (self.b.lazyDependency("xcb", .{
