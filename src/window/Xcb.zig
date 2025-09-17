@@ -188,7 +188,7 @@ pub fn open(self: *Window, allocator: Allocator) !void {
         return error.SetOpacityFailed;
     }
 
-    self.xkb = try Xkb.init(self.connection);
+    self.xkb = try Xkb.initX11(self.connection);
     self.renderer = try Renderer.init(self, allocator);
 }
 
@@ -266,7 +266,7 @@ const Xkb = struct {
     keymap: *c.xkb_keymap,
     state: *c.xkb_state,
 
-    pub fn init(conn: *c.xcb_connection_t) !Xkb {
+    pub fn initX11(conn: *c.xcb_connection_t) !Xkb {
         var first_xkb_event: c.uint = 0;
 
         // const reply = c.xcb_get_extension_data(conn, &c.xcb_xkb_id);
@@ -284,23 +284,18 @@ const Xkb = struct {
         ) == 0) return error.XkbInitFailed;
 
         const ctx = c.xkb_context_new(c.XKB_CONTEXT_NO_FLAGS) orelse return error.NoMemory;
+        errdefer c.xkb_context_unref(ctx);
 
         const core_kbd_id = c.xkb_x11_get_core_keyboard_device_id(conn);
-        if (core_kbd_id == -1) {
-            c.xkb_context_unref(ctx);
+        if (core_kbd_id == -1)
             return error.NoKeyboard;
-        }
 
-        const keymap = c.xkb_x11_keymap_new_from_device(ctx, conn, core_kbd_id, c.XKB_KEYMAP_COMPILE_NO_FLAGS) orelse {
-            c.xkb_context_unref(ctx);
+        const keymap = c.xkb_x11_keymap_new_from_device(ctx, conn, core_kbd_id, c.XKB_KEYMAP_COMPILE_NO_FLAGS) orelse
             return error.KeymapInitFailed;
-        };
+        errdefer c.xkb_keymap_unref(keymap);
 
-        const state = c.xkb_x11_state_new_from_device(keymap, conn, core_kbd_id) orelse {
-            c.xkb_keymap_unref(keymap);
-            c.xkb_context_unref(ctx);
+        const state = c.xkb_x11_state_new_from_device(keymap, conn, core_kbd_id) orelse
             return error.StateInitFailed;
-        };
 
         return .{ .ctx = ctx, .keymap = keymap, .state = state };
     }
