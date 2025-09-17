@@ -169,7 +169,7 @@ pub fn swapBuffers(self: *OpenGLContext) void {
     _ = open_gl.SwapBuffers(self.device_context);
 }
 
-pub fn destory(self: *OpenGLContext) void {
+pub fn destroy(self: *OpenGLContext) void {
     _ = open_gl.wglMakeCurrent(null, null);
     _ = gdi.ReleaseDC(self.window_handle, self.device_context);
 }

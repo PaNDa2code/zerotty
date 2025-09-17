@@ -57,7 +57,7 @@ fn startWindows(self: *ChildProcess, arina: Allocator, pty: ?*Pty) !void {
 
     if (pty) |_pty| {
         var bytes_required: usize = 0;
-        // ignored becuse it always fails
+        // ignored because it always fails
         _ = win32thread.InitializeProcThreadAttributeList(null, 1, 0, &bytes_required);
 
         const buffer = try arina.alloc(u8, bytes_required);

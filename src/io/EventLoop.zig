@@ -106,8 +106,8 @@ fn runLinux(self: *const EventLoop) !void {
         for (0..count) |i| {
             const event_index = events[i].data.ptr;
             const event_ptr = &self.events.items[event_index];
-            const avilable: i32 = 0;
-            _ = linux.ioctl(event_ptr.handle, 0x541B, @intFromPtr(&avilable));
+            const available: i32 = 0;
+            _ = linux.ioctl(event_ptr.handle, 0x541B, @intFromPtr(&available));
             const len = event_ptr.dispatch_fn(event_ptr.handle, event_ptr.dispatch_buf);
             event_ptr.callback_fn(event_ptr, event_ptr.dispatch_buf[0..len], event_ptr.data);
             return;

@@ -116,7 +116,7 @@ fn createAtlasTexture(self: *OpenGLRenderer, allocator: Allocator) Atlas.CreateE
 pub fn deinit(self: *OpenGLRenderer) void {
     gl.makeProcTableCurrent(null);
     self.allocator.destroy(gl_proc);
-    self.context.destory();
+    self.context.destroy();
     self.atlas.deinit(self.allocator);
     self.grid.free();
 }

@@ -3,7 +3,7 @@ pub const ShellEnum = enum {
     pws,
     bash,
     zsh,
-    defualt,
+    default,
 
     fn toString(self: ShellEnum) []const u8 {
         return switch (self) {

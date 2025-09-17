@@ -117,8 +117,8 @@ pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLConte
 // https://www.opengl.org/archives/resources/features/OGLextensions
 fn extentionSupported(glx_exts: []const u8, ext: []const u8) bool {
     var iter = std.mem.tokenizeScalar(u8, glx_exts, ' ');
-    while (iter.next()) |extention| {
-        if (std.mem.eql(u8, extention, ext))
+    while (iter.next()) |extension| {
+        if (std.mem.eql(u8, extension, ext))
             return true;
     }
     return false;
@@ -190,7 +190,7 @@ pub fn swapBuffers(self: *OpenGLContext) void {
     self.glXSwapBuffers(@ptrCast(self.display), self.drawable);
 }
 
-pub fn destory(self: *OpenGLContext) void {
+pub fn destroy(self: *OpenGLContext) void {
     _ = c.glx.glXMakeCurrent(@ptrCast(self.display), c.glx.None, null);
     _ = c.glx.glXDestroyContext(@ptrCast(self.display), self.context);
 }

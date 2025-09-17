@@ -8,7 +8,7 @@ pub fn findESCs(allocator: std.mem.Allocator, buffer: []const u8) !std.SinglyLin
 
     const esc_vec: ByteVec = comptime @splat(0x1b);
     const null_vec: ByteVec = comptime @splat(0xff);
-    const indexs = comptime std.simd.iota(u8, v_len);
+    const indcies = comptime std.simd.iota(u8, v_len);
 
     var chunk: ByteVec = undefined;
 
@@ -23,7 +23,7 @@ pub fn findESCs(allocator: std.mem.Allocator, buffer: []const u8) !std.SinglyLin
         if (!@reduce(.Or, matches)) {
             continue;
         }
-        const index_vec: ByteVec = @select(u8, matches, indexs, null_vec);
+        const index_vec: ByteVec = @select(u8, matches, indcies, null_vec);
         for (0..v_len) |idx| {
             if (index_vec[idx] != 0xff) {
                 var new = try allocator.create(Node);
@@ -43,7 +43,7 @@ pub fn findESCs(allocator: std.mem.Allocator, buffer: []const u8) !std.SinglyLin
 
         const matches = chunk == esc_vec;
         if (@reduce(.Or, matches)) {
-            const index_vec = @select(u8, matches, indexs, null_vec);
+            const index_vec = @select(u8, matches, indcies, null_vec);
             for (0..v_len) |idx| {
                 if (index_vec[idx] != 0xff and idx < buffer.len - i) {
                     var new = try allocator.create(Node);
@@ -75,10 +75,10 @@ test {
     buffer[127] = 0x1b;
     buffer[146] = 0x1b;
 
-    var indexs = try findESCs(allocator, &buffer);
+    var indcies = try findESCs(allocator, &buffer);
 
-    try std.testing.expect(indexs.len() == 3);
-    while (indexs.popFirst()) |node| : (allocator.destroy(node)) {
+    try std.testing.expect(indcies.len() == 3);
+    while (indcies.popFirst()) |node| : (allocator.destroy(node)) {
         try std.testing.expectEqual(buffer[node.data], 0x1b);
     }
 }

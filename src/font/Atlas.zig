@@ -25,7 +25,7 @@ to: u32,
 
 pub const CreateError = freetype.Error || Allocator.Error || SaveAtlasError;
 
-// TODO: glyphs are not placed corrctly on the baseline
+// TODO: glyphs are not placed correctly on the baseline
 pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32, to: u32) !Atlas {
     const glyphs_count = to - from;
     const ft_library = try freetype.Library.init(allocator);
