@@ -277,7 +277,6 @@ fn linkLibrarys(self: *Builder, module: *Build.Module) void {
             if (self.target.query.isNativeOs()) {
                 module.linkSystemLibrary("xcb", .{});
                 module.linkSystemLibrary("xkbcommon", .{});
-                module.linkSystemLibrary("xkbcommon-x11", .{});
             } else {
                 if (self.b.lazyDependency("xcb", .{
                     .target = self.target,
