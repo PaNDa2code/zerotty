@@ -274,17 +274,27 @@ fn linkLibrarys(self: *Builder, module: *Build.Module) void {
             if (self.render_backend == .OpenGL) module.linkSystemLibrary("GL", .{});
         },
         .Xcb => {
-            module.linkSystemLibrary("xkbcommon", .{});
-            module.linkSystemLibrary("xkbcommon-x11", .{});
-            if (self.target.query.isNativeOs())
-                module.linkSystemLibrary("xcb", .{})
-            else if (self.b.lazyDependency("xcb", .{
-                .target = self.target,
-                .optimize = self.optimize,
-                .linkage = self.linkage,
-            })) |dep| {
-                const libxcb = dep.artifact("xcb");
-                module.linkLibrary(libxcb);
+            if (self.target.query.isNativeOs()) {
+                module.linkSystemLibrary("xcb", .{});
+                module.linkSystemLibrary("xkbcommon", .{});
+                module.linkSystemLibrary("xkbcommon-x11", .{});
+            } else {
+                if (self.b.lazyDependency("xcb", .{
+                    .target = self.target,
+                    .optimize = self.optimize,
+                    .linkage = self.linkage,
+                })) |dep| {
+                    const libxcb = dep.artifact("xcb");
+                    module.linkLibrary(libxcb);
+                }
+                if (self.b.lazyDependency("xkbcommon", .{
+                    .target = self.target,
+                    .optimize = self.optimize,
+                    .@"xkb-config-root" = "/usr/share/X11/xkb",
+                })) |dep| {
+                    const libxkbcommon = dep.artifact("xkbcommon");
+                    module.linkLibrary(libxkbcommon);
+                }
             }
         },
     }

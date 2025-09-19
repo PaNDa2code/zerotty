@@ -188,7 +188,7 @@ pub fn open(self: *Window, allocator: Allocator) !void {
         return error.SetOpacityFailed;
     }
 
-    self.xkb = try Xkb.initX11(self.connection);
+    self.xkb = try Xkb.init();
     self.renderer = try Renderer.init(self, allocator);
 }
 
@@ -299,6 +299,28 @@ const Xkb = struct {
 
         return .{ .ctx = ctx, .keymap = keymap, .state = state };
     }
+
+    pub fn init() !Xkb {
+        const ctx = c.xkb_context_new(c.XKB_CONTEXT_NO_FLAGS) orelse return error.NoMemory;
+
+        var names: c.struct_xkb_rule_names = .{
+            .rules = "evdev",
+            .model = "pc105",
+            .layout = "us",
+            .variant = null,
+            .options = null,
+        };
+
+        const keymap = c.xkb_keymap_new_from_names(
+            ctx,
+            &names,
+            c.XKB_KEYMAP_COMPILE_NO_FLAGS,
+        ) orelse return error.KeymapInitFailed;
+
+        const state = c.xkb_state_new(keymap) orelse return error.StateInitFailed;
+
+        return .{ .ctx = ctx, .keymap = keymap, .state = state };
+    }
 };
 const std = @import("std");
 const Renderer = @import("../renderer/root.zig");
@@ -310,7 +332,7 @@ const assets = @import("assets");
 const c = @cImport({
     @cInclude("xcb/xcb.h");
     @cInclude("xkbcommon/xkbcommon.h");
-    @cInclude("xkbcommon/xkbcommon-x11.h");
+    // @cInclude("xkbcommon/xkbcommon-x11.h");
     @cInclude("X11/keysym.h");
     @cInclude("stdlib.h");
 });
