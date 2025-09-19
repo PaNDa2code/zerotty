@@ -39,6 +39,7 @@ pub fn init(allocator: Allocator) Keyboard {
         .allocator = allocator,
         .event_queue = .empty,
         .state = KeyboardState.initEmpty(),
+        .mods = KeyboardModState.initEmpty(),
         .auto_repeat_enabled = false,
     };
 }

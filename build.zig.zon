@@ -70,6 +70,11 @@
             .hash = "libxkbcommon-1.11.0-93LaF6pwAgCZ0MlbC6OUufCvH5X3AktLv6sIVRrG2nRj",
             .lazy = true,
         },
+        .zbench = .{
+            .url = "git+https://github.com/hendriknielaender/zBench#3268a23da82231f1bd2c064de7fdf6fb7056126f",
+            .hash = "zbench-0.11.2-YTdc7zolAQDlBF9i0ywXIvDjafL3Kg27S-aFUq6dU5zy",
+            .lazy = true,
+        },
     },
     .paths = .{
         "build.zig",

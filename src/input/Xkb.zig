@@ -8,7 +8,7 @@ pub const c = @cImport({
 ctx: *c.xkb_context,
 keymap: *c.xkb_keymap,
 state: *c.xkb_state,
-mods: ModIndcies,
+// mods: ModIndcies,
 
 const ModIndcies = struct {
     ctrl: u32,
@@ -36,5 +36,9 @@ pub fn init() !Xkb {
 
     const state = c.xkb_state_new(keymap) orelse return error.StateInitFailed;
 
-    return .{ .ctx = ctx, .keymap = keymap, .state = state };
+    return .{
+        .ctx = ctx,
+        .keymap = keymap,
+        .state = state,
+    };
 }
