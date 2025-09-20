@@ -61,16 +61,16 @@ pub fn pty_read_callback(ev: *const zerio.EventLoop.Event, n: usize, data: ?*any
     return .retry;
 }
 
-fn keyboard_cb(utf32: u32, _: bool) void {
+fn keyboard_cb(utf32: u32, press: bool) void {
     var utf8: [4]u8 = undefined;
     const n = std.unicode.utf8Encode(@intCast(utf32), utf8[0..]) catch unreachable;
     std.debug.print("key pressed = {s} - 0x{x:04}\n", .{ utf8[0..@intCast(n)], utf32 });
-    // if (press)
-    //     child_stdin.writeAll(&.{code}) catch unreachable;
+    if (press)
+        child_stdin.writeAll(utf8[0..n]) catch unreachable;
 }
 
 pub fn loop(self: *App) void {
-    // self.window.render_cb = &drawCallBack;
+    self.window.render_cb = &drawCallBack;
     self.window.resize_cb = &resizeCallBack;
     self.window.keyboard_cb = &keyboard_cb;
     while (!self.window.exit) {

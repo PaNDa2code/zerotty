@@ -103,7 +103,7 @@ fn _createSwapChain(
         .queue_family_index_count = if (same_queue) 0 else 2,
         .p_queue_family_indices = if (same_queue) null else p_queue_family_indices,
         .pre_transform = caps.current_transform,
-        .composite_alpha = .{ .opaque_bit_khr = true },
+        .composite_alpha = .{ .inherit_bit_khr = true },
         .present_mode = present_mode,
         .clipped = .true,
     };

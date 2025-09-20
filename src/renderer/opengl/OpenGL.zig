@@ -89,7 +89,7 @@ fn createAtlasTexture(self: *OpenGLRenderer, allocator: Allocator) Atlas.CreateE
 
     var atlas_texture: gl.uint = 0;
     gl.GenTextures(1, @ptrCast(&atlas_texture));
-    gl.ActiveTexture(gl.TEXTURE0);
+    gl.ActiveTexture(gl.TEXTURE1);
     gl.BindTexture(gl.TEXTURE_2D, atlas_texture);
     gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);

@@ -11,7 +11,7 @@ w: c_ulong = undefined,
 renderer: Renderer = undefined,
 render_cb: ?*const fn (*Renderer) void = null,
 resize_cb: ?*const fn (width: u32, height: u32) void = null,
-keyboard_cb: ?*const fn (key: u8, press: bool) void = null,
+keyboard_cb: ?*const fn (key: u32, press: bool) void = null,
 
 exit: bool = false,
 window_visable: bool = false,

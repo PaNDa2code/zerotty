@@ -12,11 +12,16 @@ const VulkanRenderer = @import("Vulkan.zig");
 const vert_shader_spv = &assets.shaders.cell_vert;
 const frag_shader_spv = &assets.shaders.cell_frag;
 
+const vertex_binding = getVertexBindingDescription();
+const vertex_attributes = getVertexAttributeDescriptions();
+
 pub fn createPipeLine(self: *VulkanRenderer) !void {
     self.pipe_line = try _createPipeLine(
+        self.instance_wrapper,
         self.device_wrapper,
         self.device,
-            &self.pipe_line_layout,
+        self.physical_device,
+        &self.pipe_line_layout,
         self.render_pass,
         self.swap_chain_extent,
         &self.vk_mem.vkAllocatorCallbacks(),
@@ -24,8 +29,10 @@ pub fn createPipeLine(self: *VulkanRenderer) !void {
 }
 
 fn _createPipeLine(
+    vki: *const vk.InstanceWrapper,
     vkd: *const vk.DeviceWrapper,
     dev: vk.Device,
+    physical_device: vk.PhysicalDevice,
     p_pipe_line_layout: *vk.PipelineLayout,
     render_pass: vk.RenderPass,
     swap_chain_extent: vk.Extent2D,
@@ -49,7 +56,10 @@ fn _createPipeLine(
         .p_name = "main",
     };
 
-    const shader_stages = [_]vk.PipelineShaderStageCreateInfo{ vert_shader_creation_info, frag_shader_creation_info };
+    const shader_stages = [_]vk.PipelineShaderStageCreateInfo{
+        vert_shader_creation_info,
+        frag_shader_creation_info,
+    };
 
     const dynamic_stats = [_]vk.DynamicState{ .viewport, .scissor };
 
@@ -58,7 +68,36 @@ fn _createPipeLine(
         .p_dynamic_states = &dynamic_stats,
     };
 
-    const vertex_input_info: vk.PipelineVertexInputStateCreateInfo = .{};
+    _ = try createUniformBuffer(vki, vkd, dev, physical_device, vkmemcb);
+
+    const bindings = [_]vk.DescriptorSetLayoutBinding{
+        .{
+            .binding = 0,
+            .descriptor_type = .uniform_buffer,
+            .descriptor_count = 1,
+            .stage_flags = .{ .vertex_bit = true },
+        },
+        .{
+            .binding = 1,
+            .descriptor_type = .combined_image_sampler,
+            .descriptor_count = 1,
+            .stage_flags = .{ .fragment_bit = true },
+        },
+    };
+
+    const descriptor_set_layout_info = vk.DescriptorSetLayoutCreateInfo{
+        .binding_count = bindings.len,
+        .p_bindings = &bindings,
+    };
+
+    const descriptor_set_layout = try vkd.createDescriptorSetLayout(dev, &descriptor_set_layout_info, vkmemcb);
+
+    const vertex_input_info = vk.PipelineVertexInputStateCreateInfo{
+        .vertex_binding_description_count = 1,
+        .p_vertex_binding_descriptions = &.{vertex_binding},
+        .vertex_attribute_description_count = vertex_attributes.len,
+        .p_vertex_attribute_descriptions = vertex_attributes.ptr,
+    };
 
     const input_assembly_info: vk.PipelineInputAssemblyStateCreateInfo = .{
         .topology = .triangle_list,
@@ -132,9 +171,9 @@ fn _createPipeLine(
         .blend_constants = .{ 0, 0, 0, 0 },
     };
 
-    var pipeline_layout_info: vk.PipelineLayoutCreateInfo = .{
-        .set_layout_count = 0,
-        .p_set_layouts = null,
+    const pipeline_layout_info: vk.PipelineLayoutCreateInfo = .{
+        .set_layout_count = 1,
+        .p_set_layouts = &.{descriptor_set_layout},
         .push_constant_range_count = 0,
         .p_push_constant_ranges = null,
     };
@@ -178,3 +217,95 @@ fn _createPipeLine(
 
     return graphics_pipeline;
 }
+
+fn createUniformBuffer(
+    vki: *const vk.InstanceWrapper,
+    vkd: *const vk.DeviceWrapper,
+    dev: vk.Device,
+    physical_device: vk.PhysicalDevice,
+    vkmemcb: *const vk.AllocationCallbacks,
+) !vk.Buffer {
+    const buffer_info = vk.BufferCreateInfo{
+        .size = @sizeOf(UniformsBlock),
+        .usage = .{ .uniform_buffer_bit = true },
+        .sharing_mode = .exclusive,
+    };
+
+    const buffer = try vkd.createBuffer(dev, &buffer_info, vkmemcb);
+
+    const mem_req = vkd.getBufferMemoryRequirements(dev, buffer);
+
+    const alloc_info = vk.MemoryAllocateInfo{
+        .allocation_size = mem_req.size,
+        .memory_type_index = findMemoryType(vki, physical_device, mem_req.memory_type_bits, .{}),
+    };
+
+    const buffer_memory = try vkd.allocateMemory(dev, &alloc_info, vkmemcb);
+
+    try vkd.bindBufferMemory(dev, buffer, buffer_memory, 0);
+
+    return buffer;
+}
+
+fn getVertexBindingDescription() vk.VertexInputBindingDescription {
+    return .{
+        .binding = 0,
+        .stride = @sizeOf(Cell),
+        .input_rate = .vertex,
+    };
+}
+
+fn getVertexAttributeDescriptions() []const vk.VertexInputAttributeDescription {
+    const descriptions = comptime [_]vk.VertexInputAttributeDescription{
+        .{ .location = 0, .binding = 0, .format = .r32g32b32a32_sfloat, .offset = @sizeOf(Vec4(f32)) },
+        .{ .location = 1, .binding = 0, .format = .r32_uint, .offset = @sizeOf(u32) },
+        .{ .location = 2, .binding = 0, .format = .r32_uint, .offset = @sizeOf(u32) },
+        .{ .location = 3, .binding = 0, .format = .r32_uint, .offset = @sizeOf(u32) },
+        .{ .location = 4, .binding = 0, .format = .r32g32b32a32_sfloat, .offset = @sizeOf(Vec4(f32)) },
+        .{ .location = 5, .binding = 0, .format = .r32g32b32a32_sfloat, .offset = @sizeOf(Vec4(f32)) },
+        .{ .location = 6, .binding = 0, .format = .r32g32_uint, .offset = @sizeOf(Vec4(u32)) },
+        .{ .location = 7, .binding = 0, .format = .r32g32_uint, .offset = @sizeOf(Vec4(u32)) },
+        .{ .location = 8, .binding = 0, .format = .r32g32_sint, .offset = @sizeOf(Vec4(i32)) },
+    };
+
+    return descriptions[0..];
+}
+
+fn findMemoryType(
+    vki: *const vk.InstanceWrapper,
+    physical_device: vk.PhysicalDevice,
+    typeFilter: u32,
+    properties: vk.MemoryPropertyFlags,
+) u32 {
+    const mem_properties =
+        vki.getPhysicalDeviceMemoryProperties(physical_device);
+
+    var i: u32 = 0;
+    while (i < mem_properties.memory_type_count) : (i += 1) {
+        if ((typeFilter & (std.math.shr(u32, 1, i))) != 0 and
+            mem_properties.memory_types[i].property_flags.contains(properties))
+        {
+            return i;
+        }
+    }
+    @panic("Failed to find suitable memory type!");
+}
+
+const Cell = @import("../Grid.zig").Cell;
+
+const math = @import("../math.zig");
+const Vec2 = math.Vec2;
+const Vec3 = math.Vec3;
+const Vec4 = math.Vec4;
+
+pub const UniformsBlock = packed struct {
+    cell_height: f32,
+    cell_width: f32,
+    screen_height: f32,
+    screen_width: f32,
+    atlas_cols: f32,
+    atlas_rows: f32,
+    atlas_width: f32,
+    atlas_height: f32,
+    descender: f32,
+};
