@@ -63,6 +63,17 @@
         .xcb = .{
             .url = "git+https://github.com/PaNDa2code/xcb_zig#b38f8534ac3112961e57dba53c97781eddf42832",
             .hash = "xcb-0.1.17-6nhs4N6dAgAw9NlVIuY555PIZ9XrQfGIZYhzcfUlJm_P",
+            .lazy = true,
+        },
+        .xkbcommon = .{
+            .url = "git+https://github.com/allyourcodebase/libxkbcommon.git?ref=1.11.0#4b9cf4d6a1411aa471d25cd0498b288857e377fd",
+            .hash = "libxkbcommon-1.11.0-93LaF6pwAgCZ0MlbC6OUufCvH5X3AktLv6sIVRrG2nRj",
+            .lazy = true,
+        },
+        .zbench = .{
+            .url = "git+https://github.com/hendriknielaender/zBench#3268a23da82231f1bd2c064de7fdf6fb7056126f",
+            .hash = "zbench-0.11.2-YTdc7zolAQDlBF9i0ywXIvDjafL3Kg27S-aFUq6dU5zy",
+            .lazy = true,
         },
     },
     .paths = .{

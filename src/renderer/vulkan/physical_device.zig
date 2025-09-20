@@ -18,7 +18,7 @@ pub fn pickPhysicalDevicesAlloc(
     const _physical_devices = try self.instance_wrapper.enumeratePhysicalDevicesAlloc(self.instance, allocator);
     defer allocator.free(_physical_devices);
 
-    // sort physical devices pased on score
+    // sort physical devices passed on score
     std.sort.heap(vk.PhysicalDevice, _physical_devices, self.instance_wrapper, physicalDeviceGt);
 
     var comptable_physical_devices = try std.ArrayList(vk.PhysicalDevice).initCapacity(allocator, 1);

@@ -23,8 +23,8 @@ pub fn CircularArray(T: type) type {
             self.buffer.deinit();
         }
 
-        pub fn push(self: *Self, elemnt: T) !void {
-            const bytes = std.mem.asBytes(&elemnt);
+        pub fn push(self: *Self, element: T) !void {
+            const bytes = std.mem.asBytes(&element);
             const written_bytes = try self.buffer.write(bytes);
             std.debug.assert(written_bytes == @sizeOf(T));
         }

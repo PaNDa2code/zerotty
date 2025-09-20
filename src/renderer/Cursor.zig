@@ -15,7 +15,7 @@ col: u32,
 style: Style,
 blink: bool,
 
-visable: bool,
+visible: bool,
 
 blink_intervals: u64,
 blink_toggle: bool,
@@ -30,7 +30,7 @@ pub fn init() !Cursor {
         .col = 0,
         .style = .block,
         .blink = true,
-        .visable = true,
+        .visible = true,
         .blink_toggle = true,
         .blink_intervals = std.time.ns_per_s,
         .timer = try .start(),
@@ -77,7 +77,7 @@ pub fn nextCol(self: *Cursor) void {
 }
 
 pub fn showCursor(self: *Cursor) bool {
-    if (!self.visable)
+    if (!self.visible)
         return false;
 
     if (!self.blink)

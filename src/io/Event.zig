@@ -9,7 +9,7 @@ pub const CallBack = *const fn (event: *const Event, buf: []u8, data: ?*anyopaqu
 
 pub const ControlBlock = switch (builtin.os.tag) {
     .windows => OVERLAPPED,
-    // linux epoll doesn't requre to have epoll_event struct alive
+    // linux epoll doesn't require to have epoll_event struct alive
     .linux => void,
     else => c_aio.aiocb,
 };

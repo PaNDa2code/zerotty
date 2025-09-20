@@ -188,7 +188,7 @@ pub fn open(self: *Window, allocator: Allocator) !void {
         return error.SetOpacityFailed;
     }
 
-    self.xkb = try Xkb.init(self.connection);
+    self.xkb = try Xkb.init();
     self.renderer = try Renderer.init(self, allocator);
 }
 
@@ -208,14 +208,14 @@ pub fn pumpMessages(self: *Window) void {
                 const key_press: *c.xcb_key_press_event_t = @ptrCast(event);
                 if (key_press.detail == 9)
                     self.exit = true;
-                const sym = c.xkb_state_key_get_one_sym(self.xkb.state, @intCast(key_press.detail));
-                const utf32 = c.xkb_keysym_to_utf32(sym);
+                const sym = Xkb.c.xkb_state_key_get_one_sym(self.xkb.state, @intCast(key_press.detail));
+                const utf32 = Xkb.c.xkb_keysym_to_utf32(sym);
 
                 if (self.keyboard_cb) |cb| cb(utf32, true);
             },
             c.XCB_KEY_RELEASE => {
                 const key_release: *c.xcb_key_release_event_t = @ptrCast(event);
-                _ = c.xkb_state_update_key(self.xkb.state, key_release.detail, c.XKB_KEY_UP);
+                _ = Xkb.c.xkb_state_update_key(self.xkb.state, key_release.detail, Xkb.c.XKB_KEY_UP);
             },
             c.XCB_DESTROY_NOTIFY => {
                 self.exit = true;
@@ -261,52 +261,9 @@ fn get_atom(conn: *c.xcb_connection_t, atom_name: []const u8) ?c.xcb_atom_t {
     return replay.*.atom;
 }
 
-const Xkb = struct {
-    ctx: *c.xkb_context,
-    keymap: *c.xkb_keymap,
-    state: *c.xkb_state,
-
-    pub fn init(conn: *c.xcb_connection_t) !Xkb {
-        var first_xkb_event: c.uint = 0;
-
-        // const reply = c.xcb_get_extension_data(conn, &c.xcb_xkb_id);
-        // if (reply == null or reply.present == 0) return error.XkbNotAvailable;
-
-        if (c.xkb_x11_setup_xkb_extension(
-            conn,
-            c.XKB_X11_MIN_MAJOR_XKB_VERSION,
-            c.XKB_X11_MIN_MINOR_XKB_VERSION,
-            0,
-            null,
-            null,
-            @ptrCast(&first_xkb_event),
-            null,
-        ) == 0) return error.XkbInitFailed;
-
-        const ctx = c.xkb_context_new(c.XKB_CONTEXT_NO_FLAGS) orelse return error.NoMemory;
-
-        const core_kbd_id = c.xkb_x11_get_core_keyboard_device_id(conn);
-        if (core_kbd_id == -1) {
-            c.xkb_context_unref(ctx);
-            return error.NoKeyboard;
-        }
-
-        const keymap = c.xkb_x11_keymap_new_from_device(ctx, conn, core_kbd_id, c.XKB_KEYMAP_COMPILE_NO_FLAGS) orelse {
-            c.xkb_context_unref(ctx);
-            return error.KeymapInitFailed;
-        };
-
-        const state = c.xkb_x11_state_new_from_device(keymap, conn, core_kbd_id) orelse {
-            c.xkb_keymap_unref(keymap);
-            c.xkb_context_unref(ctx);
-            return error.StateInitFailed;
-        };
-
-        return .{ .ctx = ctx, .keymap = keymap, .state = state };
-    }
-};
 const std = @import("std");
 const Renderer = @import("../renderer/root.zig");
+const Xkb = @import("../input/Xkb.zig");
 
 const Allocator = std.mem.Allocator;
 
@@ -314,8 +271,6 @@ const Allocator = std.mem.Allocator;
 const assets = @import("assets");
 const c = @cImport({
     @cInclude("xcb/xcb.h");
-    @cInclude("xkbcommon/xkbcommon.h");
-    @cInclude("xkbcommon/xkbcommon-x11.h");
     @cInclude("X11/keysym.h");
     @cInclude("stdlib.h");
 });

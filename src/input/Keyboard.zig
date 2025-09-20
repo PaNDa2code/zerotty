@@ -4,6 +4,16 @@ pub const keyboard_key_count = 256;
 // Can be stored in AVX register (YMMx)
 pub const KeyboardState = std.bit_set.IntegerBitSet(keyboard_key_count);
 
+pub const KeyboardMod = enum {
+    shift,
+    ctrl,
+    alt,
+    super,
+    caps,
+    num,
+};
+pub const KeyboardModState = std.enums.EnumSet(KeyboardMod);
+
 pub const KeyEventType = enum {
     press,
     release,
@@ -21,6 +31,7 @@ const KeyboardEventQueue = std.ArrayList(KeyEvent);
 allocator: Allocator,
 event_queue: KeyboardEventQueue,
 state: KeyboardState,
+mods: KeyboardModState,
 auto_repeat_enabled: bool,
 
 pub fn init(allocator: Allocator) Keyboard {
@@ -28,6 +39,7 @@ pub fn init(allocator: Allocator) Keyboard {
         .allocator = allocator,
         .event_queue = .empty,
         .state = KeyboardState.initEmpty(),
+        .mods = KeyboardModState.initEmpty(),
         .auto_repeat_enabled = false,
     };
 }
@@ -54,7 +66,6 @@ pub fn keyIsPressed(self: *Keyboard, key_code: u8) bool {
 }
 
 const shortcuts: []const KeyboardState = {};
-
 
 const std = @import("std");
 
