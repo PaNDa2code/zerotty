@@ -282,8 +282,7 @@ fn findMemoryType(
     const mem_properties =
         vki.getPhysicalDeviceMemoryProperties(physical_device);
 
-    var i: u32 = 0;
-    while (i < mem_properties.memory_type_count) : (i += 1) {
+    for (0..mem_properties.memory_type_count) |i| {
         if ((typeFilter & (std.math.shr(u32, 1, i))) != 0 and
             mem_properties.memory_types[i].property_flags.contains(properties))
         {
