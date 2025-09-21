@@ -7,6 +7,3 @@
 [submodule "libs/zerio"]
 	path = libs/zerio
 	url = https://github.com/panda2code/zerio
-[submodule "libs/mach-freetype"]
-	path = libs/mach-freetype
-	url = https://github.com/panda2code/mach-freetype
