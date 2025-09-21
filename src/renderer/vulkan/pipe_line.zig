@@ -12,7 +12,7 @@ const VulkanRenderer = @import("Vulkan.zig");
 const vert_shader_spv = &assets.shaders.cell_vert;
 const frag_shader_spv = &assets.shaders.cell_frag;
 
-const vertex_binding = getVertexBindingDescription();
+const vertex_binding = getVertexBindingDescriptions();
 const vertex_attributes = getVertexAttributeDescriptions();
 
 pub fn createPipeLine(self: *VulkanRenderer) !void {
@@ -38,6 +38,9 @@ fn _createPipeLine(
     swap_chain_extent: vk.Extent2D,
     vkmemcb: *const vk.AllocationCallbacks,
 ) !vk.Pipeline {
+    _ = vki;
+    _ = physical_device;
+
     const vertex_shader_module = try shader_utils.compileSpirv(vert_shader_spv, dev, vkd, vkmemcb);
     defer vkd.destroyShaderModule(dev, vertex_shader_module, vkmemcb);
 
@@ -68,7 +71,7 @@ fn _createPipeLine(
         .p_dynamic_states = &dynamic_stats,
     };
 
-    _ = try createUniformBuffer(vki, vkd, dev, physical_device, vkmemcb);
+    // _ = try createUniformBuffer(vki, vkd, dev, physical_device, vkmemcb);
 
     const bindings = [_]vk.DescriptorSetLayoutBinding{
         .{
@@ -93,8 +96,8 @@ fn _createPipeLine(
     const descriptor_set_layout = try vkd.createDescriptorSetLayout(dev, &descriptor_set_layout_info, vkmemcb);
 
     const vertex_input_info = vk.PipelineVertexInputStateCreateInfo{
-        .vertex_binding_description_count = 1,
-        .p_vertex_binding_descriptions = &.{vertex_binding},
+        .vertex_binding_description_count = vertex_binding.len,
+        .p_vertex_binding_descriptions = vertex_binding.ptr,
         .vertex_attribute_description_count = vertex_attributes.len,
         .p_vertex_attribute_descriptions = vertex_attributes.ptr,
     };
@@ -247,25 +250,24 @@ fn createUniformBuffer(
     return buffer;
 }
 
-fn getVertexBindingDescription() vk.VertexInputBindingDescription {
-    return .{
-        .binding = 0,
-        .stride = @sizeOf(Cell),
-        .input_rate = .vertex,
+fn getVertexBindingDescriptions() []const vk.VertexInputBindingDescription {
+    return &[_]vk.VertexInputBindingDescription{
+        .{ .binding = 0, .stride = @sizeOf(Vec4(f32)), .input_rate = .vertex },
+        .{ .binding = 1, .stride = @sizeOf(Cell), .input_rate = .instance },
     };
 }
 
 fn getVertexAttributeDescriptions() []const vk.VertexInputAttributeDescription {
-    const descriptions = comptime [_]vk.VertexInputAttributeDescription{
-        .{ .location = 0, .binding = 0, .format = .r32g32b32a32_sfloat, .offset = @sizeOf(Vec4(f32)) },
-        .{ .location = 1, .binding = 0, .format = .r32_uint, .offset = @sizeOf(u32) },
-        .{ .location = 2, .binding = 0, .format = .r32_uint, .offset = @sizeOf(u32) },
-        .{ .location = 3, .binding = 0, .format = .r32_uint, .offset = @sizeOf(u32) },
-        .{ .location = 4, .binding = 0, .format = .r32g32b32a32_sfloat, .offset = @sizeOf(Vec4(f32)) },
-        .{ .location = 5, .binding = 0, .format = .r32g32b32a32_sfloat, .offset = @sizeOf(Vec4(f32)) },
-        .{ .location = 6, .binding = 0, .format = .r32g32_uint, .offset = @sizeOf(Vec4(u32)) },
-        .{ .location = 7, .binding = 0, .format = .r32g32_uint, .offset = @sizeOf(Vec4(u32)) },
-        .{ .location = 8, .binding = 0, .format = .r32g32_sint, .offset = @sizeOf(Vec4(i32)) },
+    const descriptions = [_]vk.VertexInputAttributeDescription{
+        .{ .location = 0, .binding = 0, .format = .r32g32b32a32_sfloat, .offset = 0 },
+        .{ .location = 1, .binding = 1, .format = .r32_uint, .offset = @offsetOf(Cell, "row") },
+        .{ .location = 2, .binding = 1, .format = .r32_uint, .offset = @offsetOf(Cell, "col") },
+        .{ .location = 3, .binding = 1, .format = .r32_uint, .offset = @offsetOf(Cell, "char") },
+        .{ .location = 4, .binding = 1, .format = .r32g32b32a32_sfloat, .offset = @offsetOf(Cell, "fg_color") },
+        .{ .location = 5, .binding = 1, .format = .r32g32b32a32_sfloat, .offset = @offsetOf(Cell, "bg_color") },
+        .{ .location = 6, .binding = 1, .format = .r32g32_uint, .offset = @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "coord_start") },
+        .{ .location = 7, .binding = 1, .format = .r32g32_uint, .offset = @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "coord_end") },
+        .{ .location = 8, .binding = 1, .format = .r32g32_sint, .offset = @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "bearing") },
     };
 
     return descriptions[0..];
@@ -291,6 +293,7 @@ fn findMemoryType(
     @panic("Failed to find suitable memory type!");
 }
 
+const Atlas = @import("../../font/Atlas.zig");
 const Cell = @import("../Grid.zig").Cell;
 
 const math = @import("../math.zig");
