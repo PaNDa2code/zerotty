@@ -103,7 +103,7 @@ fn _createSwapChain(
         .queue_family_index_count = if (same_queue) 0 else 2,
         .p_queue_family_indices = if (same_queue) null else p_queue_family_indices,
         .pre_transform = caps.current_transform,
-        .composite_alpha = caps.supported_composite_alpha,
+        .composite_alpha = pickCompositeAlpha(caps.supported_composite_alpha),
         .present_mode = present_mode,
         .clipped = .true,
     };
@@ -174,6 +174,22 @@ fn chooseSwapPresentMode(modes: []const vk.PresentModeKHR) vk.PresentModeKHR {
     }
 
     return presend_mode;
+}
+
+fn pickCompositeAlpha(supported: vk.CompositeAlphaFlagsKHR) vk.CompositeAlphaFlagsKHR {
+    const preferred = [_]vk.CompositeAlphaFlagsKHR{
+        .{ .inherit_bit_khr = true },
+        .{ .opaque_bit_khr = true },
+        .{ .pre_multiplied_bit_khr = true },
+        .{ .post_multiplied_bit_khr = true },
+    };
+
+    for (preferred) |flag| {
+        if (supported.contains(flag)) {
+            return flag;
+        }
+    }
+    return .{};
 }
 
 fn getSwapChainImages(
