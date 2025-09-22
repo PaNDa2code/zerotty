@@ -35,7 +35,7 @@ pub fn pickPhysicalDevicesAlloc(
     for (_physical_devices, 0..) |pd, i| {
         const props = self.instance_wrapper.getPhysicalDeviceProperties(pd);
         const deriver_version: vk.Version = @bitCast(props.driver_version);
-        log.info(
+        log.debug(
             "GPU{}: {s} - {s} ({}.{}.{}.{})",
             .{
                 i,
@@ -86,7 +86,8 @@ fn findQueueFamilies(
     surface: vk.SurfaceKHR,
     allocator: Allocator,
 ) !?QueueFamilyIndices {
-    const queue_families = try vki.getPhysicalDeviceQueueFamilyPropertiesAlloc(physical_device, allocator);
+    const queue_families =
+        try vki.getPhysicalDeviceQueueFamilyPropertiesAlloc(physical_device, allocator);
     defer allocator.free(queue_families);
 
     var graphics_family: ?u32 = null;
@@ -96,11 +97,8 @@ fn findQueueFamilies(
         if (q.queue_flags.graphics_bit)
             graphics_family = @intCast(i);
 
-        const surface_support = try vki.getPhysicalDeviceSurfaceSupportKHR(
-            physical_device,
-            @intCast(i),
-            surface,
-        );
+        const surface_support =
+            try vki.getPhysicalDeviceSurfaceSupportKHR(physical_device, @intCast(i), surface);
 
         if (surface_support == .true)
             present_family = @intCast(i);

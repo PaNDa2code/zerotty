@@ -78,7 +78,7 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     for (physical_devices, queue_family_indcies, 0..) |p_dev, queue_indces, i| {
         createLogicalDevice(self, p_dev, queue_indces) catch continue;
         self.physical_device = p_dev;
-        log.info("using GPU{}", .{i});
+        log.debug("using GPU{}", .{i});
         break;
     }
 

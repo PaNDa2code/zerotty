@@ -6,11 +6,12 @@ const vk = @import("vulkan");
 const build_options = @import("build_options");
 
 const VulkanRenderer = @import("Vulkan.zig");
+const QueueFamilyIndices = @import("physical_device.zig").QueueFamilyIndices;
 
 pub fn createDevice(
     self: *VulkanRenderer,
     physical_device: vk.PhysicalDevice,
-    queue_families_indcies: @import("physical_device.zig").QueueFamilyIndices,
+    queue_families_indcies: QueueFamilyIndices,
 ) !void {
     errdefer self.device = .null_handle;
 
@@ -28,7 +29,7 @@ fn _createDevice(
     vki: *const vk.InstanceWrapper,
     vk_mem_cb: *const vk.AllocationCallbacks,
     physical_device: vk.PhysicalDevice,
-    queue_families_indcies: @import("physical_device.zig").QueueFamilyIndices,
+    queue_families_indcies: QueueFamilyIndices,
 ) !vk.Device {
     const queue_create_info: vk.DeviceQueueCreateInfo = .{
         .queue_family_index = queue_families_indcies.graphics_family,
@@ -51,7 +52,7 @@ fn _createDevice(
 
     const device_create_info: vk.DeviceCreateInfo = .{
         .queue_create_info_count = 1,
-        .p_queue_create_infos = @ptrCast(&queue_create_info),
+        .p_queue_create_infos = &.{queue_create_info},
 
         .enabled_extension_count = extensions.len,
         .pp_enabled_extension_names = &extensions,

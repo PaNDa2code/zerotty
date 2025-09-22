@@ -9,6 +9,8 @@ io_event_loop: zerio.EventLoop,
 
 const App = @This();
 
+const log = std.log.scoped(.App);
+
 pub fn new(allocator: Allocator) App {
     return .{
         .window = Window.new("zerotty", 720, 1280),
@@ -64,7 +66,7 @@ pub fn pty_read_callback(ev: *const zerio.EventLoop.Event, n: usize, data: ?*any
 fn keyboard_cb(utf32: u32, press: bool) void {
     var utf8: [4]u8 = undefined;
     const n = std.unicode.utf8Encode(@intCast(utf32), utf8[0..]) catch unreachable;
-    std.debug.print("key pressed = {s} - 0x{x:04}\n", .{ utf8[0..@intCast(n)], utf32 });
+    log.debug("key pressed = {s} - 0x{x:04}", .{ utf8[0..@intCast(n)], utf32 });
     if (press)
         child_stdin.writeAll(utf8[0..n]) catch unreachable;
 }
@@ -83,7 +85,6 @@ pub fn drawCallBack(renderer: *Renderer) void {
     renderer.clearBuffer(.Black);
     renderer.renaderGrid();
     renderer.presentBuffer();
-    // std.io.getStdOut().writer().print("\rFPS = {d:.2}", .{renderer.getFps()}) catch unreachable;
 }
 
 pub fn resizeCallBack(w: u32, h: u32) void {
@@ -181,8 +182,6 @@ const CircularBuffer = @import("CircularBuffer.zig");
 const ChildProcess = @import("ChildProcess.zig");
 const Renderer = @import("renderer/root.zig");
 const FPS = @import("renderer/FPS.zig");
-// const AysncFile = @import("io/File.zig");
-// const EventLoop = @import("io/EventLoop.zig");
 const VTParser = vtparse.VTParser;
 const Allocator = std.mem.Allocator;
 

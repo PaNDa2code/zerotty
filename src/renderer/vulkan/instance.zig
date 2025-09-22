@@ -21,12 +21,12 @@ fn _createInstance(
         .p_application_name = "zerotty",
 
         .application_version = @bitCast(vk.makeApiVersion(0, 0, 0, 0)),
-        .api_version = @bitCast(vk.API_VERSION_1_4),
+        .api_version = @bitCast(vk.API_VERSION_1_0),
 
         .engine_version = 0,
     };
 
-    if (builtin.mode == .Debug and !try @import("debug.zig").checkValidationLayerSupport(vkb, allocator))
+    if (build_options.@"renderer-debug" and !try @import("debug.zig").checkValidationLayerSupport(vkb, allocator))
         @panic("Validation layer is not supported");
 
     const validation_layers = [_][*:0]const u8{
@@ -42,7 +42,6 @@ fn _createInstance(
 
     const xlib_exts = [_][*:0]const u8{
         "VK_KHR_xlib_surface",
-        // "VK_EXT_acquire_xlib_display",
     };
 
     const xcb_exts = [_][*:0]const u8{
@@ -55,7 +54,7 @@ fn _createInstance(
         .Win32 => win32_exts,
         .Xlib => xlib_exts,
         .Xcb => xcb_exts,
-    } ++ if (builtin.mode == .Debug)
+    } ++ if (build_options.@"renderer-debug")
         .{"VK_EXT_debug_utils"}
     else
         .{};
