@@ -174,7 +174,7 @@
               <ul class="nav flex-column">
               </ul>
             </li>
-            <li class="nav-item" data-bs-level="2"><a href="#recommended-build-options" class="nav-link">recommended build options</a>
+            <li class="nav-item" data-bs-level="2"><a href="#build-examples" class="nav-link">build examples</a>
               <ul class="nav flex-column">
               </ul>
             </li>
@@ -198,7 +198,7 @@
 <h2 id="build-dependences">Build dependences</h2>
 <ul>
 <li>zig compiler (0.15.1)</li>
-<li>SPIR-V tools installed (optional)</li>
+<li>glslang-tools installed (optional)</li>
 </ul>
 <h2 id="options">Options</h2>
 <ul>
@@ -206,28 +206,40 @@
 <p><code>-Drender-backend</code></p>
 <ul>
 <li><code>OpenGL</code></li>
-<li><code>Vulkan</code> (not fully supported yet)</li>
+<li><code>Vulkan</code> (default)</li>
 </ul>
 </li>
 <li>
 <p><code>-Dwindow-system</code></p>
 <ul>
-<li><code>Xlib</code> (default on Linux)</li>
-<li><code>Xcb</code></li>
+<li><code>Xlib</code></li>
+<li><code>Xcb</code> (default on Linux)</li>
 <li><code>Win32</code> (default on Windows)</li>
 </ul>
 </li>
+<li>
+<p><code>-Dno-lsp-check</code></p>
+<ul>
+<li><code>true</code></li>
+<li><code>false</code> (default)</li>
+</ul>
+<p>this disables a step called <code>check</code> that used automatically by <a href="https://github.com/zigtools/zls">zls</a> to load build configuration</p>
+</li>
+<li>
+<p><code>-Ddisable-renderer-debug</code></p>
+<ul>
+<li><code>true</code> (default in release builds)</li>
+<li><code>false</code> (default in debug builds)</li>
+</ul>
+<p>this disables debuging callbacks and validation layers</p>
+</li>
 </ul>
 <hr />
-<h2 id="recommended-build-options">recommended build options</h2>
-<h4 id="linux">linux</h4>
-<pre><code class="language-bash">zig build -Drender-backend=OpenGL
-</code></pre>
-<h4 id="windows">Windows</h4>
-<pre><code class="language-bash">zig build -Drender-backend=OpenGL
+<h2 id="build-examples">build examples</h2>
+<pre><code>zig build -Doptimize=ReleaseFast -Dwindow-system=Xcb -Dno-lsp-check -Drender-backend=Vulkan
 </code></pre>
 <h4 id="cross-compile-to-windows-from-linux">Cross-compile to Windows from Linux</h4>
-<pre><code class="language-ptyhon">zig build -Dtarget=x86_64-windows -Drender-backend=OpenGL
+<pre><code>zig build -Dtarget=x86_64-windows -Drender-backend=OpenGL -Ddisable-renderer-debug
 </code></pre></p>
     </article>
 </section>
