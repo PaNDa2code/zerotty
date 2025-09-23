@@ -16,6 +16,9 @@ swap_chain_format: vk.Format,
 swap_chain_extent: vk.Extent2D,
 swap_chain_image_views: []vk.ImageView,
 
+descriptor_set_layout: vk.DescriptorSetLayout,
+frame_buffers: []vk.Framebuffer,
+
 surface: vk.SurfaceKHR, // Window surface
 vk_mem: *VkAllocatorAdapter,
 window_height: u32,
@@ -102,8 +105,12 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     try createPipeLine(self);
     errdefer vkd.destroyPipeline(self.device, self.pipe_line, &vk_mem_cb);
 
+    try createFrameBuffers(self, allocator);
+
     try allocCmdBuffers(self, allocator);
-    errdefer freeCmdBuffers(allocator, vkd, self.device, self.cmd_pool, self.cmd_buffers);
+    errdefer freeCmdBuffers(allocator, vkd, self.device, self.cmd_pool, self.cmd_buffers, &vk_mem_cb);
+
+    try recordCommandBuffer(self, 0);
 
     self.grid = try Grid.create(allocator, .{});
 
@@ -200,16 +207,20 @@ pub fn deinit(self: *VulkanRenderer) void {
     const vki = self.instance_wrapper;
     const vkd = self.device_wrapper;
 
-    // self.pipe_line.deinit(vkd, self.device, &cb);
-
     freeCmdBuffers(self.vk_mem.allocator, vkd, self.device, self.cmd_pool, self.cmd_buffers, &cb);
 
     for (self.swap_chain_image_views) |view| {
         vkd.destroyImageView(self.device, view, &cb);
     }
 
+    for (self.frame_buffers) |buffer| {
+        vkd.destroyFramebuffer(self.device, buffer, &cb);
+    }
+    allocator.free(self.frame_buffers);
+
     vkd.destroyPipeline(self.device, self.pipe_line, &cb);
     vkd.destroyRenderPass(self.device, self.render_pass, &cb);
+    vkd.destroyDescriptorSetLayout(self.device, self.descriptor_set_layout, &cb);
     vkd.destroyPipelineLayout(self.device, self.pipe_line_layout, &cb);
 
     vkd.destroySwapchainKHR(self.device, self.swap_chain, &cb);
@@ -294,5 +305,7 @@ const getQueues = @import("queues.zig").getQueues;
 const createSwapChain = @import("swap_chain.zig").createSwapChain;
 const createRenderPass = @import("render_pass.zig").createRenderPass;
 const createPipeLine = @import("pipe_line.zig").createPipeLine;
+const createFrameBuffers = @import("frame_buffers.zig").createFrameBuffers;
 const allocCmdBuffers = @import("cmd_buffers.zig").allocCmdBuffers;
 const freeCmdBuffers = @import("cmd_buffers.zig").freeCmdBuffers;
+const recordCommandBuffer = @import("cmd_buffers.zig").recordCommandBuffer;

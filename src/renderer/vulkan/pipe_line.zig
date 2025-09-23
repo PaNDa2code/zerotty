@@ -22,6 +22,7 @@ pub fn createPipeLine(self: *VulkanRenderer) !void {
         self.device,
         self.physical_device,
         &self.pipe_line_layout,
+        &self.descriptor_set_layout,
         self.render_pass,
         self.swap_chain_extent,
         &self.vk_mem.vkAllocatorCallbacks(),
@@ -34,6 +35,7 @@ fn _createPipeLine(
     dev: vk.Device,
     physical_device: vk.PhysicalDevice,
     p_pipe_line_layout: *vk.PipelineLayout,
+    p_descriptor_set_layout: *vk.DescriptorSetLayout,
     render_pass: vk.RenderPass,
     swap_chain_extent: vk.Extent2D,
     vkmemcb: *const vk.AllocationCallbacks,
@@ -217,6 +219,7 @@ fn _createPipeLine(
     }
 
     p_pipe_line_layout.* = pipeline_layout;
+    p_descriptor_set_layout.* = descriptor_set_layout;
 
     return graphics_pipeline;
 }

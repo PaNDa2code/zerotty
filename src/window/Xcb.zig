@@ -169,7 +169,7 @@ pub fn open(self: *Window, allocator: Allocator) !void {
         return error.SetProtocolsFailed;
     }
 
-    const opacity: u32 = 0;
+    const opacity: u32 = 0xFFFFFFFF;
     const opacity_atom = get_atom(self.connection, "_NET_WM_WINDOW_OPACITY") orelse return;
 
     const opacity_cookie = c.xcb_change_property_checked(

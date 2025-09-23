@@ -11,6 +11,7 @@ pub fn allocCmdBuffers(self: *VulkanRenderer, allocator: Allocator) !void {
         self.device_wrapper,
         self.device,
         1,
+        self.queue_family_indcies.graphics_family,
         &self.cmd_pool,
         &self.vk_mem.vkAllocatorCallbacks(),
     );
@@ -21,12 +22,13 @@ fn _allocCmdBuffers(
     vkd: *const vk.DeviceWrapper,
     device: vk.Device,
     primary_count: usize,
+    queue_family_index: u32,
     p_cmd_pool: *vk.CommandPool,
     vk_mem_cb: *const vk.AllocationCallbacks,
 ) ![]const vk.CommandBuffer {
     const cmd_pool_create_info = vk.CommandPoolCreateInfo{
         .flags = .{ .reset_command_buffer_bit = true },
-        .queue_family_index = 0,
+        .queue_family_index = queue_family_index,
     };
 
     const cmd_pool = try vkd.createCommandPool(device, &cmd_pool_create_info, vk_mem_cb);
@@ -59,4 +61,54 @@ pub fn freeCmdBuffers(
     vkd.freeCommandBuffers(device, cmd_pool, @intCast(buffers.len), buffers.ptr);
     vkd.destroyCommandPool(device, cmd_pool, vk_mem_cb);
     allocator.free(buffers);
+}
+
+pub fn recordCommandBuffer(self: *const VulkanRenderer, image_index: usize) !void {
+    const vkd = self.device_wrapper;
+    const command_buffer = self.cmd_buffers[0];
+
+    const begin_info = vk.CommandBufferBeginInfo{};
+
+    try vkd.beginCommandBuffer(command_buffer, &begin_info);
+
+    const clear_color = vk.ClearValue{
+        .color = .{ .float_32 = .{ 0.0, 0.0, 0.0, 1.0 } },
+    };
+
+    const render_pass_begin_info = vk.RenderPassBeginInfo{
+        .render_pass = self.render_pass,
+        .framebuffer = self.frame_buffers[image_index],
+        .render_area = .{
+            .extent = self.swap_chain_extent,
+            .offset = .{ .x = 0, .y = 0 },
+        },
+        .clear_value_count = 1,
+        .p_clear_values = &.{clear_color},
+    };
+
+    vkd.cmdBeginRenderPass(command_buffer, &render_pass_begin_info, .@"inline");
+
+    vkd.cmdBindPipeline(command_buffer, .graphics, self.pipe_line);
+
+    const view_port = vk.Viewport{
+        .x = 0,
+        .y = 0,
+        .width = @floatFromInt(self.swap_chain_extent.width),
+        .height = @floatFromInt(self.swap_chain_extent.height),
+        .min_depth = 0,
+        .max_depth = 1,
+    };
+
+    vkd.cmdSetViewport(command_buffer, 0, 1, @ptrCast(&view_port));
+
+    const scissor = vk.Rect2D{
+        .offset = .{ .x = 0, .y = 0 },
+        .extent = self.swap_chain_extent,
+    };
+
+    vkd.cmdSetScissor(command_buffer, 0, 1, @ptrCast(&scissor));
+
+    vkd.cmdDraw(command_buffer, 0, 0, 0, 0);
+
+    vkd.cmdEndRenderPass(command_buffer);
 }

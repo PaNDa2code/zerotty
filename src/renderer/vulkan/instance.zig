@@ -9,7 +9,8 @@ const build_options = @import("build_options");
 const VulkanRenderer = @import("Vulkan.zig");
 
 pub fn createInstance(self: *VulkanRenderer) !void {
-    self.instance = try _createInstance(self.base_wrapper, self.vk_mem.allocator, &self.vk_mem.vkAllocatorCallbacks());
+    self.instance =
+        try _createInstance(self.base_wrapper, self.vk_mem.allocator, &self.vk_mem.vkAllocatorCallbacks());
 }
 
 fn _createInstance(
