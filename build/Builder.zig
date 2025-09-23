@@ -109,7 +109,7 @@ pub fn addExcutable(self: *Builder, name: []const u8) *Builder {
         .root_module = self.getModule(),
     });
 
-    // debug builds needs a consol
+    // debug builds needs a console
     if (self.window_system == .Win32 and self.optimize != .Debug) {
         exe.subsystem = .Windows;
         exe.mingw_unicode_entry_point = true;

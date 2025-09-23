@@ -6,37 +6,41 @@ You can customize the rendering backend and window system using build arguments.
 ## Build dependences
 
 - zig compiler (0.15.1)
-- SPIR-V tools installed (optional)
+- glslang-tools installed (optional)
 
 ## Options
 
 - `-Drender-backend`
     - `OpenGL`
-    - `Vulkan` (not fully supported yet)
+    - `Vulkan` (default)
 
 - `-Dwindow-system`
-    - `Xlib` (default on Linux)
-    - `Xcb`
+    - `Xlib`
+    - `Xcb` (default on Linux)
     - `Win32` (default on Windows)
+
+- `-Dno-lsp-check`
+    - `true`
+    - `false` (default)
+
+    this disables a step called `check` that used automatically by [zls](https://github.com/zigtools/zls) to load build configuration
+
+- `-Ddisable-renderer-debug`
+    - `true` (default in release builds)
+    - `false` (default in debug builds)
+
+    this disables debuging callbacks and validation layers
 
 ---
 
-## recommended build options
+## build examples
 
-#### linux
-
-```bash
-zig build -Drender-backend=OpenGL
 ```
-
-#### Windows
-
-```bash
-zig build -Drender-backend=OpenGL
+zig build -Doptimize=ReleaseFast -Dwindow-system=Xcb -Dno-lsp-check -Drender-backend=Vulkan
 ```
 
 #### Cross-compile to Windows from Linux
 
-```ptyhon
-zig build -Dtarget=x86_64-windows -Drender-backend=OpenGL
+```
+zig build -Dtarget=x86_64-windows -Drender-backend=OpenGL -Ddisable-renderer-debug
 ```
