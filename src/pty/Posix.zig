@@ -58,13 +58,7 @@ pub fn resize(self: *Pty, size: PtySize) !void {
 const std = @import("std");
 const builtin = @import("builtin");
 const posix = std.posix;
-const openpty = switch (builtin.os.tag) {
-    .linux => @import("openpty"),
-    .macos => @cImport({
-        @cInclude("pty.h");
-    }),
-    else => {},
-};
+const openpty = @import("openpty");
 const pty = @import("root.zig");
 const PtySize = pty.PtySize;
 const PtyOptions = pty.PtyOptions;
