@@ -74,7 +74,7 @@ fn vkAlloc(
     if (p_user_data == null or size == 0)
         return null;
 
-    const vk_allocator: *VkAllocatorAdapter = @alignCast(@ptrCast(p_user_data.?));
+    const vk_allocator: *VkAllocatorAdapter = @ptrCast(@alignCast(p_user_data.?));
 
     const alignment_enum = std.mem.Alignment.fromByteUnits(alignment);
 
@@ -88,7 +88,7 @@ fn vkFree(
     if (p_user_data == null or memory == null)
         return;
 
-    const vk_allocator: *VkAllocatorAdapter = @alignCast(@ptrCast(p_user_data));
+    const vk_allocator: *VkAllocatorAdapter = @ptrCast(@alignCast(p_user_data));
     VkAllocatorAdapter.freeRecored(vk_allocator.allocator, &vk_allocator.record_map, memory.?);
 }
 
@@ -102,7 +102,7 @@ fn vkRealloc(
     if (p_user_data == null or p_original == null or size == 0)
         return null;
 
-    const vk_allocator: *VkAllocatorAdapter = @alignCast(@ptrCast(p_user_data));
+    const vk_allocator: *VkAllocatorAdapter = @ptrCast(@alignCast(p_user_data));
     const allocator = vk_allocator.allocator;
 
     const old_record_ptr = vk_allocator.record_map.getPtr(@intFromPtr(p_original.?)) orelse return null;

@@ -18,7 +18,6 @@ fn debugMessenger(
     instance: vk.Instance,
     vk_mem_cb: *const vk.AllocationCallbacks,
 ) !vk.DebugUtilsMessengerEXT {
-
     if (vki.dispatch.vkCreateDebugUtilsMessengerEXT == null)
         @panic("createDebugUtilsMessengerEXT is null");
 

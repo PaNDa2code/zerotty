@@ -5,9 +5,14 @@ const build_options = @import("build_options");
 const App = @import("App.zig");
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+    var debug_allocator = std.heap.DebugAllocator(.{}).init;
+    defer _ = debug_allocator.deinit();
+
+    const allocator =
+        if (builtin.mode == .Debug)
+            debug_allocator.allocator()
+        else
+            std.heap.c_allocator;
 
     var app = App.new(allocator);
     try app.start();

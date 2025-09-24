@@ -111,7 +111,7 @@ fn initWindows(self: *CircularBuffer, requsted_size: usize) CreateError!void {
 
     errdefer _ = win32.system.memory.UnmapViewOfFile(view2);
 
-    self.buffer.ptr = @alignCast(@ptrCast(view1.?));
+    self.buffer.ptr = @ptrCast(@alignCast(view1.?));
     self.buffer.len = size * 2;
     self.view_size = size;
 }

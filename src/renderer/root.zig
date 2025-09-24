@@ -1,4 +1,4 @@
-//! Abstract renderer interface implemented by backends 
+//! Abstract renderer interface implemented by backends
 //! [`OpenGLRenderer`](src/renderer/opengl/OpenGL.zig) or [`VulkanRenderer`](src/renderer/vulkan/Vulkan.zig)
 const Renderer = @This();
 
