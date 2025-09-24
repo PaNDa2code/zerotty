@@ -8,6 +8,8 @@ renderer: Renderer = undefined,
 render_cb: ?*const fn (*Renderer) void = null,
 resize_cb: ?*const fn (width: u32, height: u32) void = null,
 
+opacity_atom: u32 = 0,
+
 xkb: Xkb = undefined,
 keyboard_cb: ?*const fn (utf32: u32, press: bool) void = null,
 
@@ -169,14 +171,24 @@ pub fn open(self: *Window, allocator: Allocator) !void {
         return error.SetProtocolsFailed;
     }
 
-    const opacity: u32 = 0xFFFFFFFF;
-    const opacity_atom = get_atom(self.connection, "_NET_WM_WINDOW_OPACITY") orelse return;
+    self.opacity_atom = get_atom(self.connection, "_NET_WM_WINDOW_OPACITY") orelse return;
 
+    self.xkb = try Xkb.init();
+    self.renderer = try Renderer.init(self, allocator);
+}
+
+/// set window opacity value from 0.0 to 1.0
+pub fn setOpacity(self: *Window, value: f32) !void {
+    if (value <= 0.0 or value >= 1.0) {
+        return error.InvalidValue;
+    }
+
+    const opacity: u32 = @intFromFloat(@as(f32, 0xFFFFFFFF * value));
     const opacity_cookie = c.xcb_change_property_checked(
         self.connection,
         c.XCB_PROP_MODE_REPLACE,
         self.window,
-        opacity_atom,
+        self.opacity_atom,
         c.XCB_ATOM_CARDINAL,
         32,
         1,
@@ -187,9 +199,6 @@ pub fn open(self: *Window, allocator: Allocator) !void {
         defer c.free(err);
         return error.SetOpacityFailed;
     }
-
-    self.xkb = try Xkb.init();
-    self.renderer = try Renderer.init(self, allocator);
 }
 
 fn resizeCallBack(self: *Window, height: u32, width: u32) !void {

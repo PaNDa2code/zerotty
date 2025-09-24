@@ -151,6 +151,16 @@ fn WindowProc(self: *Window, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARA
     }
 }
 
+/// set window opacity value from 0.0 to 1.0
+pub fn setOpacity(self: *Window, value: f32) !void {
+    if (value <= 0.0 or value >= 1.0) {
+        return error.InvalidValue;
+    }
+
+    const opacity: u8 = @intFromFloat(@as(f32, 0xFF * value));
+    _ = win32wm.SetLayeredWindowAttributes(self.hwnd, 0, opacity, .{ .ALPHA = 1 });
+}
+
 fn setBackDrop(self: *Window, enable: bool) !void {
     const backdrop: DWM_SYSTEMBACKDROP_TYPE = if (enable) .TRANSIENTWINDOW else .NONE;
     _ = DwmSetWindowAttribute(
@@ -174,8 +184,6 @@ fn setAcrylicBlur(self: *Window) void {
     _ = win32wm.SetWindowLongW(self.hwnd, ._EXSTYLE, style | @as(i32, @bitCast(win32wm.WS_EX_LAYERED)));
 
     try self.setBackDrop(true);
-
-    // _ = win32wm.SetLayeredWindowAttributes(self.hwnd, 0, 220, .{ .ALPHA = 1 });
 
     // const accent = ACCENT_POLICY{
     //     .AccentState = .ACCENT_ENABLE_ACRYLICBLURBEHIND,
