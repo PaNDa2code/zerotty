@@ -51,10 +51,10 @@
             .hash = "N-V-__8AAEWFDwBdd7oE1EcCE3lK2y01-2ourXGKhpZeaZxQ",
             .lazy = true,
         },
-        // .zigimg = .{
-        //     .url = "git+https://github.com/zigimg/zigimg#31bd433201d12d6aa700074d751a7db4555cdb0d",
-        //     .hash = "zigimg-0.1.0-8_eo2qClEgC8dTSiSO6vqGe7mdtIkobGi-Uc4d0Eo7_2",
-        // },
+        .zigimg = .{
+            .url = "git+https://github.com/zigimg/zigimg#362cdd6bce109f7bc674be134cddd378f52da5d4",
+            .hash = "zigimg-0.1.0-8_eo2jNrFQD4mu3EAUkfQRmCkyfprdIXc8JQ6uyxhjSQ",
+        },
         .glslang = .{
             .url = "git+https://github.com/Games-by-Mason/glslang-zig#7b15bbef199ab1c3aec18f62b98e6924d9441d7e",
             .hash = "glslang-1.4.309-eMn68KLGCQDAuHVUzugaYOOEhbkyHmN526R7mHIq9YUs",

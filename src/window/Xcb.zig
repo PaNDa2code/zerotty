@@ -119,39 +119,39 @@ pub fn open(self: *Window, allocator: Allocator) !void {
         return error.FlushFailed;
     }
 
-    // var img = try zigimg.ImageUnmanaged.fromMemory(allocator, assets.icons.@"logo_32x32.png");
-    // defer img.deinit(allocator);
-    //
-    // try img.convert(allocator, .bgra32);
-    //
-    // const pixels = img.pixels.asBytes();
-    //
-    // var buffer = try allocator.alloc(u8, pixels.len + 8);
-    // defer allocator.free(buffer);
-    //
-    // std.mem.writeInt(u32, buffer[0..4], @intCast(img.width), .little);
-    // std.mem.writeInt(u32, buffer[4..8], @intCast(img.height), .little);
-    //
-    // @memcpy(buffer[8..], pixels);
-    //
-    // const data_len = pixels.len + 8;
-    //
-    // const net_wm_icon_atom = get_atom(self.connection, "_NET_WM_ICON") orelse unreachable;
-    // const cardinal_atom = get_atom(self.connection, "CARDINAL") orelse unreachable;
+    var img = try zigimg.Image.fromMemory(allocator, assets.icons.@"logo_32x32.png");
+    defer img.deinit(allocator);
+
+    try img.convert(allocator, .bgra32);
+
+    const pixels = img.pixels.asBytes();
+
+    var buffer = try allocator.alloc(u8, pixels.len + 8);
+    defer allocator.free(buffer);
+
+    std.mem.writeInt(u32, buffer[0..4], @intCast(img.width), .little);
+    std.mem.writeInt(u32, buffer[4..8], @intCast(img.height), .little);
+
+    @memcpy(buffer[8..], pixels);
+
+    const data_len = pixels.len + 8;
+
+    const net_wm_icon_atom = get_atom(self.connection, "_NET_WM_ICON") orelse unreachable;
+    const cardinal_atom = get_atom(self.connection, "CARDINAL") orelse unreachable;
 
     const wm_protocols_atom = get_atom(self.connection, "WM_PROTOCOLS") orelse unreachable;
     self.wm_delete_window_atom = get_atom(self.connection, "WM_DELETE_WINDOW") orelse unreachable;
 
-    // _ = c.xcb_change_property(
-    //     self.connection,
-    //     c.XCB_PROP_MODE_REPLACE,
-    //     self.window,
-    //     net_wm_icon_atom,
-    //     cardinal_atom,
-    //     32,
-    //     @intCast(data_len / 4),
-    //     buffer.ptr,
-    // );
+    _ = c.xcb_change_property(
+        self.connection,
+        c.XCB_PROP_MODE_REPLACE,
+        self.window,
+        net_wm_icon_atom,
+        cardinal_atom,
+        32,
+        @intCast(data_len / 4),
+        buffer.ptr,
+    );
 
     const wm_cookie = c.xcb_change_property_checked(
         self.connection,
@@ -267,7 +267,7 @@ const Xkb = @import("../input/Xkb.zig");
 
 const Allocator = std.mem.Allocator;
 
-// const zigimg = @import("zigimg");
+const zigimg = @import("zigimg");
 const assets = @import("assets");
 const c = @cImport({
     @cInclude("xcb/xcb.h");
