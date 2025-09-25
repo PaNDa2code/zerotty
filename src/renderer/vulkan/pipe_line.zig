@@ -12,8 +12,9 @@ const VulkanRenderer = @import("Vulkan.zig");
 const vert_shader_spv = &assets.shaders.cell_vert;
 const frag_shader_spv = &assets.shaders.cell_frag;
 
-const vertex_binding = getVertexBindingDescriptions();
-const vertex_attributes = getVertexAttributeDescriptions();
+
+const vertex_binding = @import("vertex_buffer.zig").getVertexBindingDescriptions();
+const vertex_attributes = @import("vertex_buffer.zig").getVertexAttributeDescriptions();
 
 pub fn createPipeLine(self: *VulkanRenderer) !void {
     self.pipe_line = try _createPipeLine(
@@ -73,8 +74,6 @@ fn _createPipeLine(
         .p_dynamic_states = &dynamic_stats,
     };
 
-    // _ = try createUniformBuffer(vki, vkd, dev, physical_device, vkmemcb);
-
     const bindings = [_]vk.DescriptorSetLayoutBinding{
         .{
             .binding = 0,
@@ -82,12 +81,12 @@ fn _createPipeLine(
             .descriptor_count = 1,
             .stage_flags = .{ .vertex_bit = true },
         },
-        .{
-            .binding = 1,
-            .descriptor_type = .combined_image_sampler,
-            .descriptor_count = 1,
-            .stage_flags = .{ .fragment_bit = true },
-        },
+        // .{
+        //     .binding = 1,
+        //     .descriptor_type = .combined_image_sampler,
+        //     .descriptor_count = 1,
+        //     .stage_flags = .{ .fragment_bit = true },
+        // },
     };
 
     const descriptor_set_layout_info = vk.DescriptorSetLayoutCreateInfo{
@@ -223,94 +222,3 @@ fn _createPipeLine(
 
     return graphics_pipeline;
 }
-
-fn createUniformBuffer(
-    vki: *const vk.InstanceWrapper,
-    vkd: *const vk.DeviceWrapper,
-    dev: vk.Device,
-    physical_device: vk.PhysicalDevice,
-    vkmemcb: *const vk.AllocationCallbacks,
-) !vk.Buffer {
-    const buffer_info = vk.BufferCreateInfo{
-        .size = @sizeOf(UniformsBlock),
-        .usage = .{ .uniform_buffer_bit = true },
-        .sharing_mode = .exclusive,
-    };
-
-    const buffer = try vkd.createBuffer(dev, &buffer_info, vkmemcb);
-
-    const mem_req = vkd.getBufferMemoryRequirements(dev, buffer);
-
-    const alloc_info = vk.MemoryAllocateInfo{
-        .allocation_size = mem_req.size,
-        .memory_type_index = findMemoryType(vki, physical_device, mem_req.memory_type_bits, .{}),
-    };
-
-    const buffer_memory = try vkd.allocateMemory(dev, &alloc_info, vkmemcb);
-
-    try vkd.bindBufferMemory(dev, buffer, buffer_memory, 0);
-
-    return buffer;
-}
-
-fn getVertexBindingDescriptions() []const vk.VertexInputBindingDescription {
-    return &[_]vk.VertexInputBindingDescription{
-        .{ .binding = 0, .stride = @sizeOf(Vec4(f32)), .input_rate = .vertex },
-        .{ .binding = 1, .stride = @sizeOf(Cell), .input_rate = .instance },
-    };
-}
-
-fn getVertexAttributeDescriptions() []const vk.VertexInputAttributeDescription {
-    const descriptions = [_]vk.VertexInputAttributeDescription{
-        .{ .location = 0, .binding = 0, .format = .r32g32b32a32_sfloat, .offset = 0 },
-        .{ .location = 1, .binding = 1, .format = .r32_uint, .offset = @offsetOf(Cell, "row") },
-        .{ .location = 2, .binding = 1, .format = .r32_uint, .offset = @offsetOf(Cell, "col") },
-        .{ .location = 3, .binding = 1, .format = .r32_uint, .offset = @offsetOf(Cell, "char") },
-        .{ .location = 4, .binding = 1, .format = .r32g32b32a32_sfloat, .offset = @offsetOf(Cell, "fg_color") },
-        .{ .location = 5, .binding = 1, .format = .r32g32b32a32_sfloat, .offset = @offsetOf(Cell, "bg_color") },
-        .{ .location = 6, .binding = 1, .format = .r32g32_uint, .offset = @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "coord_start") },
-        .{ .location = 7, .binding = 1, .format = .r32g32_uint, .offset = @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "coord_end") },
-        .{ .location = 8, .binding = 1, .format = .r32g32_sint, .offset = @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "bearing") },
-    };
-
-    return descriptions[0..];
-}
-
-fn findMemoryType(
-    vki: *const vk.InstanceWrapper,
-    physical_device: vk.PhysicalDevice,
-    typeFilter: u32,
-    properties: vk.MemoryPropertyFlags,
-) u32 {
-    const mem_properties =
-        vki.getPhysicalDeviceMemoryProperties(physical_device);
-
-    for (0..mem_properties.memory_type_count) |i| {
-        if ((typeFilter & (std.math.shr(u32, 1, i))) != 0 and
-            mem_properties.memory_types[i].property_flags.contains(properties))
-        {
-            return i;
-        }
-    }
-    @panic("Failed to find suitable memory type!");
-}
-
-const Atlas = @import("../../font/Atlas.zig");
-const Cell = @import("../Grid.zig").Cell;
-
-const math = @import("../math.zig");
-const Vec2 = math.Vec2;
-const Vec3 = math.Vec3;
-const Vec4 = math.Vec4;
-
-pub const UniformsBlock = packed struct {
-    cell_height: f32,
-    cell_width: f32,
-    screen_height: f32,
-    screen_width: f32,
-    atlas_cols: f32,
-    atlas_rows: f32,
-    atlas_width: f32,
-    atlas_height: f32,
-    descender: f32,
-};

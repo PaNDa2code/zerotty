@@ -19,6 +19,9 @@ swap_chain_image_views: []vk.ImageView,
 descriptor_set_layout: vk.DescriptorSetLayout,
 frame_buffers: []vk.Framebuffer,
 
+vertex_buffer: vk.Buffer,
+uniform_buffer: vk.Buffer,
+
 surface: vk.SurfaceKHR, // Window surface
 vk_mem: *VkAllocatorAdapter,
 window_height: u32,
@@ -109,6 +112,8 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
 
     try allocCmdBuffers(self, allocator);
     errdefer freeCmdBuffers(allocator, vkd, self.device, self.cmd_pool, self.cmd_buffers, &vk_mem_cb);
+
+    try createVertexBuffer(self, 100, 100);
 
     try recordCommandBuffer(self, 0);
 
@@ -309,3 +314,4 @@ const createFrameBuffers = @import("frame_buffers.zig").createFrameBuffers;
 const allocCmdBuffers = @import("cmd_buffers.zig").allocCmdBuffers;
 const freeCmdBuffers = @import("cmd_buffers.zig").freeCmdBuffers;
 const recordCommandBuffer = @import("cmd_buffers.zig").recordCommandBuffer;
+const createVertexBuffer = @import("vertex_buffer.zig").createVertexBuffer;
