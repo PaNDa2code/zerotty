@@ -14,81 +14,91 @@ pub fn createVertexBuffer(self: *VulkanRenderer, vertex_size: usize, uniform_siz
     const mem_properties =
         vki.getPhysicalDeviceMemoryProperties(self.physical_device);
 
-    const vertex_buffer = blk: {
-        const buffer_create_info = vk.BufferCreateInfo{
-            .size = vertex_size,
-            .usage = .{ .vertex_buffer_bit = true },
-            .sharing_mode = .exclusive,
-        };
-        const buffer = try vkd.createBuffer(self.device, &buffer_create_info, &mem_cb);
+    var vertex_buffer: vk.Buffer = .null_handle;
+    var vertex_memory: vk.DeviceMemory = .null_handle;
 
-        const mem_reqs = vkd.getBufferMemoryRequirements(self.device, buffer);
+    try createBuffer(
+        vkd,
+        self.device,
+        vertex_size,
+        .{
+            .vertex_buffer_bit = true,
+            .transfer_dst_bit = false,
+        },
+        &mem_properties,
+        .{},
+        &vertex_buffer,
+        &vertex_memory,
+        &mem_cb,
+    );
+    try vkd.bindBufferMemory(self.device, vertex_buffer, vertex_memory, 0);
 
-        const alloc_info = vk.MemoryAllocateInfo{
-            .allocation_size = mem_reqs.size,
-            .memory_type_index = findMemoryType(&mem_properties, mem_reqs.memory_type_bits, .{}),
-        };
+    var uniform_buffer: vk.Buffer = .null_handle;
+    var uniform_memory: vk.DeviceMemory = .null_handle;
 
-        const vertex_buffer_memory = try vkd.allocateMemory(self.device, &alloc_info, &mem_cb);
+    try createBuffer(
+        vkd,
+        self.device,
+        uniform_size,
+        .{ .uniform_buffer_bit = true },
+        &mem_properties,
+        .{},
+        &uniform_buffer,
+        &uniform_memory,
+        &mem_cb,
+    );
 
-        try vkd.bindBufferMemory(self.device, buffer, vertex_buffer_memory, 0);
+    var vertex_staging_buffer: vk.Buffer = .null_handle;
+    var vertex_staging_memory: vk.DeviceMemory = .null_handle;
 
-        break :blk buffer;
-    };
-
-    const uniform_buffer = blk: {
-        const buffer_create_info = vk.BufferCreateInfo{
-            .size = uniform_size,
-            .usage = .{ .uniform_buffer_bit = true },
-            .sharing_mode = .exclusive,
-        };
-        const buffer = try vkd.createBuffer(self.device, &buffer_create_info, &mem_cb);
-
-        const mem_reqs = vkd.getBufferMemoryRequirements(self.device, buffer);
-
-        const alloc_info = vk.MemoryAllocateInfo{
-            .allocation_size = mem_reqs.size,
-            .memory_type_index = findMemoryType(&mem_properties, mem_reqs.memory_type_bits, .{}),
-        };
-
-        const vertex_buffer_memory = try vkd.allocateMemory(self.device, &alloc_info, &mem_cb);
-
-        try vkd.bindBufferMemory(self.device, buffer, vertex_buffer_memory, 0);
-
-        break :blk buffer;
-    };
+    try createBuffer(
+        vkd,
+        self.device,
+        vertex_size,
+        .{ .transfer_src_bit = true },
+        &mem_properties,
+        .{
+            .host_visible_bit = true,
+            .host_coherent_bit = true,
+        },
+        &vertex_staging_buffer,
+        &vertex_staging_memory,
+        &mem_cb,
+    );
 
     self.vertex_buffer = vertex_buffer;
     self.uniform_buffer = uniform_buffer;
 }
 
-pub fn createUniformBuffer(
-    vki: *const vk.InstanceWrapper,
+pub fn createBuffer(
     vkd: *const vk.DeviceWrapper,
-    dev: vk.Device,
-    physical_device: vk.PhysicalDevice,
-    vkmemcb: *const vk.AllocationCallbacks,
-) !vk.Buffer {
-    const buffer_info = vk.BufferCreateInfo{
-        .size = @sizeOf(UniformsBlock),
-        .usage = .{ .uniform_buffer_bit = true },
+    device: vk.Device,
+    size: vk.DeviceSize,
+    usage: vk.BufferUsageFlags,
+    props: *const vk.PhysicalDeviceMemoryProperties,
+    mem_props: vk.MemoryPropertyFlags,
+    p_buffer: *vk.Buffer,
+    p_device_memory: *vk.DeviceMemory,
+    vk_mem_cb: *const vk.AllocationCallbacks,
+) !void {
+    const buffer_create_info = vk.BufferCreateInfo{
+        .size = size,
+        .usage = usage,
         .sharing_mode = .exclusive,
     };
+    const buffer = try vkd.createBuffer(device, &buffer_create_info, vk_mem_cb);
 
-    const buffer = try vkd.createBuffer(dev, &buffer_info, vkmemcb);
-
-    const mem_req = vkd.getBufferMemoryRequirements(dev, buffer);
+    const mem_reqs = vkd.getBufferMemoryRequirements(device, buffer);
 
     const alloc_info = vk.MemoryAllocateInfo{
-        .allocation_size = mem_req.size,
-        .memory_type_index = findMemoryType(vki, physical_device, mem_req.memory_type_bits, .{}),
+        .allocation_size = mem_reqs.size,
+        .memory_type_index = findMemoryType(props, mem_reqs.memory_type_bits, mem_props),
     };
 
-    const buffer_memory = try vkd.allocateMemory(dev, &alloc_info, vkmemcb);
+    const memory = try vkd.allocateMemory(device, &alloc_info, vk_mem_cb);
 
-    try vkd.bindBufferMemory(dev, buffer, buffer_memory, 0);
-
-    return buffer;
+    p_buffer.* = buffer;
+    p_device_memory.* = memory;
 }
 
 pub fn getVertexBindingDescriptions() []const vk.VertexInputBindingDescription {
@@ -116,17 +126,17 @@ pub fn getVertexAttributeDescriptions() []const vk.VertexInputAttributeDescripti
 
 inline fn findMemoryType(
     mem_properties: *const vk.PhysicalDeviceMemoryProperties,
-    typeFilter: u32,
+    type_filter: u32,
     properties: vk.MemoryPropertyFlags,
 ) u32 {
     for (0..mem_properties.memory_type_count) |i| {
-        if ((typeFilter & (std.math.shr(u32, 1, i))) != 0 and
+        if ((type_filter & (std.math.shl(u32, 1, i))) != 0 and
             mem_properties.memory_types[i].property_flags.contains(properties))
         {
             return @intCast(i);
         }
     }
-    @panic("Failed to find suitable memory type!");
+    std.debug.panic("Failed to find suitable memory index for type {f}!", .{properties});
 }
 
 pub const UniformsBlock = packed struct {
