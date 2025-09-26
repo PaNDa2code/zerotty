@@ -16,11 +16,18 @@ swap_chain_format: vk.Format,
 swap_chain_extent: vk.Extent2D,
 swap_chain_image_views: []vk.ImageView,
 
-descriptor_set_layout: vk.DescriptorSetLayout,
+descriptor_set: vk.DescriptorSet,
 frame_buffers: []vk.Framebuffer,
 
+vertex_buffer_size: usize,
+
 vertex_buffer: vk.Buffer,
+staging_buffer: vk.Buffer,
 uniform_buffer: vk.Buffer,
+
+vertex_memory: vk.DeviceMemory,
+staging_memory: vk.DeviceMemory,
+uniform_memory: vk.DeviceMemory,
 
 surface: vk.SurfaceKHR, // Window surface
 vk_mem: *VkAllocatorAdapter,
@@ -34,6 +41,7 @@ pipe_line_layout: vk.PipelineLayout,
 
 queue_family_indcies: QueueFamilyIndices,
 
+atlas: Atlas,
 grid: Grid,
 
 pub const log = std.log.scoped(.Renderer);
@@ -113,11 +121,14 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     try allocCmdBuffers(self, allocator);
     errdefer freeCmdBuffers(allocator, vkd, self.device, self.cmd_pool, self.cmd_buffers, &vk_mem_cb);
 
-    try createVertexBuffer(self, 100, 100);
+    self.atlas = try Atlas.create(allocator, 30, 20, 0, 128);
+    self.grid = try Grid.create(allocator, .{ .rows = 100, .cols = 100 });
+
+    try createVertexBuffer(self, 128);
+
+    try uploadVertexData(self);
 
     try recordCommandBuffer(self, 0);
-
-    self.grid = try Grid.create(allocator, .{});
 
     self.window_height = window.height;
     self.window_width = window.width;
@@ -225,7 +236,7 @@ pub fn deinit(self: *VulkanRenderer) void {
 
     vkd.destroyPipeline(self.device, self.pipe_line, &cb);
     vkd.destroyRenderPass(self.device, self.render_pass, &cb);
-    vkd.destroyDescriptorSetLayout(self.device, self.descriptor_set_layout, &cb);
+    // vkd.destroyDescriptorSetLayout(self.device, self.descriptor_set_layout, &cb);
     vkd.destroyPipelineLayout(self.device, self.pipe_line_layout, &cb);
 
     vkd.destroySwapchainKHR(self.device, self.swap_chain, &cb);
@@ -275,12 +286,14 @@ pub fn setCell(
     fg_color: ?ColorRGBAu8,
     bg_color: ?ColorRGBAu8,
 ) !void {
-    _ = self; // autofix
-    _ = row; // autofix
-    _ = col; // autofix
-    _ = char_code; // autofix
-    _ = fg_color; // autofix
-    _ = bg_color; // autofix
+    try self.grid.set(.{
+        .row = row,
+        .col = col,
+        .char = char_code,
+        .fg_color = fg_color orelse .White,
+        .bg_color = bg_color orelse .Black,
+        .glyph_info = self.atlas.glyph_lookup_map.get(char_code) orelse self.atlas.glyph_lookup_map.get(' ').?,
+    });
 }
 
 const std = @import("std");
@@ -298,6 +311,7 @@ const ColorRGBAf32 = common.ColorRGBAf32;
 const DynamicLibrary = @import("../../DynamicLibrary.zig");
 const VkAllocatorAdapter = @import("VkAllocatorAdapter.zig");
 const Grid = @import("../Grid.zig");
+const Atlas = @import("../../font/Atlas.zig");
 
 const QueueFamilyIndices = @import("physical_device.zig").QueueFamilyIndices;
 
@@ -314,4 +328,5 @@ const createFrameBuffers = @import("frame_buffers.zig").createFrameBuffers;
 const allocCmdBuffers = @import("cmd_buffers.zig").allocCmdBuffers;
 const freeCmdBuffers = @import("cmd_buffers.zig").freeCmdBuffers;
 const recordCommandBuffer = @import("cmd_buffers.zig").recordCommandBuffer;
-const createVertexBuffer = @import("vertex_buffer.zig").createVertexBuffer;
+const createVertexBuffer = @import("vertex_buffer.zig").createBuffers;
+const uploadVertexData = @import("vertex_buffer.zig").uploadVertexData;

@@ -6,7 +6,7 @@ const vk = @import("vulkan");
 
 const VulkanRenderer = @import("Vulkan.zig");
 
-pub fn createVertexBuffer(self: *VulkanRenderer, vertex_size: usize, uniform_size: usize) !void {
+pub fn createBuffers(self: *VulkanRenderer, vertex_size: usize) !void {
     const vkd = self.device_wrapper;
     const vki = self.instance_wrapper;
     const mem_cb = self.vk_mem.vkAllocatorCallbacks();
@@ -24,14 +24,13 @@ pub fn createVertexBuffer(self: *VulkanRenderer, vertex_size: usize, uniform_siz
         vertex_size,
         .{
             .vertex_buffer_bit = true,
-            .transfer_dst_bit = false,
+            .transfer_dst_bit = true,
         },
         .{},
         &vertex_buffer,
         &vertex_memory,
         &mem_cb,
     );
-    try vkd.bindBufferMemory(self.device, vertex_buffer, vertex_memory, 0);
 
     var uniform_buffer: vk.Buffer = .null_handle;
     var uniform_memory: vk.DeviceMemory = .null_handle;
@@ -40,7 +39,7 @@ pub fn createVertexBuffer(self: *VulkanRenderer, vertex_size: usize, uniform_siz
         vkd,
         self.device,
         &mem_properties,
-        uniform_size,
+        @sizeOf(UniformsBlock),
         .{ .uniform_buffer_bit = true },
         .{},
         &uniform_buffer,
@@ -67,7 +66,43 @@ pub fn createVertexBuffer(self: *VulkanRenderer, vertex_size: usize, uniform_siz
     );
 
     self.vertex_buffer = vertex_buffer;
+    self.vertex_memory = vertex_memory;
+
     self.uniform_buffer = uniform_buffer;
+    self.uniform_memory = uniform_memory;
+
+    self.staging_buffer = vertex_staging_buffer;
+    self.staging_memory = vertex_staging_memory;
+}
+
+pub fn uploadVertexData(self: *const VulkanRenderer) !void {
+    const full_quad = [_]Vec4(f32){
+        .{ .x = 0.0, .y = 0.0, .z = 0.0, .w = 0.0 }, // Bottom-left
+        .{ .x = 1.0, .y = 0.0, .z = 1.0, .w = 0.0 }, // Bottom-right
+        .{ .x = 1.0, .y = 1.0, .z = 1.0, .w = 1.0 }, // Top-right
+        .{ .x = 1.0, .y = 1.0, .z = 1.0, .w = 1.0 }, // Top-right
+        .{ .x = 0.0, .y = 1.0, .z = 0.0, .w = 1.0 }, // Top-left
+        .{ .x = 0.0, .y = 0.0, .z = 0.0, .w = 0.0 }, // Bottom-left
+    };
+
+    const vkd = self.device_wrapper;
+    const vertex_data_ptr = try vkd.mapMemory(self.device, self.staging_memory, 0, 128, .{});
+    defer vkd.unmapMemory(self.device, self.staging_memory);
+
+    @memcpy(@as([*]Vec4(f32), @ptrCast(@alignCast(vertex_data_ptr)))[0..6], full_quad[0..]);
+
+    @memset(@as([*]Cell, @ptrCast(@alignCast(vertex_data_ptr)))[0..1], Cell{
+        .row = 0,
+        .col = 0,
+        .char = 0,
+        .fg_color = .White,
+        .bg_color = .Black,
+        .glyph_info = .{
+            .coord_start = .zero,
+            .coord_end = .zero,
+            .bearing = .zero,
+        },
+    });
 }
 
 pub fn createBuffer(
@@ -97,6 +132,8 @@ pub fn createBuffer(
 
     const memory = try vkd.allocateMemory(device, &alloc_info, vk_mem_cb);
 
+    try vkd.bindBufferMemory(device, buffer, memory, 0);
+
     p_buffer.* = buffer;
     p_device_memory.* = memory;
 }
@@ -116,9 +153,24 @@ pub fn getVertexAttributeDescriptions() []const vk.VertexInputAttributeDescripti
         .{ .location = 3, .binding = 1, .format = .r32_uint, .offset = @offsetOf(Cell, "char") },
         .{ .location = 4, .binding = 1, .format = .r32g32b32a32_sfloat, .offset = @offsetOf(Cell, "fg_color") },
         .{ .location = 5, .binding = 1, .format = .r32g32b32a32_sfloat, .offset = @offsetOf(Cell, "bg_color") },
-        .{ .location = 6, .binding = 1, .format = .r32g32_uint, .offset = @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "coord_start") },
-        .{ .location = 7, .binding = 1, .format = .r32g32_uint, .offset = @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "coord_end") },
-        .{ .location = 8, .binding = 1, .format = .r32g32_sint, .offset = @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "bearing") },
+        .{
+            .location = 6,
+            .binding = 1,
+            .format = .r32g32_uint,
+            .offset = @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "coord_start"),
+        },
+        .{
+            .location = 7,
+            .binding = 1,
+            .format = .r32g32_uint,
+            .offset = @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "coord_end"),
+        },
+        .{
+            .location = 8,
+            .binding = 1,
+            .format = .r32g32_sint,
+            .offset = @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "bearing"),
+        },
     };
 
     return descriptions[0..];

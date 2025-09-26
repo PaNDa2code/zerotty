@@ -86,6 +86,20 @@ pub fn recordCommandBuffer(self: *const VulkanRenderer, image_index: usize) !voi
         .p_clear_values = &.{clear_color},
     };
 
+    vkd.cmdCopyBuffer(command_buffer, self.staging_buffer, self.vertex_buffer, 1, &.{.{
+        .src_offset = 0,
+        .dst_offset = 0,
+        .size = 128,
+    }});
+
+    vkd.cmdBindVertexBuffers(
+        command_buffer,
+        0,
+        2,
+        &.{ self.vertex_buffer, self.vertex_buffer },
+        &.{ 0, @sizeOf(Vec4(f32)) * 6 },
+    );
+
     vkd.cmdBeginRenderPass(command_buffer, &render_pass_begin_info, .@"inline");
 
     vkd.cmdBindPipeline(command_buffer, .graphics, self.pipe_line);
@@ -108,7 +122,23 @@ pub fn recordCommandBuffer(self: *const VulkanRenderer, image_index: usize) !voi
 
     vkd.cmdSetScissor(command_buffer, 0, 1, @ptrCast(&scissor));
 
-    vkd.cmdDraw(command_buffer, 0, 0, 0, 0);
+    vkd.cmdBindDescriptorSets(
+        command_buffer,
+        .graphics,
+        self.pipe_line_layout,
+        0,
+        1,
+        &.{self.descriptor_set},
+        0,
+        null,
+    );
+
+    vkd.cmdDraw(command_buffer, 6, 1, 0, 0);
 
     vkd.cmdEndRenderPass(command_buffer);
 }
+
+const math = @import("../math.zig");
+const Vec2 = math.Vec2;
+const Vec3 = math.Vec3;
+const Vec4 = math.Vec4;

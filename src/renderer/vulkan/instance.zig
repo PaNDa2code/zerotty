@@ -22,7 +22,7 @@ fn _createInstance(
         .p_application_name = "zerotty",
 
         .application_version = @bitCast(vk.makeApiVersion(0, 0, 0, 0)),
-        .api_version = @bitCast(vk.API_VERSION_1_0),
+        .api_version = @bitCast(vk.API_VERSION_1_4),
 
         .engine_version = 0,
     };

@@ -12,7 +12,6 @@ const VulkanRenderer = @import("Vulkan.zig");
 const vert_shader_spv = &assets.shaders.cell_vert;
 const frag_shader_spv = &assets.shaders.cell_frag;
 
-
 const vertex_binding = @import("vertex_buffer.zig").getVertexBindingDescriptions();
 const vertex_attributes = @import("vertex_buffer.zig").getVertexAttributeDescriptions();
 
@@ -23,7 +22,7 @@ pub fn createPipeLine(self: *VulkanRenderer) !void {
         self.device,
         self.physical_device,
         &self.pipe_line_layout,
-        &self.descriptor_set_layout,
+        &self.descriptor_set,
         self.render_pass,
         self.swap_chain_extent,
         &self.vk_mem.vkAllocatorCallbacks(),
@@ -36,7 +35,7 @@ fn _createPipeLine(
     dev: vk.Device,
     physical_device: vk.PhysicalDevice,
     p_pipe_line_layout: *vk.PipelineLayout,
-    p_descriptor_set_layout: *vk.DescriptorSetLayout,
+    p_descriptor_set: *vk.DescriptorSet,
     render_pass: vk.RenderPass,
     swap_chain_extent: vk.Extent2D,
     vkmemcb: *const vk.AllocationCallbacks,
@@ -81,12 +80,12 @@ fn _createPipeLine(
             .descriptor_count = 1,
             .stage_flags = .{ .vertex_bit = true },
         },
-        // .{
-        //     .binding = 1,
-        //     .descriptor_type = .combined_image_sampler,
-        //     .descriptor_count = 1,
-        //     .stage_flags = .{ .fragment_bit = true },
-        // },
+        .{
+            .binding = 1,
+            .descriptor_type = .combined_image_sampler,
+            .descriptor_count = 1,
+            .stage_flags = .{ .fragment_bit = true },
+        },
     };
 
     const descriptor_set_layout_info = vk.DescriptorSetLayoutCreateInfo{
@@ -217,8 +216,38 @@ fn _createPipeLine(
         else => @panic("creating vulkan pipeline didn't succeed"),
     }
 
+    const uniform_descriptor_pool_size = vk.DescriptorPoolSize{
+        .type = .uniform_buffer,
+        .descriptor_count = 1,
+    };
+
+    const sampled_image_descriptor_pool_size = vk.DescriptorPoolSize{
+        .type = .combined_image_sampler,
+        .descriptor_count = 1,
+    };
+
+    const descriptor_pool_info = vk.DescriptorPoolCreateInfo{
+        .max_sets = 1,
+        .pool_size_count = 2,
+        .p_pool_sizes = &.{
+            uniform_descriptor_pool_size,
+            sampled_image_descriptor_pool_size,
+        },
+    };
+
+    const descriptor_pool = try vkd.createDescriptorPool(dev, &descriptor_pool_info, vkmemcb);
+
+    const descriptor_set_alloc_info = vk.DescriptorSetAllocateInfo{
+        .descriptor_pool = descriptor_pool,
+        .descriptor_set_count = 1,
+        .p_set_layouts = &.{descriptor_set_layout},
+    };
+
+    var descriptor_set: vk.DescriptorSet = .null_handle;
+    try vkd.allocateDescriptorSets(dev, &descriptor_set_alloc_info, @ptrCast(&descriptor_set));
+
     p_pipe_line_layout.* = pipeline_layout;
-    p_descriptor_set_layout.* = descriptor_set_layout;
+    p_descriptor_set.* = descriptor_set;
 
     return graphics_pipeline;
 }
