@@ -20,12 +20,12 @@ pub fn createVertexBuffer(self: *VulkanRenderer, vertex_size: usize, uniform_siz
     try createBuffer(
         vkd,
         self.device,
+        &mem_properties,
         vertex_size,
         .{
             .vertex_buffer_bit = true,
             .transfer_dst_bit = false,
         },
-        &mem_properties,
         .{},
         &vertex_buffer,
         &vertex_memory,
@@ -39,9 +39,9 @@ pub fn createVertexBuffer(self: *VulkanRenderer, vertex_size: usize, uniform_siz
     try createBuffer(
         vkd,
         self.device,
+        &mem_properties,
         uniform_size,
         .{ .uniform_buffer_bit = true },
-        &mem_properties,
         .{},
         &uniform_buffer,
         &uniform_memory,
@@ -54,9 +54,9 @@ pub fn createVertexBuffer(self: *VulkanRenderer, vertex_size: usize, uniform_siz
     try createBuffer(
         vkd,
         self.device,
+        &mem_properties,
         vertex_size,
         .{ .transfer_src_bit = true },
-        &mem_properties,
         .{
             .host_visible_bit = true,
             .host_coherent_bit = true,
@@ -73,9 +73,9 @@ pub fn createVertexBuffer(self: *VulkanRenderer, vertex_size: usize, uniform_siz
 pub fn createBuffer(
     vkd: *const vk.DeviceWrapper,
     device: vk.Device,
+    physical_mem_props: *const vk.PhysicalDeviceMemoryProperties,
     size: vk.DeviceSize,
     usage: vk.BufferUsageFlags,
-    props: *const vk.PhysicalDeviceMemoryProperties,
     mem_props: vk.MemoryPropertyFlags,
     p_buffer: *vk.Buffer,
     p_device_memory: *vk.DeviceMemory,
@@ -92,7 +92,7 @@ pub fn createBuffer(
 
     const alloc_info = vk.MemoryAllocateInfo{
         .allocation_size = mem_reqs.size,
-        .memory_type_index = findMemoryType(props, mem_reqs.memory_type_bits, mem_props),
+        .memory_type_index = findMemoryType(physical_mem_props, mem_reqs.memory_type_bits, mem_props),
     };
 
     const memory = try vkd.allocateMemory(device, &alloc_info, vk_mem_cb);
