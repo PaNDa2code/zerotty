@@ -77,6 +77,7 @@ pub fn loop(self: *App) void {
     self.window.keyboard_cb = &keyboard_cb;
     while (!self.window.exit) {
         self.window.pumpMessages();
+        drawCallBack(render);
     }
 }
 

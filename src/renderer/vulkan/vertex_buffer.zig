@@ -176,7 +176,7 @@ pub fn getVertexAttributeDescriptions() []const vk.VertexInputAttributeDescripti
     return descriptions[0..];
 }
 
-inline fn findMemoryType(
+pub inline fn findMemoryType(
     mem_properties: *const vk.PhysicalDeviceMemoryProperties,
     type_filter: u32,
     properties: vk.MemoryPropertyFlags,

@@ -43,11 +43,22 @@ fn _createRenaderPass(
         .pipeline_bind_point = .graphics,
     };
 
+    const dependancy = vk.SubpassDependency{
+        .src_subpass = vk.SUBPASS_EXTERNAL,
+        .dst_subpass = 0,
+        .src_stage_mask = .{ .color_attachment_output_bit = true },
+        .src_access_mask = .{},
+        .dst_stage_mask = .{ .color_attachment_output_bit = true },
+        .dst_access_mask = .{ .color_attachment_write_bit = true },
+    };
+
     const render_pass_create_info = vk.RenderPassCreateInfo{
         .attachment_count = 1,
         .p_attachments = &.{color_attachment},
         .subpass_count = 1,
         .p_subpasses = &.{subpass_discription},
+        .dependency_count = 1,
+        .p_dependencies = &.{dependancy},
     };
 
     const render_pass = try vkd.createRenderPass(

@@ -5,65 +5,63 @@ const Allocator = std.mem.Allocator;
 
 const VulkanRenderer = @import("Vulkan.zig");
 
-pub fn allocCmdBuffers(self: *VulkanRenderer, allocator: Allocator) !void {
-    self.cmd_buffers = try _allocCmdBuffers(
-        allocator,
-        self.device_wrapper,
-        self.device,
+pub fn drawFrame(self: *const VulkanRenderer) !void {
+    const vkd = self.device_wrapper;
+    const device = self.device;
+    const inflight_fence = self.in_flight_fence;
+
+    const res = try vkd.waitForFences(
+        device,
         1,
-        self.queue_family_indcies.graphics_family,
-        &self.cmd_pool,
-        &self.vk_mem.vkAllocatorCallbacks(),
+        &.{inflight_fence},
+        .true,
+        0,
     );
-}
 
-fn _allocCmdBuffers(
-    allocator: Allocator,
-    vkd: *const vk.DeviceWrapper,
-    device: vk.Device,
-    primary_count: usize,
-    queue_family_index: u32,
-    p_cmd_pool: *vk.CommandPool,
-    vk_mem_cb: *const vk.AllocationCallbacks,
-) ![]const vk.CommandBuffer {
-    const cmd_pool_create_info = vk.CommandPoolCreateInfo{
-        .flags = .{ .reset_command_buffer_bit = true },
-        .queue_family_index = queue_family_index,
+    if (res == .timeout) return;
+
+    try vkd.resetFences(device, 1, &.{inflight_fence});
+
+    const next_image_index = try nextImage(
+        vkd,
+        device,
+        self.swap_chain,
+        self.image_available_semaphore,
+    );
+
+    try vkd.resetCommandBuffer(self.cmd_buffers[0], .{});
+
+    try recordCommandBuffer(self, next_image_index);
+
+    try supmitCmdBuffer(self);
+
+    const present_info = vk.PresentInfoKHR{
+        .swapchain_count = 1,
+        .p_swapchains = &.{self.swap_chain},
+        .p_image_indices = &.{next_image_index},
+
+        .wait_semaphore_count = 1,
+        .p_wait_semaphores = &.{self.render_finished_semaphore},
     };
 
-    const cmd_pool = try vkd.createCommandPool(device, &cmd_pool_create_info, vk_mem_cb);
-    errdefer vkd.destroyCommandPool(device, cmd_pool, vk_mem_cb);
-
-    const cmd_buffer_alloc_info = vk.CommandBufferAllocateInfo{
-        .command_pool = cmd_pool,
-        .command_buffer_count = @intCast(primary_count),
-        .level = .primary,
-    };
-
-    const cmd_buffers = try allocator.alloc(vk.CommandBuffer, primary_count);
-    errdefer allocator.free(cmd_buffers);
-
-    try vkd.allocateCommandBuffers(device, &cmd_buffer_alloc_info, cmd_buffers.ptr);
-
-    p_cmd_pool.* = cmd_pool;
-
-    return cmd_buffers;
+    _ = try vkd.queuePresentKHR(self.present_queue, &present_info);
 }
 
-pub fn freeCmdBuffers(
-    allocator: Allocator,
+fn nextImage(
     vkd: *const vk.DeviceWrapper,
     device: vk.Device,
-    cmd_pool: vk.CommandPool,
-    buffers: []const vk.CommandBuffer,
-    vk_mem_cb: *const vk.AllocationCallbacks,
-) void {
-    vkd.freeCommandBuffers(device, cmd_pool, @intCast(buffers.len), buffers.ptr);
-    vkd.destroyCommandPool(device, cmd_pool, vk_mem_cb);
-    allocator.free(buffers);
+    swap_chain: vk.SwapchainKHR,
+    semaphore: vk.Semaphore,
+) !u32 {
+    const next_image = try vkd.acquireNextImageKHR(device, swap_chain, std.math.maxInt(u64), semaphore, .null_handle);
+
+    return next_image.image_index;
 }
 
-pub fn recordCommandBuffer(self: *const VulkanRenderer, image_index: usize) !void {
+pub fn recordCommandBuffer(
+    self: *const VulkanRenderer,
+    image_index: usize,
+) !void {
     const vkd = self.device_wrapper;
     const command_buffer = self.cmd_buffers[0];
 
@@ -152,6 +150,19 @@ pub fn supmitCmdBuffer(self: *const VulkanRenderer) !void {
     const submit_info = vk.SubmitInfo{
         .command_buffer_count = 1,
         .p_command_buffers = &.{self.cmd_buffers[0]},
+
+        .wait_semaphore_count = 1,
+        .p_wait_semaphores = &.{
+            self.image_available_semaphore,
+        },
+        .p_wait_dst_stage_mask = &.{
+            .{ .color_attachment_output_bit = true },
+        },
+
+        .signal_semaphore_count = 1,
+        .p_signal_semaphores = &.{
+            self.render_finished_semaphore,
+        },
     };
 
     const vkd = self.device_wrapper;
@@ -160,18 +171,8 @@ pub fn supmitCmdBuffer(self: *const VulkanRenderer) !void {
         self.graphics_queue,
         1,
         &.{submit_info},
-        .null_handle,
+        self.in_flight_fence,
     );
-
-    try vkd.queueWaitIdle(self.graphics_queue);
-
-    const present_info = vk.PresentInfoKHR{
-        .swapchain_count = 1,
-        .p_swapchains = &.{self.swap_chain},
-        .p_image_indices = &.{0},
-    };
-
-    _ = try vkd.queuePresentKHR(self.present_queue, &present_info);
 }
 
 const math = @import("../math.zig");

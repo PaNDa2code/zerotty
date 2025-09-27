@@ -22,7 +22,9 @@ pub fn createPipeLine(self: *VulkanRenderer) !void {
         self.device,
         self.physical_device,
         &self.pipe_line_layout,
+        &self.descriptor_set_layout,
         &self.descriptor_set,
+        &self.descriptor_pool,
         self.render_pass,
         self.swap_chain_extent,
         &self.vk_mem.vkAllocatorCallbacks(),
@@ -35,7 +37,9 @@ fn _createPipeLine(
     dev: vk.Device,
     physical_device: vk.PhysicalDevice,
     p_pipe_line_layout: *vk.PipelineLayout,
+    p_descriptor_set_layout: *vk.DescriptorSetLayout,
     p_descriptor_set: *vk.DescriptorSet,
+    p_descriptor_pool: *vk.DescriptorPool,
     render_pass: vk.RenderPass,
     swap_chain_extent: vk.Extent2D,
     vkmemcb: *const vk.AllocationCallbacks,
@@ -247,7 +251,9 @@ fn _createPipeLine(
     try vkd.allocateDescriptorSets(dev, &descriptor_set_alloc_info, @ptrCast(&descriptor_set));
 
     p_pipe_line_layout.* = pipeline_layout;
+    p_descriptor_set_layout.* = descriptor_set_layout;
     p_descriptor_set.* = descriptor_set;
+    p_descriptor_pool.* = descriptor_pool;
 
     return graphics_pipeline;
 }

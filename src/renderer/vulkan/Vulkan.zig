@@ -17,6 +17,9 @@ swap_chain_extent: vk.Extent2D,
 swap_chain_image_views: []vk.ImageView,
 
 descriptor_set: vk.DescriptorSet,
+descriptor_set_layout: vk.DescriptorSetLayout,
+descriptor_pool: vk.DescriptorPool,
+
 frame_buffers: []vk.Framebuffer,
 
 vertex_buffer_size: usize,
@@ -28,6 +31,15 @@ uniform_buffer: vk.Buffer,
 vertex_memory: vk.DeviceMemory,
 staging_memory: vk.DeviceMemory,
 uniform_memory: vk.DeviceMemory,
+
+image_available_semaphore: vk.Semaphore,
+render_finished_semaphore: vk.Semaphore,
+in_flight_fence: vk.Fence,
+
+atlas_image: vk.Image,
+atlas_image_view: vk.ImageView,
+atlas_image_memory: vk.DeviceMemory,
+atlas_sampler: vk.Sampler,
 
 surface: vk.SurfaceKHR, // Window surface
 vk_mem: *VkAllocatorAdapter,
@@ -124,9 +136,15 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     self.atlas = try Atlas.create(allocator, 30, 20, 0, 128);
     self.grid = try Grid.create(allocator, .{ .rows = 100, .cols = 100 });
 
+    try createAtlasTexture(self);
+
     try createVertexBuffer(self, 128);
 
+    try createSyncObjects(self);
+
     try uploadVertexData(self);
+
+    try updateUniformData(self);
 
     try recordCommandBuffer(self, 0);
 
@@ -223,6 +241,8 @@ pub fn deinit(self: *VulkanRenderer) void {
     const vki = self.instance_wrapper;
     const vkd = self.device_wrapper;
 
+    vkd.deviceWaitIdle(self.device) catch {};
+
     freeCmdBuffers(self.vk_mem.allocator, vkd, self.device, self.cmd_pool, self.cmd_buffers, &cb);
 
     for (self.swap_chain_image_views) |view| {
@@ -234,9 +254,30 @@ pub fn deinit(self: *VulkanRenderer) void {
     }
     allocator.free(self.frame_buffers);
 
+    vkd.destroyBuffer(self.device, self.vertex_buffer, &cb);
+    vkd.destroyBuffer(self.device, self.staging_buffer, &cb);
+    vkd.destroyBuffer(self.device, self.uniform_buffer, &cb);
+
+    vkd.freeMemory(self.device, self.vertex_memory, &cb);
+    vkd.freeMemory(self.device, self.staging_memory, &cb);
+    vkd.freeMemory(self.device, self.uniform_memory, &cb);
+
+    vkd.destroyImageView(self.device, self.atlas_image_view, &cb);
+    vkd.destroyImage(self.device, self.atlas_image, &cb);
+    vkd.freeMemory(self.device, self.atlas_image_memory, &cb);
+    vkd.destroySampler(self.device, self.atlas_sampler, &cb);
+
+    vkd.destroySemaphore(self.device, self.image_available_semaphore, &cb);
+    vkd.destroySemaphore(self.device, self.render_finished_semaphore, &cb);
+    vkd.destroyFence(self.device, self.in_flight_fence, &cb);
+
     vkd.destroyPipeline(self.device, self.pipe_line, &cb);
     vkd.destroyRenderPass(self.device, self.render_pass, &cb);
-    // vkd.destroyDescriptorSetLayout(self.device, self.descriptor_set_layout, &cb);
+
+    // vkd.freeDescriptorSets(self.device, self.descriptor_pool, 1, &.{self.descriptor_set}) catch {};
+    vkd.destroyDescriptorSetLayout(self.device, self.descriptor_set_layout, &cb);
+    vkd.destroyDescriptorPool(self.device, self.descriptor_pool, &cb);
+
     vkd.destroyPipelineLayout(self.device, self.pipe_line_layout, &cb);
 
     vkd.destroySwapchainKHR(self.device, self.swap_chain, &cb);
@@ -257,6 +298,9 @@ pub fn deinit(self: *VulkanRenderer) void {
 
     self.vk_mem.deinit();
     allocator.destroy(self.vk_mem);
+
+    self.grid.free();
+    self.atlas.deinit(allocator);
 }
 
 pub fn clearBuffer(self: *VulkanRenderer, color: ColorRGBAf32) void {
@@ -271,7 +315,7 @@ pub fn resize(self: *VulkanRenderer, width: u32, height: u32) !void {
 }
 
 pub fn presentBuffer(self: *VulkanRenderer) void {
-    _ = self;
+    drawFrame(self) catch @panic("drawFrame failed");
 }
 
 pub fn renaderGrid(self: *VulkanRenderer) void {
@@ -328,5 +372,10 @@ const createFrameBuffers = @import("frame_buffers.zig").createFrameBuffers;
 const allocCmdBuffers = @import("cmd_buffers.zig").allocCmdBuffers;
 const freeCmdBuffers = @import("cmd_buffers.zig").freeCmdBuffers;
 const recordCommandBuffer = @import("cmd_buffers.zig").recordCommandBuffer;
+const submitCmdBuffer = @import("cmd_buffers.zig").supmitCmdBuffer;
 const createVertexBuffer = @import("vertex_buffer.zig").createBuffers;
 const uploadVertexData = @import("vertex_buffer.zig").uploadVertexData;
+const createAtlasTexture = @import("texture.zig").createAtlasTexture;
+const updateUniformData = @import("uniform_data.zig").updateUniformData;
+const createSyncObjects = @import("sync.zig").createSyncObjects;
+const drawFrame = @import("frames.zig").drawFrame;
