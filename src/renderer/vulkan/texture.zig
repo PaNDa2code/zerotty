@@ -92,4 +92,16 @@ pub fn createAtlasTexture(self: *VulkanRenderer) !void {
     self.atlas_sampler = sampler;
 }
 
+pub fn uploadAtlas(self: *const VulkanRenderer) !void {
+    const vkd = self.device_wrapper;
+
+    const bytes = self.atlas.buffer.len;
+    const statging_ptr: [*]u8 =
+        @ptrCast(try vkd.mapMemory(self.device, self.staging_memory, 0, bytes, .{}));
+
+    @memcpy(statging_ptr[0..bytes], self.atlas.buffer);
+
+    vkd.unmapMemory(self.device, self.staging_memory);
+}
+
 const findMemoryType = @import("vertex_buffer.zig").findMemoryType;

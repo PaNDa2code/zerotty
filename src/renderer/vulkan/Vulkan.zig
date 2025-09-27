@@ -36,6 +36,7 @@ image_available_semaphore: vk.Semaphore,
 render_finished_semaphore: vk.Semaphore,
 in_flight_fence: vk.Fence,
 
+atlas_dirty: bool,
 atlas_image: vk.Image,
 atlas_image_view: vk.ImageView,
 atlas_image_memory: vk.DeviceMemory,
@@ -133,12 +134,27 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     try allocCmdBuffers(self, allocator);
     errdefer freeCmdBuffers(allocator, vkd, self.device, self.cmd_pool, self.cmd_buffers, &vk_mem_cb);
 
+    self.atlas_dirty = true;
+
     self.atlas = try Atlas.create(allocator, 30, 20, 0, 128);
-    self.grid = try Grid.create(allocator, .{ .rows = 100, .cols = 100 });
+
+    const grid_rows = window.height / self.atlas.cell_height;
+    const grid_cols = window.width / self.atlas.cell_width;
+
+    self.grid = try Grid.create(allocator, .{
+        .rows = grid_rows,
+        .cols = grid_cols,
+    });
+
+    const vertex_memory_size = grid_rows * grid_cols * @sizeOf(Grid.Cell);
+    const altas_size = self.atlas.buffer.len;
+
+    const staging_memory_size = @max(altas_size, vertex_memory_size);
+
+    try createBuffers(self, vertex_memory_size, staging_memory_size);
 
     try createAtlasTexture(self);
 
-    try createVertexBuffer(self, 128);
 
     try createSyncObjects(self);
 
@@ -146,7 +162,7 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
 
     try updateUniformData(self);
 
-    try recordCommandBuffer(self, 0);
+    try updateDescriptorSets(self);
 
     self.window_height = window.height;
     self.window_width = window.width;
@@ -156,74 +172,6 @@ fn allocAndLoad(T: type, allocator: Allocator, loader: anytype, loader_args: any
     const ptr = try allocator.create(T);
     ptr.* = @call(.auto, T.load, loader_args ++ .{loader});
     return ptr;
-}
-
-fn setImageLayout(
-    cmd_buffer: vk.CommandBuffer,
-    image: vk.Image,
-    aspects: vk.ImageAspectFlags,
-    old_layout: vk.ImageLayout,
-    new_layout: vk.ImageLayout,
-) !void {
-    _ = cmd_buffer;
-    var src_access_mask: vk.AccessFlags = .{};
-    var dst_access_mask: vk.AccessFlags = .{};
-
-    switch (old_layout) {
-        .preinitialized => {
-            src_access_mask.host_write_bit = true;
-            src_access_mask.host_read_bit = true;
-        },
-        .attachment_optimal => {
-            src_access_mask.color_attachment_write_bit = true;
-        },
-        .depth_stentcil_attachment_optimal => {
-            src_access_mask.depth_stencil_attachment_write_bit = true;
-        },
-        .shader_read_only_optimal => {
-            src_access_mask.shader_read_bit = true;
-        },
-        else => {},
-    }
-
-    switch (new_layout) {
-        .transfer_dst_optimal => {
-            dst_access_mask.transfer_write_bit = true;
-        },
-        .transfer_src_optimal => {
-            src_access_mask.transfer_read_bit = true;
-            dst_access_mask.transfer_read_bit = true;
-        },
-        .attachment_optimal => {
-            dst_access_mask.color_attachment_write_bit = true;
-            src_access_mask.transfer_read_bit = true;
-        },
-        .depth_stencil_attachment_optimal => {
-            dst_access_mask.depth_stencil_attachment_write_bit = true;
-        },
-        .shader_read_only_optimal => {
-            src_access_mask.host_write_bit = true;
-            src_access_mask.transfer_write_bit = true;
-            dst_access_mask.shader_read_bit = true;
-        },
-        else => {},
-    }
-    const image_barriar: vk.ImageMemoryBarrier = .{
-        .old_layout = old_layout,
-        .new_layout = new_layout,
-        .src_access_mask = src_access_mask,
-        .dst_access_mask = dst_access_mask,
-        .image = image,
-        .subresource_range = .{
-            .aspect_mask = aspects,
-            .base_mip_level = 0,
-            .level_count = 1,
-            .base_array_layer = 0,
-            .layer_count = 1,
-        },
-    };
-
-    _ = image_barriar;
 }
 
 fn baseGetInstanceProcAddress(_: vk.Instance, procname: [*:0]const u8) vk.PfnVoidFunction {
@@ -373,9 +321,11 @@ const allocCmdBuffers = @import("cmd_buffers.zig").allocCmdBuffers;
 const freeCmdBuffers = @import("cmd_buffers.zig").freeCmdBuffers;
 const recordCommandBuffer = @import("cmd_buffers.zig").recordCommandBuffer;
 const submitCmdBuffer = @import("cmd_buffers.zig").supmitCmdBuffer;
-const createVertexBuffer = @import("vertex_buffer.zig").createBuffers;
+const createBuffers = @import("vertex_buffer.zig").createBuffers;
 const uploadVertexData = @import("vertex_buffer.zig").uploadVertexData;
 const createAtlasTexture = @import("texture.zig").createAtlasTexture;
+const uploadAtlasToStagingBuffer = @import("texture.zig").uploadAtlas;
+const updateDescriptorSets = @import("uniform_data.zig").updateDescriptorSets;
 const updateUniformData = @import("uniform_data.zig").updateUniformData;
 const createSyncObjects = @import("sync.zig").createSyncObjects;
 const drawFrame = @import("frames.zig").drawFrame;

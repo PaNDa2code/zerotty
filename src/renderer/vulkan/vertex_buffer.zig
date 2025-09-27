@@ -6,7 +6,7 @@ const vk = @import("vulkan");
 
 const VulkanRenderer = @import("Vulkan.zig");
 
-pub fn createBuffers(self: *VulkanRenderer, vertex_size: usize) !void {
+pub fn createBuffers(self: *VulkanRenderer, vertex_size: usize, staging_size: usize) !void {
     const vkd = self.device_wrapper;
     const vki = self.instance_wrapper;
     const mem_cb = self.vk_mem.vkAllocatorCallbacks();
@@ -41,7 +41,10 @@ pub fn createBuffers(self: *VulkanRenderer, vertex_size: usize) !void {
         &mem_properties,
         @sizeOf(UniformsBlock),
         .{ .uniform_buffer_bit = true },
-        .{},
+        .{
+            .host_visible_bit = true,
+            .host_coherent_bit = true,
+        },
         &uniform_buffer,
         &uniform_memory,
         &mem_cb,
@@ -54,7 +57,7 @@ pub fn createBuffers(self: *VulkanRenderer, vertex_size: usize) !void {
         vkd,
         self.device,
         &mem_properties,
-        vertex_size,
+        staging_size,
         .{ .transfer_src_bit = true },
         .{
             .host_visible_bit = true,

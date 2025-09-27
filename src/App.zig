@@ -36,8 +36,8 @@ pub fn start(self: *App) !void {
     try self.buffer.init(1024 * 64);
     try self.pty.open(.{
         .size = .{
-            .height = 0, // @intCast(self.window.renderer.backend.grid.rows),
-            .width = 0, // @intCast(self.window.renderer.backend.grid.cols),
+            .height = @intCast(self.window.renderer.backend.grid.rows),
+            .width = @intCast(self.window.renderer.backend.grid.cols),
         },
     });
 

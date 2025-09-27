@@ -5,7 +5,7 @@ const Allocator = std.mem.Allocator;
 
 const VulkanRenderer = @import("Vulkan.zig");
 
-pub fn updateUniformData(self: *VulkanRenderer) !void {
+pub fn updateDescriptorSets(self: *VulkanRenderer) !void {
     const vkd = self.device_wrapper;
 
     const uniform_block_buffer_info = vk.DescriptorBufferInfo{
@@ -44,6 +44,32 @@ pub fn updateUniformData(self: *VulkanRenderer) !void {
 
     const writes = [_]vk.WriteDescriptorSet{ uniform_block_write, image_write };
     vkd.updateDescriptorSets(self.device, writes.len, &writes, 0, null);
+}
+
+pub fn updateUniformData(self: *const VulkanRenderer) !void {
+    const vkd = self.device_wrapper;
+
+    const ptr = try vkd.mapMemory(
+        self.device,
+        self.uniform_memory,
+        0,
+        @sizeOf(UniformsBlock),
+        .{},
+    );
+
+    @as(*UniformsBlock, @ptrCast(@alignCast(ptr))).* = .{
+        .cell_height = @floatFromInt(self.atlas.cell_height),
+        .cell_width = @floatFromInt(self.atlas.cell_width),
+        .screen_height = @floatFromInt(self.window_height),
+        .screen_width = @floatFromInt(self.window_width),
+        .atlas_cols = @floatFromInt(self.atlas.cols),
+        .atlas_rows = @floatFromInt(self.atlas.rows),
+        .atlas_height = @floatFromInt(self.atlas.height),
+        .atlas_width = @floatFromInt(self.atlas.width),
+        .descender = @floatFromInt(self.atlas.descender),
+    };
+
+    vkd.unmapMemory(self.device, self.uniform_memory);
 }
 
 const UniformsBlock = @import("vertex_buffer.zig").UniformsBlock;
