@@ -35,17 +35,17 @@ jobs:
           fetch-depth: 0
           submodules: true
 
-      - name: Build and Run tests
-        run: zig build -Dtarget=${{ matrix.target }} test -Dno-lsp-check
-
       - name: Cache zig build
         uses: actions/cache@v4
         with:
           path: .zig-cache
-          key: ${{ runner.os }}-zig-${{ hashFiles('build.zig', 'build.zig.zon', 'build/**/*.zig') }}-${{ github.sha }}
+          key: ${{ runner.os }}-zig-cache-${{ hashFiles('build.zig', 'build.zig.zon') }}
           restore-keys: |
-            ${{ runner.os }}-zig-${{ hashFiles('build.zig', 'build.zig.zon', 'build/**/*.zig') }}-
-            ${{ runner.os }}-zig-
+              ${{ runner.os }}-zig-cache-${{ hashFiles('build.zig', 'build.zig.zon') }}
+              ${{ runner.os }}-zig-cache-
+
+      - name: Build and Run tests
+        run: zig build -Dtarget=${{ matrix.target }} test -Dno-lsp-check
 
       - name: Make test badge
         uses: action-badges/core@0.3.1
