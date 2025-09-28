@@ -36,10 +36,7 @@ jobs:
           submodules: true
 
       - name: Build and Run tests
-        run: |
-          zig build test \
-            -Dtarget=${{ matrix.target }} \
-            -Dno-lsp-check \
+        run: zig build test -Dtarget=${{ matrix.target }} -Dno-lsp-check
 
       - name: Make test badge
         uses: action-badges/core@0.3.1
