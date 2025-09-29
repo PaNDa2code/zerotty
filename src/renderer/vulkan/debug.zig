@@ -26,7 +26,7 @@ fn debugMessenger(
             .verbose_bit_ext = true,
             .warning_bit_ext = true,
             .error_bit_ext = true,
-            .info_bit_ext = true,
+            // .info_bit_ext = true,
         },
         .message_type = .{
             .general_bit_ext = true,

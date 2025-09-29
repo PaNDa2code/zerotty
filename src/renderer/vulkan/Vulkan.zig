@@ -86,8 +86,10 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
 
     if (build_options.@"renderer-debug") {
         try setupDebugMessenger(self);
-        errdefer vki.destroyDebugUtilsMessengerEXT(self.instance, self.debug_messenger, &vk_mem_cb);
     }
+
+    errdefer if (build_options.@"renderer-debug")
+        vki.destroyDebugUtilsMessengerEXT(self.instance, self.debug_messenger, &vk_mem_cb);
 
     try createWindowSurface(self, window);
     errdefer vki.destroySurfaceKHR(self.instance, self.surface, &vk_mem_cb);
@@ -97,8 +99,10 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
 
     try pickPhysicalDevicesAlloc(self, allocator, &physical_devices, &queue_family_indcies);
 
-    defer allocator.free(queue_family_indcies);
-    defer allocator.free(physical_devices);
+    defer {
+        allocator.free(queue_family_indcies);
+        allocator.free(physical_devices);
+    }
 
     self.device = .null_handle;
 
@@ -113,15 +117,22 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
         return error.DeviceCreationFailed;
 
     const vkd = try allocAndLoad(vk.DeviceWrapper, allocator, vki.dispatch.vkGetDeviceProcAddr.?, .{self.device});
-    errdefer vkd.destroyDevice(self.device, &vk_mem_cb);
-    errdefer allocator.destroy(vkd);
+    errdefer {
+        vkd.destroyDevice(self.device, &vk_mem_cb);
+        allocator.destroy(vkd);
+    }
 
     self.device_wrapper = vkd;
 
     getQueues(self);
 
     try createSwapChain(self, allocator);
-    errdefer vkd.destroySwapchainKHR(self.device, self.swap_chain, &vk_mem_cb);
+    errdefer {
+        for (self.swap_chain_image_views) |view| {
+            vkd.destroyImageView(self.device, view, &vk_mem_cb);
+        }
+        vkd.destroySwapchainKHR(self.device, self.swap_chain, &vk_mem_cb);
+    }
 
     try createRenderPass(self);
     errdefer vkd.destroyRenderPass(self.device, self.render_pass, &vk_mem_cb);
@@ -134,12 +145,25 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     }
 
     try createPipeLine(self);
-    errdefer vkd.destroyPipeline(self.device, self.pipe_line, &vk_mem_cb);
+    errdefer {
+        vkd.destroyPipeline(self.device, self.pipe_line, &vk_mem_cb);
+        vkd.destroyPipelineLayout(self.device, self.pipe_line_layout, &vk_mem_cb);
+    }
 
     try createFrameBuffers(self, allocator);
+    errdefer {
+        for (self.frame_buffers) |buffer| {
+            vkd.destroyFramebuffer(self.device, buffer, &vk_mem_cb);
+        }
+        allocator.free(self.frame_buffers);
+    }
 
     try allocCmdBuffers(self, allocator);
-    // errdefer freeCmdBuffers(allocator, vkd, self.device, self.cmd_pool, self.cmd_buffers, &vk_mem_cb);
+    errdefer {
+        vkd.freeCommandBuffers(self.device, self.cmd_pool, @intCast(self.cmd_buffers.len), self.cmd_buffers.ptr);
+        vkd.destroyCommandPool(self.device, self.cmd_pool, &vk_mem_cb);
+        allocator.free(self.cmd_buffers);
+    }
 
     self.atlas = try Atlas.create(allocator, 30, 20, 0, 128);
 
@@ -157,10 +181,29 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     const staging_memory_size = @max(altas_size, vertex_memory_size);
 
     try createBuffers(self, vertex_memory_size, staging_memory_size);
+    errdefer {
+        vkd.destroyBuffer(self.device, self.vertex_buffer, &vk_mem_cb);
+        vkd.destroyBuffer(self.device, self.staging_buffer, &vk_mem_cb);
+        vkd.destroyBuffer(self.device, self.uniform_buffer, &vk_mem_cb);
+        vkd.freeMemory(self.device, self.vertex_memory, &vk_mem_cb);
+        vkd.freeMemory(self.device, self.staging_memory, &vk_mem_cb);
+        vkd.freeMemory(self.device, self.uniform_memory, &vk_mem_cb);
+    }
 
     try createAtlasTexture(self);
+    errdefer {
+        vkd.destroyImageView(self.device, self.atlas_image_view, &vk_mem_cb);
+        vkd.destroyImage(self.device, self.atlas_image, &vk_mem_cb);
+        vkd.freeMemory(self.device, self.atlas_image_memory, &vk_mem_cb);
+        vkd.destroySampler(self.device, self.atlas_sampler, &vk_mem_cb);
+    }
 
     try createSyncObjects(self);
+    errdefer {
+        vkd.destroySemaphore(self.device, self.image_available_semaphore, &vk_mem_cb);
+        vkd.destroySemaphore(self.device, self.render_finished_semaphore, &vk_mem_cb);
+        vkd.destroyFence(self.device, self.in_flight_fence, &vk_mem_cb);
+    }
 
     try uploadVertexData(self);
 
