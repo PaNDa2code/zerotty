@@ -168,6 +168,8 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
 
     try updateUniformData(self);
 
+    try uploadAtlas(self);
+
     try updateDescriptorSets(self);
 
     self.window_height = window.height;
@@ -330,7 +332,7 @@ const submitCmdBuffer = @import("cmd_buffers.zig").supmitCmdBuffer;
 const createBuffers = @import("vertex_buffer.zig").createBuffers;
 const uploadVertexData = @import("vertex_buffer.zig").uploadVertexData;
 const createAtlasTexture = @import("texture.zig").createAtlasTexture;
-const uploadAtlasToStagingBuffer = @import("texture.zig").uploadAtlas;
+const uploadAtlas = @import("texture.zig").uploadAtlas;
 const updateDescriptorSets = @import("uniform_data.zig").updateDescriptorSets;
 const updateUniformData = @import("uniform_data.zig").updateUniformData;
 const createSyncObjects = @import("sync.zig").createSyncObjects;
