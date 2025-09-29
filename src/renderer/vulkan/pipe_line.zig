@@ -22,9 +22,7 @@ pub fn createPipeLine(self: *VulkanRenderer) !void {
         self.device,
         self.physical_device,
         &self.pipe_line_layout,
-        &self.descriptor_set_layout,
-        &self.descriptor_set,
-        &self.descriptor_pool,
+        self.descriptor_set_layout,
         self.render_pass,
         self.swap_chain_extent,
         &self.vk_mem.vkAllocatorCallbacks(),
@@ -37,9 +35,7 @@ fn _createPipeLine(
     dev: vk.Device,
     physical_device: vk.PhysicalDevice,
     p_pipe_line_layout: *vk.PipelineLayout,
-    p_descriptor_set_layout: *vk.DescriptorSetLayout,
-    p_descriptor_set: *vk.DescriptorSet,
-    p_descriptor_pool: *vk.DescriptorPool,
+    descriptor_set_layout: vk.DescriptorSetLayout,
     render_pass: vk.RenderPass,
     swap_chain_extent: vk.Extent2D,
     vkmemcb: *const vk.AllocationCallbacks,
@@ -76,28 +72,6 @@ fn _createPipeLine(
         .dynamic_state_count = dynamic_stats.len,
         .p_dynamic_states = &dynamic_stats,
     };
-
-    const bindings = [_]vk.DescriptorSetLayoutBinding{
-        .{
-            .binding = 0,
-            .descriptor_type = .uniform_buffer,
-            .descriptor_count = 1,
-            .stage_flags = .{ .vertex_bit = true },
-        },
-        .{
-            .binding = 1,
-            .descriptor_type = .combined_image_sampler,
-            .descriptor_count = 1,
-            .stage_flags = .{ .fragment_bit = true },
-        },
-    };
-
-    const descriptor_set_layout_info = vk.DescriptorSetLayoutCreateInfo{
-        .binding_count = bindings.len,
-        .p_bindings = &bindings,
-    };
-
-    const descriptor_set_layout = try vkd.createDescriptorSetLayout(dev, &descriptor_set_layout_info, vkmemcb);
 
     const vertex_input_info = vk.PipelineVertexInputStateCreateInfo{
         .vertex_binding_description_count = vertex_binding.len,
@@ -251,9 +225,6 @@ fn _createPipeLine(
     try vkd.allocateDescriptorSets(dev, &descriptor_set_alloc_info, @ptrCast(&descriptor_set));
 
     p_pipe_line_layout.* = pipeline_layout;
-    p_descriptor_set_layout.* = descriptor_set_layout;
-    p_descriptor_set.* = descriptor_set;
-    p_descriptor_pool.* = descriptor_pool;
 
     return graphics_pipeline;
 }

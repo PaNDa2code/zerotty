@@ -126,6 +126,13 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     try createRenderPass(self);
     errdefer vkd.destroyRenderPass(self.device, self.render_pass, &vk_mem_cb);
 
+    try createDescriptorSet(self);
+    errdefer {
+        // vkd.freeDescriptorSets(self.device, self.descriptor_pool, 1, &.{self.descriptor_set}) catch {};
+        vkd.destroyDescriptorSetLayout(self.device, self.descriptor_set_layout, &vk_mem_cb);
+        vkd.destroyDescriptorPool(self.device, self.descriptor_pool, &vk_mem_cb);
+    }
+
     try createPipeLine(self);
     errdefer vkd.destroyPipeline(self.device, self.pipe_line, &vk_mem_cb);
 
@@ -154,7 +161,6 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     try createBuffers(self, vertex_memory_size, staging_memory_size);
 
     try createAtlasTexture(self);
-
 
     try createSyncObjects(self);
 
@@ -329,3 +335,4 @@ const updateDescriptorSets = @import("uniform_data.zig").updateDescriptorSets;
 const updateUniformData = @import("uniform_data.zig").updateUniformData;
 const createSyncObjects = @import("sync.zig").createSyncObjects;
 const drawFrame = @import("frames.zig").drawFrame;
+const createDescriptorSet = @import("descriptor.zig").createDescriptorSet;

@@ -135,7 +135,7 @@ pub fn recordCommandBuffer(self: *VulkanRenderer, image_index: usize) !void {
             .p_signal_semaphores = null,
         };
 
-        try vkd.queueSubmit(self.graphics_queue, 1, &.{submit_info}, vk.Fence.null_handle);
+        try vkd.queueSubmit(self.graphics_queue, 1, &.{submit_info}, .null_handle);
         try vkd.queueWaitIdle(self.graphics_queue);
 
         self.atlas_dirty = false;
