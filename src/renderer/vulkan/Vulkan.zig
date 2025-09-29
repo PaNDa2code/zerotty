@@ -36,7 +36,6 @@ image_available_semaphore: vk.Semaphore,
 render_finished_semaphore: vk.Semaphore,
 in_flight_fence: vk.Fence,
 
-atlas_dirty: bool,
 atlas_image: vk.Image,
 atlas_image_view: vk.ImageView,
 atlas_image_memory: vk.DeviceMemory,
@@ -84,6 +83,7 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     errdefer allocator.destroy(vki);
 
     self.instance_wrapper = vki;
+
     if (build_options.@"renderer-debug") {
         try setupDebugMessenger(self);
         errdefer vki.destroyDebugUtilsMessengerEXT(self.instance, self.debug_messenger, &vk_mem_cb);
@@ -139,9 +139,7 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     try createFrameBuffers(self, allocator);
 
     try allocCmdBuffers(self, allocator);
-    errdefer freeCmdBuffers(allocator, vkd, self.device, self.cmd_pool, self.cmd_buffers, &vk_mem_cb);
-
-    self.atlas_dirty = true;
+    // errdefer freeCmdBuffers(allocator, vkd, self.device, self.cmd_pool, self.cmd_buffers, &vk_mem_cb);
 
     self.atlas = try Atlas.create(allocator, 30, 20, 0, 128);
 
@@ -199,7 +197,9 @@ pub fn deinit(self: *VulkanRenderer) void {
 
     vkd.deviceWaitIdle(self.device) catch {};
 
-    freeCmdBuffers(self.vk_mem.allocator, vkd, self.device, self.cmd_pool, self.cmd_buffers, &cb);
+    vkd.freeCommandBuffers(self.device, self.cmd_pool, @intCast(self.cmd_buffers.len), self.cmd_buffers.ptr);
+    vkd.destroyCommandPool(self.device, self.cmd_pool, &cb);
+    allocator.free(self.cmd_buffers);
 
     for (self.swap_chain_image_views) |view| {
         vkd.destroyImageView(self.device, view, &cb);
@@ -229,12 +229,10 @@ pub fn deinit(self: *VulkanRenderer) void {
 
     vkd.destroyPipeline(self.device, self.pipe_line, &cb);
     vkd.destroyRenderPass(self.device, self.render_pass, &cb);
+    vkd.destroyPipelineLayout(self.device, self.pipe_line_layout, &cb);
 
-    // vkd.freeDescriptorSets(self.device, self.descriptor_pool, 1, &.{self.descriptor_set}) catch {};
     vkd.destroyDescriptorSetLayout(self.device, self.descriptor_set_layout, &cb);
     vkd.destroyDescriptorPool(self.device, self.descriptor_pool, &cb);
-
-    vkd.destroyPipelineLayout(self.device, self.pipe_line_layout, &cb);
 
     vkd.destroySwapchainKHR(self.device, self.swap_chain, &cb);
     vkd.destroyDevice(self.device, &cb);
@@ -326,7 +324,6 @@ const createRenderPass = @import("render_pass.zig").createRenderPass;
 const createPipeLine = @import("pipe_line.zig").createPipeLine;
 const createFrameBuffers = @import("frame_buffers.zig").createFrameBuffers;
 const allocCmdBuffers = @import("cmd_buffers.zig").allocCmdBuffers;
-const freeCmdBuffers = @import("cmd_buffers.zig").freeCmdBuffers;
 const recordCommandBuffer = @import("cmd_buffers.zig").recordCommandBuffer;
 const submitCmdBuffer = @import("cmd_buffers.zig").supmitCmdBuffer;
 const createBuffers = @import("vertex_buffer.zig").createBuffers;

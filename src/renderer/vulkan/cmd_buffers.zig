@@ -52,19 +52,6 @@ fn _allocCmdBuffers(
     return cmd_buffers;
 }
 
-pub fn freeCmdBuffers(
-    allocator: Allocator,
-    vkd: *const vk.DeviceWrapper,
-    device: vk.Device,
-    cmd_pool: vk.CommandPool,
-    buffers: []const vk.CommandBuffer,
-    vk_mem_cb: *const vk.AllocationCallbacks,
-) void {
-    vkd.freeCommandBuffers(device, cmd_pool, @intCast(buffers.len), buffers.ptr);
-    vkd.destroyCommandPool(device, cmd_pool, vk_mem_cb);
-    allocator.free(buffers);
-}
-
 pub fn recordCommandBuffer(self: *VulkanRenderer, image_index: usize) !void {
     const vkd = self.device_wrapper;
     const command_buffer = self.cmd_buffers[0];

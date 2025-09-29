@@ -194,36 +194,6 @@ fn _createPipeLine(
         else => @panic("creating vulkan pipeline didn't succeed"),
     }
 
-    const uniform_descriptor_pool_size = vk.DescriptorPoolSize{
-        .type = .uniform_buffer,
-        .descriptor_count = 1,
-    };
-
-    const sampled_image_descriptor_pool_size = vk.DescriptorPoolSize{
-        .type = .combined_image_sampler,
-        .descriptor_count = 1,
-    };
-
-    const descriptor_pool_info = vk.DescriptorPoolCreateInfo{
-        .max_sets = 1,
-        .pool_size_count = 2,
-        .p_pool_sizes = &.{
-            uniform_descriptor_pool_size,
-            sampled_image_descriptor_pool_size,
-        },
-    };
-
-    const descriptor_pool = try vkd.createDescriptorPool(dev, &descriptor_pool_info, vkmemcb);
-
-    const descriptor_set_alloc_info = vk.DescriptorSetAllocateInfo{
-        .descriptor_pool = descriptor_pool,
-        .descriptor_set_count = 1,
-        .p_set_layouts = &.{descriptor_set_layout},
-    };
-
-    var descriptor_set: vk.DescriptorSet = .null_handle;
-    try vkd.allocateDescriptorSets(dev, &descriptor_set_alloc_info, @ptrCast(&descriptor_set));
-
     p_pipe_line_layout.* = pipeline_layout;
 
     return graphics_pipeline;

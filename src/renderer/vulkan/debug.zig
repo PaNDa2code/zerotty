@@ -26,6 +26,7 @@ fn debugMessenger(
             .verbose_bit_ext = true,
             .warning_bit_ext = true,
             .error_bit_ext = true,
+            .info_bit_ext = true,
         },
         .message_type = .{
             .general_bit_ext = true,
@@ -55,8 +56,6 @@ fn debugCallback(
             .validation
         else if (message_types.performance_bit_ext)
             .performance
-        else if (message_types.performance_bit_ext)
-            .device_address_binding
         else
             unreachable;
 
@@ -66,7 +65,9 @@ fn debugCallback(
     if (message_severity.warning_bit_ext)
         log.warn(fmt_buf, fmt_args)
     else if (message_severity.error_bit_ext)
-        log.err(fmt_buf, fmt_args);
+        log.err(fmt_buf, fmt_args)
+    else 
+        log.info(fmt_buf, fmt_args);
 
     return .false;
 }
