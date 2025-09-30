@@ -95,8 +95,8 @@ pub fn stageVertexData(self: *const VulkanRenderer) !void {
     @memcpy(@as([*]Vec4(f32), @ptrCast(@alignCast(staging_ptr)))[0..6], full_quad[0..]);
 
     @memset(@as([*]Cell, @ptrFromInt(@intFromPtr(staging_ptr) + @sizeOf(Vec4(f32)) * 6))[0..64], Cell{
-        .row = 0,
-        .col = 0,
+        .row = 10,
+        .col = 10,
         .char = 'a',
         .fg_color = .White,
         .bg_color = .Black,

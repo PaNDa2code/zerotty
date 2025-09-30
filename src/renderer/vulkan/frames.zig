@@ -139,7 +139,7 @@ pub fn recordCommandBuffer(
         null,
     );
 
-    vkd.cmdDraw(command_buffer, 6, 1, 0, 0);
+    vkd.cmdDraw(command_buffer, 6, 64, 0, 0);
 
     vkd.cmdEndRenderPass(command_buffer);
 
