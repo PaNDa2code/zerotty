@@ -78,7 +78,7 @@ pub fn createBuffers(self: *VulkanRenderer, vertex_size: usize, staging_size: us
     self.staging_memory = vertex_staging_memory;
 }
 
-pub fn uploadVertexData(self: *const VulkanRenderer) !void {
+pub fn stageVertexData(self: *const VulkanRenderer) !void {
     const full_quad = [_]Vec4(f32){
         .{ .x = 0.0, .y = 0.0, .z = 0.0, .w = 0.0 }, // Bottom-left
         .{ .x = 1.0, .y = 0.0, .z = 1.0, .w = 0.0 }, // Bottom-right
@@ -89,21 +89,21 @@ pub fn uploadVertexData(self: *const VulkanRenderer) !void {
     };
 
     const vkd = self.device_wrapper;
-    const vertex_data_ptr = try vkd.mapMemory(self.device, self.staging_memory, 0, 128, .{});
+    const staging_ptr = try vkd.mapMemory(self.device, self.staging_memory, 0, 1024 * 16, .{});
     defer vkd.unmapMemory(self.device, self.staging_memory);
 
-    @memcpy(@as([*]Vec4(f32), @ptrCast(@alignCast(vertex_data_ptr)))[0..6], full_quad[0..]);
+    @memcpy(@as([*]Vec4(f32), @ptrCast(@alignCast(staging_ptr)))[0..6], full_quad[0..]);
 
-    @memset(@as([*]Cell, @ptrCast(@alignCast(vertex_data_ptr)))[0..1], Cell{
-        .row = 0,
-        .col = 0,
-        .char = 0,
+    @memset(@as([*]Cell, @ptrFromInt(@intFromPtr(staging_ptr) + @sizeOf(Vec4(f32)) * 6))[0..64], Cell{
+        .row = 10,
+        .col = 10,
+        .char = 'a',
         .fg_color = .White,
         .bg_color = .Black,
         .glyph_info = .{
-            .coord_start = .zero,
-            .coord_end = .zero,
-            .bearing = .zero,
+            .coord_start = .{ .x = 181, .y = 74 },
+            .coord_end = .{ .x = 191, .y = 92 },
+            .bearing = .{ .x = 1, .y = 17 },
         },
     });
 }
@@ -154,8 +154,8 @@ pub fn getVertexAttributeDescriptions() []const vk.VertexInputAttributeDescripti
         .{ .location = 1, .binding = 1, .format = .r32_uint, .offset = @offsetOf(Cell, "row") },
         .{ .location = 2, .binding = 1, .format = .r32_uint, .offset = @offsetOf(Cell, "col") },
         .{ .location = 3, .binding = 1, .format = .r32_uint, .offset = @offsetOf(Cell, "char") },
-        .{ .location = 4, .binding = 1, .format = .r32g32b32a32_sfloat, .offset = @offsetOf(Cell, "fg_color") },
-        .{ .location = 5, .binding = 1, .format = .r32g32b32a32_sfloat, .offset = @offsetOf(Cell, "bg_color") },
+        .{ .location = 4, .binding = 1, .format = .r8g8b8a8_unorm, .offset = @offsetOf(Cell, "fg_color") },
+        .{ .location = 5, .binding = 1, .format = .r8g8b8a8_unorm, .offset = @offsetOf(Cell, "bg_color") },
         .{
             .location = 6,
             .binding = 1,

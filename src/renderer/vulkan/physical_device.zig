@@ -19,7 +19,7 @@ pub fn pickPhysicalDevicesAlloc(
     defer allocator.free(_physical_devices);
 
     // sort physical devices passed on score
-    std.sort.heap(vk.PhysicalDevice, _physical_devices, self.instance_wrapper, physicalDeviceGt);
+    // std.sort.heap(vk.PhysicalDevice, _physical_devices, self.instance_wrapper, physicalDeviceGt);
 
     var comptable_physical_devices = try std.ArrayList(vk.PhysicalDevice).initCapacity(allocator, 1);
     var _queue_families_indices = try std.ArrayList(QueueFamilyIndices).initCapacity(allocator, 1);

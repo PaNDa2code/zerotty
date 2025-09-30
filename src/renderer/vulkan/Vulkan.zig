@@ -175,7 +175,7 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
         .cols = grid_cols,
     });
 
-    const vertex_memory_size = grid_rows * grid_cols * @sizeOf(Grid.Cell);
+    const vertex_memory_size = 1024 * 16;
     const altas_size = self.atlas.buffer.len;
 
     const staging_memory_size = @max(altas_size, vertex_memory_size);
@@ -205,11 +205,11 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
         vkd.destroyFence(self.device, self.in_flight_fence, &vk_mem_cb);
     }
 
-    try uploadVertexData(self);
-
     try updateUniformData(self);
 
     try uploadAtlas(self);
+
+    try stageVertexData(self);
 
     try updateDescriptorSets(self);
 
@@ -327,13 +327,16 @@ pub fn setCell(
     fg_color: ?ColorRGBAu8,
     bg_color: ?ColorRGBAu8,
 ) !void {
+    const glyph_info = self.atlas.glyph_lookup_map.get(char_code) orelse self.atlas.glyph_lookup_map.get(' ').?;
+
+    log.debug("char = {c}, glyph_info = {any}", .{ @as(u8, @intCast(char_code)), glyph_info });
     try self.grid.set(.{
         .row = row,
         .col = col,
         .char = char_code,
         .fg_color = fg_color orelse .White,
         .bg_color = bg_color orelse .Black,
-        .glyph_info = self.atlas.glyph_lookup_map.get(char_code) orelse self.atlas.glyph_lookup_map.get(' ').?,
+        .glyph_info = glyph_info,
     });
 }
 
@@ -370,7 +373,7 @@ const allocCmdBuffers = @import("cmd_buffers.zig").allocCmdBuffers;
 const recordCommandBuffer = @import("cmd_buffers.zig").recordCommandBuffer;
 const submitCmdBuffer = @import("cmd_buffers.zig").supmitCmdBuffer;
 const createBuffers = @import("vertex_buffer.zig").createBuffers;
-const uploadVertexData = @import("vertex_buffer.zig").uploadVertexData;
+const stageVertexData = @import("vertex_buffer.zig").stageVertexData;
 const createAtlasTexture = @import("texture.zig").createAtlasTexture;
 const uploadAtlas = @import("texture.zig").uploadAtlas;
 const updateDescriptorSets = @import("uniform_data.zig").updateDescriptorSets;
