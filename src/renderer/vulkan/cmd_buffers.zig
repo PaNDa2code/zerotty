@@ -137,31 +137,6 @@ pub fn recordCommandBuffer(self: *VulkanRenderer, image_index: usize) !void {
     try vkd.endCommandBuffer(command_buffer);
 }
 
-pub fn supmitCmdBuffer(self: *const VulkanRenderer) !void {
-    const submit_info = vk.SubmitInfo{
-        .command_buffer_count = 1,
-        .p_command_buffers = &.{self.cmd_buffers[0]},
-    };
-
-    const vkd = self.device_wrapper;
-
-    try vkd.queueSubmit(
-        self.graphics_queue,
-        1,
-        &.{submit_info},
-        .null_handle,
-    );
-
-    try vkd.queueWaitIdle(self.graphics_queue);
-
-    const present_info = vk.PresentInfoKHR{
-        .swapchain_count = 1,
-        .p_swapchains = &.{self.swap_chain},
-        .p_image_indices = &.{0},
-    };
-
-    _ = try vkd.queuePresentKHR(self.present_queue, &present_info);
-}
 const math = @import("../math.zig");
 const Vec2 = math.Vec2;
 const Vec3 = math.Vec3;
