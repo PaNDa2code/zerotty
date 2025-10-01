@@ -45,12 +45,19 @@ fn _createDevice(
         "VK_LAYER_KHRONOS_validation",
     };
 
+    const sync2_features =
+        vk.PhysicalDeviceSynchronization2Features{
+            .synchronization_2 = .true,
+        };
+
     const layer_extensions = [_][*:0]const u8{} ++
         if (build_options.@"renderer-debug") validation_layer_extensions else [_][*:0]const u8{};
 
     const device_features: vk.PhysicalDeviceFeatures = .{};
 
     const device_create_info: vk.DeviceCreateInfo = .{
+        .p_next = @ptrCast(&sync2_features),
+
         .queue_create_info_count = 1,
         .p_queue_create_infos = &.{queue_create_info},
 

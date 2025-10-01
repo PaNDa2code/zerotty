@@ -139,7 +139,6 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
 
     try createDescriptorSet(self);
     errdefer {
-        // vkd.freeDescriptorSets(self.device, self.descriptor_pool, 1, &.{self.descriptor_set}) catch {};
         vkd.destroyDescriptorSetLayout(self.device, self.descriptor_set_layout, &vk_mem_cb);
         vkd.destroyDescriptorPool(self.device, self.descriptor_pool, &vk_mem_cb);
     }

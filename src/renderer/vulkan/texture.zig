@@ -96,7 +96,6 @@ pub fn uploadAtlas(self: *const VulkanRenderer) !void {
     const vkd = self.device_wrapper;
     const cmd_buffer = self.cmd_buffers[1];
 
-
     const bytes = self.atlas.buffer.len;
     const statging_ptr: [*]u8 =
         @ptrCast(try vkd.mapMemory(self.device, self.staging_memory, 0, bytes, .{}));
@@ -179,10 +178,10 @@ fn transitionImageLayout(
     old_layout: vk.ImageLayout,
     new_layout: vk.ImageLayout,
 ) void {
-    var src_access_mask: vk.AccessFlags = .{};
-    var dst_access_mask: vk.AccessFlags = .{};
-    var src_stage_mask: vk.PipelineStageFlags = .{};
-    var dst_stage_mask: vk.PipelineStageFlags = .{};
+    var src_access_mask: vk.AccessFlags2 = .{};
+    var dst_access_mask: vk.AccessFlags2 = .{};
+    var src_stage_mask: vk.PipelineStageFlags2 = .{};
+    var dst_stage_mask: vk.PipelineStageFlags2 = .{};
 
     switch (old_layout) {
         .undefined, .preinitialized => {
@@ -191,7 +190,7 @@ fn transitionImageLayout(
         },
         .transfer_dst_optimal => {
             src_access_mask.transfer_write_bit = true;
-            src_stage_mask.transfer_bit = true;
+            src_stage_mask.all_transfer_bit = true;
         },
         else => {},
     }
@@ -199,7 +198,7 @@ fn transitionImageLayout(
     switch (new_layout) {
         .transfer_dst_optimal => {
             dst_access_mask.transfer_write_bit = true;
-            dst_stage_mask.transfer_bit = true;
+            dst_stage_mask.all_transfer_bit = true;
         },
         .shader_read_only_optimal => {
             dst_access_mask.shader_read_bit = true;
@@ -208,9 +207,7 @@ fn transitionImageLayout(
         else => {},
     }
 
-    const barrier = vk.ImageMemoryBarrier{
-        .s_type = .image_memory_barrier,
-        .p_next = null,
+    const barrier = vk.ImageMemoryBarrier2{
         .src_access_mask = src_access_mask,
         .dst_access_mask = dst_access_mask,
         .old_layout = old_layout,
@@ -227,18 +224,11 @@ fn transitionImageLayout(
         },
     };
 
-    vkd.cmdPipelineBarrier(
-        cmd_buffer,
-        src_stage_mask,
-        dst_stage_mask,
-        .{},
-        0,
-        null,
-        0,
-        null,
-        1,
-        &.{barrier},
-    );
+    const dep = vk.DependencyInfo{
+        .image_memory_barrier_count = 1,
+        .p_image_memory_barriers = &.{barrier},
+    };
+    vkd.cmdPipelineBarrier2(cmd_buffer, &dep);
 }
 
 const findMemoryType = @import("vertex_buffer.zig").findMemoryType;
