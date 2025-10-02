@@ -204,6 +204,9 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
         vkd.destroyFence(self.device, self.in_flight_fence, &vk_mem_cb);
     }
 
+    self.window_height = window.height;
+    self.window_width = window.width;
+
     try updateUniformData(self);
 
     try uploadAtlas(self);
@@ -211,9 +214,6 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     try stageVertexData(self);
 
     try updateDescriptorSets(self);
-
-    self.window_height = window.height;
-    self.window_width = window.width;
 }
 
 fn allocAndLoad(T: type, allocator: Allocator, loader: anytype, loader_args: anytype) !*T {

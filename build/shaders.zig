@@ -69,6 +69,9 @@ pub fn compiledShadersPathes(
                 break :blk spirv_opt_cmd.addOutputFileArg(output_basename);
             } else shader_spv_path;
 
+        if (b.release_mode == .off)
+            glslangValidator_cmd.addArg("-gVS");
+
         shader_pathes[i] = .{
             .name = output_basename,
             .path = output_path,

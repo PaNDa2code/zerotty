@@ -49,7 +49,10 @@ void main() {
     // Convert to clip space
     vec2 normalized = vertex_pos / screen_size;
     vec2 clip_pos = normalized * 2.0 - 1.0;
+
+#ifdef FLIP_Y
     clip_pos.y = -clip_pos.y; // Flip Y for OpenGL
+#endif
 
     gl_Position = vec4(clip_pos, 0.0, 1.0);
 

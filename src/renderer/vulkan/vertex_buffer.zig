@@ -94,18 +94,20 @@ pub fn stageVertexData(self: *const VulkanRenderer) !void {
 
     @memcpy(@as([*]Vec4(f32), @ptrCast(@alignCast(staging_ptr)))[0..6], full_quad[0..]);
 
-    @memset(@as([*]Cell, @ptrFromInt(@intFromPtr(staging_ptr) + @sizeOf(Vec4(f32)) * 6))[0..64], Cell{
-        .row = 10,
-        .col = 10,
-        .char = 'a',
-        .fg_color = .White,
-        .bg_color = .Black,
-        .glyph_info = .{
-            .coord_start = .{ .x = 181, .y = 74 },
-            .coord_end = .{ .x = 191, .y = 92 },
-            .bearing = .{ .x = 1, .y = 17 },
-        },
-    });
+    const slice = @as([*]Cell, @ptrFromInt(@intFromPtr(staging_ptr) + @sizeOf(Vec4(f32)) * 6))[0..64];
+
+    for ('a'..'a' + 64) |i| {
+        const char: u8 = @intCast(i);
+        slice[i % 63] = .{
+            .row = @intCast(i / self.grid.cols),
+            .col = @intCast(i % self.grid.cols),
+            .char = char,
+            .fg_color = .White,
+            .bg_color = .Black,
+            .glyph_info = self.atlas.glyph_lookup_map.get(@intCast(char)) orelse
+                self.atlas.glyph_lookup_map.get('a').?,
+        };
+    }
 }
 
 pub fn createBuffer(

@@ -87,7 +87,7 @@ pub fn recordCommandBuffer(
     const regions = [_]vk.BufferCopy{.{
         .src_offset = 0,
         .dst_offset = 0,
-        .size = 128,
+        .size = @sizeOf(@import("../Grid.zig").Cell) * 64,
     }};
 
     vkd.cmdCopyBuffer(
