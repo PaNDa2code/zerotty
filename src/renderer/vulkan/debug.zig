@@ -1,7 +1,7 @@
 const std = @import("std");
 const vk = @import("vulkan");
 
-const log = std.log.scoped(.Vulkan);
+const log = std.log.scoped(.VulkanDebugUtils);
 
 const VulkanRenderer = @import("Vulkan.zig");
 
@@ -43,13 +43,26 @@ fn debugMessenger(
     );
 }
 
+fn logSev(
+    comptime fmt: []const u8,
+    args: anytype,
+    message_severity: vk.DebugUtilsMessageSeverityFlagsEXT,
+) void {
+    if (message_severity.warning_bit_ext)
+        log.warn(fmt, args)
+    else if (message_severity.error_bit_ext)
+        log.err(fmt, args)
+    else
+        log.info(fmt, args);
+}
+
 fn debugCallback(
     message_severity: vk.DebugUtilsMessageSeverityFlagsEXT,
     message_types: vk.DebugUtilsMessageTypeFlagsEXT,
     p_callback_data: ?*const vk.DebugUtilsMessengerCallbackDataEXT,
     _: ?*anyopaque,
 ) callconv(.c) vk.Bool32 {
-    const t: Types =
+    const message_type: Types =
         if (message_types.general_bit_ext)
             .general
         else if (message_types.validation_bit_ext)
@@ -59,15 +72,20 @@ fn debugCallback(
         else
             unreachable;
 
-    const fmt_buf = "[{s}] {?s}";
-    const fmt_args = .{ @tagName(t), if (p_callback_data) |p| p.p_message else null };
+    const debug_data = p_callback_data orelse return .false;
 
-    if (message_severity.warning_bit_ext)
-        log.warn(fmt_buf, fmt_args)
-    else if (message_severity.error_bit_ext)
-        log.err(fmt_buf, fmt_args)
-    else 
-        log.info(fmt_buf, fmt_args);
+    logSev("[{s}] {?s}", .{
+        @tagName(message_type),
+        debug_data.p_message,
+    }, message_severity);
+
+    for (0..debug_data.object_count) |i| {
+        const object_info = &debug_data.p_objects.?[i];
+        logSev("\t- [{s}] 0x{x}", .{
+            @tagName(object_info.object_type),
+            object_info.object_handle,
+        }, message_severity);
+    }
 
     return .false;
 }
