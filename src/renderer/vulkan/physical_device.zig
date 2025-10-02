@@ -19,7 +19,7 @@ pub fn pickPhysicalDevicesAlloc(
     defer allocator.free(_physical_devices);
 
     // sort physical devices passed on score
-    // std.sort.heap(vk.PhysicalDevice, _physical_devices, self.instance_wrapper, physicalDeviceGt);
+    std.sort.heap(vk.PhysicalDevice, _physical_devices, self.instance_wrapper, physicalDeviceGt);
 
     var comptable_physical_devices = try std.ArrayList(vk.PhysicalDevice).initCapacity(allocator, 1);
     var _queue_families_indices = try std.ArrayList(QueueFamilyIndices).initCapacity(allocator, 1);
@@ -57,11 +57,11 @@ fn physicalDeviceScore(vki: *const vk.InstanceWrapper, physical_device: vk.Physi
     var score: u32 = 0;
     const device_props = vki.getPhysicalDeviceProperties(physical_device);
     switch (device_props.device_type) {
-        .discrete_gpu => score += 2_000,
+        // .discrete_gpu => score += 2_000,
         .integrated_gpu => score += 1_000,
         else => {},
     }
-    score += device_props.limits.max_image_dimension_2d;
+    // score += device_props.limits.max_image_dimension_2d;
 
     return score;
 }

@@ -192,6 +192,10 @@ fn transitionImageLayout(
             src_access_mask.transfer_write_bit = true;
             src_stage_mask.all_transfer_bit = true;
         },
+        .shader_read_only_optimal => {
+            src_access_mask.shader_read_bit = true;
+            src_stage_mask.all_graphics_bit = true;
+        },
         else => {},
     }
 
@@ -210,6 +214,8 @@ fn transitionImageLayout(
     const barrier = vk.ImageMemoryBarrier2{
         .src_access_mask = src_access_mask,
         .dst_access_mask = dst_access_mask,
+        .src_stage_mask = src_stage_mask,
+        .dst_stage_mask = dst_stage_mask,
         .old_layout = old_layout,
         .new_layout = new_layout,
         .src_queue_family_index = vk.QUEUE_FAMILY_IGNORED,
@@ -228,6 +234,7 @@ fn transitionImageLayout(
         .image_memory_barrier_count = 1,
         .p_image_memory_barriers = &.{barrier},
     };
+
     vkd.cmdPipelineBarrier2(cmd_buffer, &dep);
 }
 

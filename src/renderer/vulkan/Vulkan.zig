@@ -328,7 +328,6 @@ pub fn setCell(
 ) !void {
     const glyph_info = self.atlas.glyph_lookup_map.get(char_code) orelse self.atlas.glyph_lookup_map.get(' ').?;
 
-    log.debug("char = {c}, glyph_info = {any}", .{ @as(u8, @intCast(char_code)), glyph_info });
     try self.grid.set(.{
         .row = row,
         .col = col,
