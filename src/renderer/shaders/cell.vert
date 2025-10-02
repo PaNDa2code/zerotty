@@ -50,7 +50,7 @@ void main() {
     vec2 normalized = vertex_pos / screen_size;
     vec2 clip_pos = normalized * 2.0 - 1.0;
 
-#ifdef FLIP_Y
+#ifdef GL_SPIRV
     clip_pos.y = -clip_pos.y; // Flip Y for OpenGL
 #endif
 
