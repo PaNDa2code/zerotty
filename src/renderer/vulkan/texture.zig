@@ -61,7 +61,7 @@ pub fn createAtlasTexture(self: *VulkanRenderer) !void {
             .base_array_layer = 0,
             .layer_count = 1,
         },
-        .components = .{ .r = .one, .g = .one, .b = .one, .a = .r },
+        .components = .{ .r = .r, .g = .identity, .b = .identity, .a = .identity },
     };
 
     const image_view = try vkd.createImageView(self.device, &image_view_info, &mem_cb);
