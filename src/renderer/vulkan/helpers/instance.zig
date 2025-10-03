@@ -6,14 +6,7 @@ const vk = @import("vulkan");
 
 const build_options = @import("build_options");
 
-const VulkanRenderer = @import("Vulkan.zig");
-
-pub fn createInstance(self: *VulkanRenderer) !void {
-    self.instance =
-        try _createInstance(self.base_wrapper, self.vk_mem.allocator, &self.vk_mem.vkAllocatorCallbacks());
-}
-
-fn _createInstance(
+pub fn createInstance(
     vkb: *const vk.BaseWrapper,
     allocator: Allocator,
     vk_mem_cb: *const vk.AllocationCallbacks,

@@ -5,27 +5,27 @@ const Allocator = std.mem.Allocator;
 const vk = @import("vulkan");
 const build_options = @import("build_options");
 
-const VulkanRenderer = @import("Vulkan.zig");
-
-const log = VulkanRenderer.log;
+pub const log = std.log.scoped(.Renderer);
 
 pub fn pickPhysicalDevicesAlloc(
-    self: *VulkanRenderer,
+    vki: *const vk.InstanceWrapper,
+    instance: vk.Instance,
+    surface: vk.SurfaceKHR,
     allocator: Allocator,
     physical_devices: *[]vk.PhysicalDevice,
     queue_families_indices: *[]QueueFamilyIndices,
 ) !void {
-    const _physical_devices = try self.instance_wrapper.enumeratePhysicalDevicesAlloc(self.instance, allocator);
+    const _physical_devices = try vki.enumeratePhysicalDevicesAlloc(instance, allocator);
     defer allocator.free(_physical_devices);
 
     // sort physical devices passed on score
-    // std.sort.heap(vk.PhysicalDevice, _physical_devices, self.instance_wrapper, physicalDeviceGt);
+    std.sort.heap(vk.PhysicalDevice, _physical_devices, vki, physicalDeviceGt);
 
     var comptable_physical_devices = try std.ArrayList(vk.PhysicalDevice).initCapacity(allocator, 1);
     var _queue_families_indices = try std.ArrayList(QueueFamilyIndices).initCapacity(allocator, 1);
 
     for (_physical_devices) |physical_device| {
-        const indices = try findQueueFamilies(self.instance_wrapper, physical_device, self.surface, allocator);
+        const indices = try findQueueFamilies(vki, physical_device, surface, allocator);
         if (indices) |ind| {
             try comptable_physical_devices.append(allocator, physical_device);
             try _queue_families_indices.append(allocator, ind);
@@ -33,7 +33,7 @@ pub fn pickPhysicalDevicesAlloc(
     }
 
     for (_physical_devices, 0..) |pd, i| {
-        const props = self.instance_wrapper.getPhysicalDeviceProperties(pd);
+        const props = vki.getPhysicalDeviceProperties(pd);
         const deriver_version: vk.Version = @bitCast(props.driver_version);
         log.debug(
             "GPU{}: {s} - {s} ({}.{}.{}.{})",
@@ -57,11 +57,11 @@ fn physicalDeviceScore(vki: *const vk.InstanceWrapper, physical_device: vk.Physi
     var score: u32 = 0;
     const device_props = vki.getPhysicalDeviceProperties(physical_device);
     switch (device_props.device_type) {
-        .discrete_gpu => score += 2_000,
+        // .discrete_gpu => score += 2_000,
         .integrated_gpu => score += 1_000,
         else => {},
     }
-    score += device_props.limits.max_image_dimension_2d;
+    // score += device_props.limits.max_image_dimension_2d;
 
     return score;
 }

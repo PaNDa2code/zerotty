@@ -6,20 +6,9 @@ const vk = @import("vulkan");
 
 const build_options = @import("build_options");
 
-const VulkanRenderer = @import("Vulkan.zig");
+const Window = @import("../../../window/root.zig").Window;
 
-const Window = @import("../../window/root.zig").Window;
-
-pub fn createWindowSurface(self: *VulkanRenderer, window: *Window) !void {
-    self.surface = try _createWindowSurface(
-        self.instance_wrapper,
-        self.instance,
-        window,
-        &self.vk_mem.vkAllocatorCallbacks(),
-    );
-}
-
-fn _createWindowSurface(
+pub fn createWindowSurface(
     vki: *const vk.InstanceWrapper,
     instance: vk.Instance,
     window: *const Window,

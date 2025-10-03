@@ -5,7 +5,8 @@ const Allocator = std.mem.Allocator;
 
 const VulkanRenderer = @import("Vulkan.zig");
 
-const QueueFamilyIndices = @import("physical_device.zig").QueueFamilyIndices;
+const helpers = @import("helpers/root.zig");
+const QueueFamilyIndices = helpers.physical_device.QueueFamilyIndices;
 
 pub fn createSwapChain(self: *VulkanRenderer, allocator: Allocator) !void {
     const vk_mem_cb = &self.vk_mem.vkAllocatorCallbacks();

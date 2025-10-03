@@ -5,31 +5,13 @@ const Allocator = std.mem.Allocator;
 const vk = @import("vulkan");
 const build_options = @import("build_options");
 
-const VulkanRenderer = @import("Vulkan.zig");
 const QueueFamilyIndices = @import("physical_device.zig").QueueFamilyIndices;
 
 pub fn createDevice(
-    self: *VulkanRenderer,
-    physical_device: vk.PhysicalDevice,
-    queue_families_indcies: QueueFamilyIndices,
-) !void {
-    errdefer self.device = .null_handle;
-
-    self.device = try _createDevice(
-        self.instance_wrapper,
-        &self.vk_mem.vkAllocatorCallbacks(),
-        physical_device,
-        queue_families_indcies,
-    );
-
-    self.queue_family_indcies = queue_families_indcies;
-}
-
-fn _createDevice(
     vki: *const vk.InstanceWrapper,
-    vk_mem_cb: *const vk.AllocationCallbacks,
     physical_device: vk.PhysicalDevice,
     queue_families_indcies: QueueFamilyIndices,
+    vk_mem_cb: *const vk.AllocationCallbacks,
 ) !vk.Device {
     const queue_create_info: vk.DeviceQueueCreateInfo = .{
         .queue_family_index = queue_families_indcies.graphics_family,

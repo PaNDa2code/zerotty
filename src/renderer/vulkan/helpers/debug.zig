@@ -3,7 +3,7 @@ const vk = @import("vulkan");
 
 const log = std.log.scoped(.VulkanDebugUtils);
 
-const VulkanRenderer = @import("Vulkan.zig");
+const VulkanRenderer = @import("../Vulkan.zig");
 
 pub fn setupDebugMessenger(self: *VulkanRenderer) !void {
     self.debug_messenger = try debugMessenger(

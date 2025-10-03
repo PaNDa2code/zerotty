@@ -1,5 +1,7 @@
 const VulkanRenderer = @This();
 
+core: Core,
+
 base_wrapper: *vk.BaseWrapper,
 instance_wrapper: *vk.InstanceWrapper,
 device_wrapper: *vk.DeviceWrapper,
@@ -64,23 +66,22 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
     return self;
 }
 
-pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void {
-    self.vk_mem = try allocator.create(VkAllocatorAdapter);
-    errdefer allocator.destroy(self.vk_mem);
+const Core = @import("Core.zig");
 
-    self.vk_mem.initInPlace(allocator);
-    errdefer self.vk_mem.deinit();
+pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void {
+    const core = try Core.init(allocator, window);
+    self.core = core;
+
+    self.vk_mem = self.core.vk_mem;
+    errdefer allocator.destroy(self.vk_mem);
 
     const vk_mem_cb = self.vk_mem.vkAllocatorCallbacks();
 
-    self.base_wrapper = try allocAndLoad(vk.BaseWrapper, allocator, baseGetInstanceProcAddress, .{});
-    errdefer allocator.destroy(self.base_wrapper);
+    self.base_wrapper = @constCast(&core.dispatch.vkb);
 
-    try createInstance(self);
+    self.instance = core.instance;
 
-    const vki = try allocAndLoad(vk.InstanceWrapper, allocator, self.base_wrapper.dispatch.vkGetInstanceProcAddr.?, .{self.instance});
-    errdefer vki.destroyInstance(self.instance, &vk_mem_cb);
-    errdefer allocator.destroy(vki);
+    const vki = @constCast(&core.dispatch.vki);
 
     self.instance_wrapper = vki;
 
@@ -91,40 +92,23 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     errdefer if (build_options.@"renderer-debug")
         vki.destroyDebugUtilsMessengerEXT(self.instance, self.debug_messenger, &vk_mem_cb);
 
-    try createWindowSurface(self, window);
-    errdefer vki.destroySurfaceKHR(self.instance, self.surface, &vk_mem_cb);
+    self.surface = core.surface;
 
-    var physical_devices: []vk.PhysicalDevice = &.{};
-    var queue_family_indcies: []QueueFamilyIndices = &.{};
+    self.physical_device = core.physical_device;
 
-    try pickPhysicalDevicesAlloc(self, allocator, &physical_devices, &queue_family_indcies);
+    self.device = core.device;
 
-    defer {
-        allocator.free(queue_family_indcies);
-        allocator.free(physical_devices);
-    }
-
-    self.device = .null_handle;
-
-    for (physical_devices, queue_family_indcies, 0..) |p_dev, queue_indces, i| {
-        createLogicalDevice(self, p_dev, queue_indces) catch continue;
-        self.physical_device = p_dev;
-        log.debug("using GPU{}", .{i});
-        break;
-    }
-
-    if (self.device == .null_handle)
-        return error.DeviceCreationFailed;
-
-    const vkd = try allocAndLoad(vk.DeviceWrapper, allocator, vki.dispatch.vkGetDeviceProcAddr.?, .{self.device});
-    errdefer {
-        vkd.destroyDevice(self.device, &vk_mem_cb);
-        allocator.destroy(vkd);
-    }
+    const vkd = @constCast(&core.dispatch.vkd);
 
     self.device_wrapper = vkd;
 
-    getQueues(self);
+    self.graphics_queue = core.graphics_queue;
+    self.present_queue = core.present_queue;
+
+    self.queue_family_indcies = .{
+        .present_family = core.present_family_index,
+        .graphics_family = core.graphics_family_index,
+    };
 
     try createSwapChain(self, allocator);
     errdefer {
@@ -360,21 +344,16 @@ const VkAllocatorAdapter = @import("VkAllocatorAdapter.zig");
 const Grid = @import("../Grid.zig");
 const Atlas = @import("../../font/Atlas.zig");
 
-const QueueFamilyIndices = @import("physical_device.zig").QueueFamilyIndices;
+const helpers = @import("helpers/root.zig");
+const QueueFamilyIndices = helpers.physical_device.QueueFamilyIndices;
 
-const createInstance = @import("instance.zig").createInstance;
-const setupDebugMessenger = @import("debug.zig").setupDebugMessenger;
-const createWindowSurface = @import("win_surface.zig").createWindowSurface;
-const pickPhysicalDevicesAlloc = @import("physical_device.zig").pickPhysicalDevicesAlloc;
-const createLogicalDevice = @import("device.zig").createDevice;
-const getQueues = @import("queues.zig").getQueues;
+const setupDebugMessenger = helpers.debug.setupDebugMessenger;
 const createSwapChain = @import("swap_chain.zig").createSwapChain;
 const createRenderPass = @import("render_pass.zig").createRenderPass;
 const createPipeLine = @import("pipe_line.zig").createPipeLine;
 const createFrameBuffers = @import("frame_buffers.zig").createFrameBuffers;
 const allocCmdBuffers = @import("cmd_buffers.zig").allocCmdBuffers;
 const recordCommandBuffer = @import("cmd_buffers.zig").recordCommandBuffer;
-const submitCmdBuffer = @import("cmd_buffers.zig").supmitCmdBuffer;
 const createBuffers = @import("vertex_buffer.zig").createBuffers;
 const stageVertexData = @import("vertex_buffer.zig").stageVertexData;
 const createAtlasTexture = @import("texture.zig").createAtlasTexture;
