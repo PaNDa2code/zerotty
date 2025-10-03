@@ -10,15 +10,13 @@ pub fn drawFrame(self: *const VulkanRenderer) !void {
     const device = self.device;
     const inflight_fence = self.in_flight_fence;
 
-    const res = try vkd.waitForFences(
+    _ = try vkd.waitForFences(
         device,
         1,
         &.{inflight_fence},
         .true,
-        0,
+        std.math.maxInt(u64),
     );
-
-    if (res == .timeout) return;
 
     try vkd.resetFences(device, 1, &.{inflight_fence});
 
@@ -33,7 +31,7 @@ pub fn drawFrame(self: *const VulkanRenderer) !void {
 
     try recordCommandBuffer(self, next_image_index);
 
-    try supmitCmdBuffer(self);
+    try supmitCmdBuffer(self, next_image_index);
 
     const present_info = vk.PresentInfoKHR{
         .swapchain_count = 1,
@@ -41,7 +39,7 @@ pub fn drawFrame(self: *const VulkanRenderer) !void {
         .p_image_indices = &.{next_image_index},
 
         .wait_semaphore_count = 1,
-        .p_wait_semaphores = &.{self.render_finished_semaphore},
+        .p_wait_semaphores = &.{self.render_finished_semaphores[next_image_index]},
     };
 
     _ = try vkd.queuePresentKHR(self.present_queue, &present_info);
@@ -146,7 +144,7 @@ pub fn recordCommandBuffer(
     try vkd.endCommandBuffer(command_buffer);
 }
 
-pub fn supmitCmdBuffer(self: *const VulkanRenderer) !void {
+pub fn supmitCmdBuffer(self: *const VulkanRenderer, image_index: usize) !void {
     const submit_info = vk.SubmitInfo{
         .command_buffer_count = 1,
         .p_command_buffers = &.{self.cmd_buffers[0]},
@@ -161,7 +159,7 @@ pub fn supmitCmdBuffer(self: *const VulkanRenderer) !void {
 
         .signal_semaphore_count = 1,
         .p_signal_semaphores = &.{
-            self.render_finished_semaphore,
+            self.render_finished_semaphores[image_index],
         },
     };
 

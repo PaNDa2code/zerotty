@@ -33,7 +33,7 @@ staging_memory: vk.DeviceMemory,
 uniform_memory: vk.DeviceMemory,
 
 image_available_semaphore: vk.Semaphore,
-render_finished_semaphore: vk.Semaphore,
+render_finished_semaphores: []vk.Semaphore,
 in_flight_fence: vk.Fence,
 
 atlas_image: vk.Image,
@@ -197,10 +197,12 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
         vkd.destroySampler(self.device, self.atlas_sampler, &vk_mem_cb);
     }
 
-    try createSyncObjects(self);
+    try createSyncObjects(self, allocator);
     errdefer {
+        for (self.render_finished_semaphores) |semaphore| {
+            vkd.destroySemaphore(self.device, semaphore, &vk_mem_cb);
+        }
         vkd.destroySemaphore(self.device, self.image_available_semaphore, &vk_mem_cb);
-        vkd.destroySemaphore(self.device, self.render_finished_semaphore, &vk_mem_cb);
         vkd.destroyFence(self.device, self.in_flight_fence, &vk_mem_cb);
     }
 
@@ -265,9 +267,12 @@ pub fn deinit(self: *VulkanRenderer) void {
     vkd.freeMemory(self.device, self.atlas_image_memory, &cb);
     vkd.destroySampler(self.device, self.atlas_sampler, &cb);
 
+    for (self.render_finished_semaphores) |semaphore| {
+        vkd.destroySemaphore(self.device, semaphore, &cb);
+    }
     vkd.destroySemaphore(self.device, self.image_available_semaphore, &cb);
-    vkd.destroySemaphore(self.device, self.render_finished_semaphore, &cb);
     vkd.destroyFence(self.device, self.in_flight_fence, &cb);
+    allocator.free(self.render_finished_semaphores);
 
     vkd.destroyPipeline(self.device, self.pipe_line, &cb);
     vkd.destroyRenderPass(self.device, self.render_pass, &cb);
