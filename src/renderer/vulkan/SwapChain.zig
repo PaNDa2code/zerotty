@@ -1,44 +1,131 @@
+const SwapChain = @This();
 const std = @import("std");
 const vk = @import("vulkan");
+const helpers = @import("helpers/root.zig");
 
 const Allocator = std.mem.Allocator;
-
-const VulkanRenderer = @import("Vulkan.zig");
-
-const helpers = @import("helpers/root.zig");
 const QueueFamilyIndices = helpers.physical_device.QueueFamilyIndices;
+const Core = @import("Core.zig");
 
-pub fn createSwapChain(self: *VulkanRenderer, allocator: Allocator) !void {
-    const vk_mem_cb = &self.vk_mem.vkAllocatorCallbacks();
+handle: vk.SwapchainKHR,
 
-    self.swap_chain = try _createSwapChain(
-        self.instance_wrapper,
-        self.device_wrapper,
-        self.physical_device,
-        self.device,
-        self.surface,
-        self.queue_family_indcies,
-        self.window_height,
-        self.window_width,
-        &self.swap_chain_extent,
-        &self.swap_chain_format,
-        allocator,
-        vk_mem_cb,
+images: []vk.Image,
+image_views: []vk.ImageView,
+
+format: vk.Format,
+extent: vk.Extent2D,
+
+pub fn init(core: *const Core, height: u32, width: u32) !SwapChain {
+    const alloc_callbacks = core.vk_mem.vkAllocatorCallbacks();
+
+    var extent: vk.Extent2D = undefined;
+    var format: vk.Format = undefined;
+
+    const swap_chain =
+        try createSwapChain(
+            &core.dispatch.vki,
+            &core.dispatch.vkd,
+            core.physical_device,
+            core.device,
+            core.surface,
+            .{
+                .graphics_family = core.graphics_family_index,
+                .present_family = core.present_family_index,
+            },
+            height,
+            width,
+            &extent,
+            &format,
+            core.vk_mem.allocator,
+            .null_handle,
+            &alloc_callbacks,
+        );
+
+    const images = try getSwapChainImages(
+        &core.dispatch.vkd,
+        swap_chain,
+        core.device,
+        core.vk_mem.allocator,
     );
 
-    self.swap_chain_images = try getSwapChainImages(self.device_wrapper, self.swap_chain, self.device, allocator);
-
-    self.swap_chain_image_views = try createImageViews(
-        self.device_wrapper,
-        self.swap_chain_images,
-        self.swap_chain_format,
-        self.device,
-        allocator,
-        vk_mem_cb,
+    const image_views = try createImageViews(
+        &core.dispatch.vkd,
+        images,
+        format,
+        core.device,
+        core.vk_mem.allocator,
+        &alloc_callbacks,
     );
+
+    return .{
+        .handle = swap_chain,
+        .format = format,
+        .extent = extent,
+        .images = images,
+        .image_views = image_views,
+    };
 }
 
-fn _createSwapChain(
+pub fn recreate(
+    self: *SwapChain,
+    core: *const Core,
+    height: u32,
+    width: u32,
+) !void {
+    const alloc_callbacks = core.vk_mem.vkAllocatorCallbacks();
+
+    var extent: vk.Extent2D = undefined;
+    var format: vk.Format = undefined;
+
+    const swap_chain =
+        try createSwapChain(
+            &core.dispatch.vki,
+            &core.dispatch.vkd,
+            core.physical_device,
+            core.device,
+            core.surface,
+            .{
+                .graphics_family = core.graphics_family_index,
+                .present_family = core.present_family_index,
+            },
+            height,
+            width,
+            &extent,
+            &format,
+            core.vk_mem.allocator,
+            self.handle,
+            &alloc_callbacks,
+        );
+
+    defer {
+        core.dispatch.vkd.destroySwapchainKHR(core.device, self.handle, &alloc_callbacks);
+        self.handle = swap_chain;
+    }
+
+    const images = try getSwapChainImages(
+        &core.dispatch.vkd,
+        swap_chain,
+        core.device,
+        core.vk_mem.allocator,
+    );
+
+    const image_views = try createImageViews(
+        &core.dispatch.vkd,
+        images,
+        format,
+        core.device,
+        core.vk_mem.allocator,
+        &alloc_callbacks,
+    );
+
+
+    self.format = format;
+    self.extent = extent;
+    self.images = images;
+    self.image_views = image_views;
+}
+
+fn createSwapChain(
     vki: *const vk.InstanceWrapper,
     vkd: *const vk.DeviceWrapper,
     physical_device: vk.PhysicalDevice,
@@ -50,6 +137,7 @@ fn _createSwapChain(
     swap_chain_extent: *vk.Extent2D,
     swap_chain_format: *vk.Format,
     allocator: Allocator,
+    old_swapchain: vk.SwapchainKHR,
     vk_mem_cb: *const vk.AllocationCallbacks,
 ) !vk.SwapchainKHR {
     const caps: vk.SurfaceCapabilitiesKHR =
@@ -107,6 +195,8 @@ fn _createSwapChain(
         .composite_alpha = pickCompositeAlpha(caps.supported_composite_alpha),
         .present_mode = present_mode,
         .clipped = .true,
+
+        .old_swapchain = old_swapchain,
     };
 
     const swap_chain = try vkd.createSwapchainKHR(device, &swap_chain_create_info, vk_mem_cb);
@@ -199,5 +289,14 @@ fn getSwapChainImages(
     device: vk.Device,
     allocator: Allocator,
 ) ![]vk.Image {
+    return try vkd.getSwapchainImagesAllocKHR(device, swap_chain, allocator);
+}
+
+fn getSwapChainImagesBuf(
+    vkd: *const vk.DeviceWrapper,
+    swap_chain: vk.SwapchainKHR,
+    device: vk.Device,
+    allocator: Allocator,
+) !void {
     return try vkd.getSwapchainImagesAllocKHR(device, swap_chain, allocator);
 }

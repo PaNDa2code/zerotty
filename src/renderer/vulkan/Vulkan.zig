@@ -1,6 +1,7 @@
 const VulkanRenderer = @This();
 
 core: Core,
+_swap_chain: SwapChain,
 
 base_wrapper: *vk.BaseWrapper,
 instance_wrapper: *vk.InstanceWrapper,
@@ -67,10 +68,13 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
 }
 
 const Core = @import("Core.zig");
+const SwapChain = @import("SwapChain.zig");
 
 pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void {
     const core = try Core.init(allocator, window);
     self.core = core;
+
+    const _swap_chain = try SwapChain.init(&core, window.height, window.width);
 
     self.vk_mem = self.core.vk_mem;
     errdefer allocator.destroy(self.vk_mem);
@@ -110,7 +114,12 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
         .graphics_family = core.graphics_family_index,
     };
 
-    try createSwapChain(self, allocator);
+    self.swap_chain = _swap_chain.handle;
+    self.swap_chain_images = _swap_chain.images;
+    self.swap_chain_image_views = _swap_chain.image_views;
+    self.swap_chain_format = _swap_chain.format;
+    self.swap_chain_extent = _swap_chain.extent;
+
     errdefer {
         for (self.swap_chain_image_views) |view| {
             vkd.destroyImageView(self.device, view, &vk_mem_cb);
@@ -200,20 +209,6 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     try stageVertexData(self);
 
     try updateDescriptorSets(self);
-}
-
-fn allocAndLoad(T: type, allocator: Allocator, loader: anytype, loader_args: anytype) !*T {
-    const ptr = try allocator.create(T);
-    ptr.* = @call(.auto, T.load, loader_args ++ .{loader});
-    return ptr;
-}
-
-fn baseGetInstanceProcAddress(_: vk.Instance, procname: [*:0]const u8) vk.PfnVoidFunction {
-    const vk_lib_name = if (os_tag == .windows) "vulkan-1.dll" else "libvulkan.so.1";
-    // var vk_lib = std.DynLib.open(vk_lib_name) catch return null;
-    // return @ptrCast(vk_lib.lookup(*anyopaque, std.mem.span(procname)));
-    var vk_lib = DynamicLibrary.init(vk_lib_name) catch return null;
-    return @ptrCast(vk_lib.getProcAddress(procname));
 }
 
 pub fn deinit(self: *VulkanRenderer) void {
@@ -348,7 +343,6 @@ const helpers = @import("helpers/root.zig");
 const QueueFamilyIndices = helpers.physical_device.QueueFamilyIndices;
 
 const setupDebugMessenger = helpers.debug.setupDebugMessenger;
-const createSwapChain = @import("swap_chain.zig").createSwapChain;
 const createRenderPass = @import("render_pass.zig").createRenderPass;
 const createPipeLine = @import("pipe_line.zig").createPipeLine;
 const createFrameBuffers = @import("frame_buffers.zig").createFrameBuffers;

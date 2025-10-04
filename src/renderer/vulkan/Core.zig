@@ -145,7 +145,8 @@ pub fn deinit(self: *Core) void {
 
     const alloc_callbacks = self.vk_mem.vkAllocatorCallbacks();
 
-    self.dispatch.vkd.deviceWaitIdle(self.device) catch unreachable;
+    self.dispatch
+        .vkd.deviceWaitIdle(self.device) catch unreachable;
 
     self.dispatch.vki.destroySurfaceKHR(
         self.instance,
@@ -153,7 +154,8 @@ pub fn deinit(self: *Core) void {
         &alloc_callbacks,
     );
 
-    self.dispatch.vkd.destroyDevice(self.device, &alloc_callbacks);
+    self.dispatch
+        .vkd.destroyDevice(self.device, &alloc_callbacks);
 
     allocator.destroy(self.dispatch);
 
@@ -162,6 +164,11 @@ pub fn deinit(self: *Core) void {
     allocator.destroy(self.vk_mem);
 }
 
-fn baseGetInstanceProcAddress(_: vk.Instance, procname: [*:0]const u8) vk.PfnVoidFunction {
-    return @ptrCast(vk_lib.lookup(*anyopaque, std.mem.span(procname)));
+fn baseGetInstanceProcAddress(
+    _: vk.Instance,
+    procname: [*:0]const u8,
+) vk.PfnVoidFunction {
+    return @ptrCast(
+        vk_lib.lookup(*anyopaque, std.mem.span(procname)),
+    );
 }
