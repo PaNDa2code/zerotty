@@ -35,7 +35,17 @@ vk_mem: *VkAllocatorAdapter,
 
 pub const log = std.log.scoped(.Renderer);
 
+const vk_lib_path: [*:0]const u8 = switch (os_tag) {
+    .windows => "C:\\Windows\\System32\\vulkan-1.dll",
+    .linux => "/usr/lib/x86_64-linux-gnu/libvulkan.so.1",
+    else => {},
+};
+
+var vk_lib: std.DynLib = undefined;
+
 pub fn init(allocator: Allocator, window: anytype) !Core {
+    vk_lib = try std.DynLib.openZ(vk_lib_path);
+
     const dispatch = try allocator.create(Dispatch);
     dispatch.vkb = .load(baseGetInstanceProcAddress);
 
@@ -130,9 +140,28 @@ pub fn init(allocator: Allocator, window: anytype) !Core {
     };
 }
 
-fn baseGetInstanceProcAddress(_: vk.Instance, procname: [*:0]const u8) vk.PfnVoidFunction {
-    const vk_lib_name = if (os_tag == .windows) "vulkan-1.dll" else "libvulkan.so.1";
-    var vk_lib = std.DynLib.open(vk_lib_name) catch return null;
-    return @ptrCast(vk_lib.lookup(*anyopaque, std.mem.span(procname)));
+pub fn deinit(self: *Core) void {
+    const allocator = self.vk_mem.allocator;
+
+    const alloc_callbacks = self.vk_mem.vkAllocatorCallbacks();
+
+    self.dispatch.vkd.deviceWaitIdle(self.device) catch unreachable;
+
+    self.dispatch.vki.destroySurfaceKHR(
+        self.instance,
+        self.surface,
+        &alloc_callbacks,
+    );
+
+    self.dispatch.vkd.destroyDevice(self.device, &alloc_callbacks);
+
+    allocator.destroy(self.dispatch);
+
+    self.vk_mem.deinit();
+
+    allocator.destroy(self.vk_mem);
 }
 
+fn baseGetInstanceProcAddress(_: vk.Instance, procname: [*:0]const u8) vk.PfnVoidFunction {
+    return @ptrCast(vk_lib.lookup(*anyopaque, std.mem.span(procname)));
+}
