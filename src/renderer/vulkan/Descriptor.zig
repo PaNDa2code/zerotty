@@ -1,14 +1,19 @@
+const Descriptor = @This();
+
 const std = @import("std");
-
 const vk = @import("vulkan");
+const Core = @import("Core.zig");
 
-const VulkanRenderer = @import("Vulkan.zig");
+set: vk.DescriptorSet,
 
-fn createDescriptorSetLayout(
-    vkd: *const vk.DeviceWrapper,
-    device: vk.Device,
-    vkmemcb: *const vk.AllocationCallbacks,
-) !vk.DescriptorSetLayout {
+layout: vk.DescriptorSetLayout,
+
+pool: vk.DescriptorPool,
+
+pub fn init(core: *const Core) !Descriptor {
+    const vkd = &core.dispatch.vkd;
+    const alloc_callbacks = core.vk_mem.vkAllocatorCallbacks();
+
     const bindings = [_]vk.DescriptorSetLayoutBinding{
         .{
             .binding = 0,
@@ -24,17 +29,16 @@ fn createDescriptorSetLayout(
         },
     };
 
-    const descriptor_set_layout_info = vk.DescriptorSetLayoutCreateInfo{
+    const set_layout_info = vk.DescriptorSetLayoutCreateInfo{
         .binding_count = bindings.len,
         .p_bindings = &bindings,
     };
 
-    return vkd.createDescriptorSetLayout(device, &descriptor_set_layout_info, vkmemcb);
-}
-
-pub fn createDescriptorSet(self: *VulkanRenderer) !void {
-    const vkd = self.device_wrapper;
-    const memcb = self.vk_mem.vkAllocatorCallbacks();
+    const layout = try vkd.createDescriptorSetLayout(
+        core.device,
+        &set_layout_info,
+        &alloc_callbacks,
+    );
 
     const uniform_descriptor_pool_size = vk.DescriptorPoolSize{
         .type = .uniform_buffer,
@@ -55,20 +59,29 @@ pub fn createDescriptorSet(self: *VulkanRenderer) !void {
         },
     };
 
-    const descriptor_set_layout = try createDescriptorSetLayout(vkd, self.device, &memcb);
-
-    const descriptor_pool = try vkd.createDescriptorPool(self.device, &descriptor_pool_info, &memcb);
+    const pool = try vkd.createDescriptorPool(
+        core.device,
+        &descriptor_pool_info,
+        &alloc_callbacks,
+    );
 
     const descriptor_set_alloc_info = vk.DescriptorSetAllocateInfo{
-        .descriptor_pool = descriptor_pool,
+        .descriptor_pool = pool,
         .descriptor_set_count = 1,
-        .p_set_layouts = &.{descriptor_set_layout},
+        .p_set_layouts = &.{layout},
     };
 
-    var descriptor_set: vk.DescriptorSet = .null_handle;
-    try vkd.allocateDescriptorSets(self.device, &descriptor_set_alloc_info, @ptrCast(&descriptor_set));
+    var set: vk.DescriptorSet = .null_handle;
 
-    self.descriptor_set_layout = descriptor_set_layout;
-    self.descriptor_pool = descriptor_pool;
-    self.descriptor_set = descriptor_set;
+    try vkd.allocateDescriptorSets(
+        core.device,
+        &descriptor_set_alloc_info,
+        @ptrCast(&set),
+    );
+
+    return .{
+        .set = set,
+        .layout = layout,
+        .pool = pool,
+    };
 }
