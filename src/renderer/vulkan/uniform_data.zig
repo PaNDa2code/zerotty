@@ -5,6 +5,8 @@ const Allocator = std.mem.Allocator;
 
 const VulkanRenderer = @import("Vulkan.zig");
 
+const UniformsBlock = @import("Buffers.zig").UniformsBlock;
+
 pub fn updateDescriptorSets(self: *VulkanRenderer) !void {
     const vkd = self.device_wrapper;
 
@@ -72,4 +74,3 @@ pub fn updateUniformData(self: *const VulkanRenderer) !void {
     vkd.unmapMemory(self.device, self.uniform_memory);
 }
 
-const UniformsBlock = @import("vertex_buffer.zig").UniformsBlock;

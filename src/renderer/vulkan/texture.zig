@@ -2,6 +2,8 @@ const std = @import("std");
 const vk = @import("vulkan");
 
 const Allocator = std.mem.Allocator;
+const Buffers = @import("Buffers.zig");
+const findMemoryType = Buffers.findMemoryType;
 
 const VulkanRenderer = @import("Vulkan.zig");
 
@@ -237,5 +239,3 @@ fn transitionImageLayout(
 
     vkd.cmdPipelineBarrier2(cmd_buffer, &dep);
 }
-
-const findMemoryType = @import("vertex_buffer.zig").findMemoryType;

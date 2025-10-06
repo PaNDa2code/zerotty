@@ -2,6 +2,8 @@ const VulkanRenderer = @This();
 
 core: Core,
 _swap_chain: SwapChain,
+_pipe_line: Pipeline,
+buffers: Buffers,
 
 base_wrapper: *vk.BaseWrapper,
 instance_wrapper: *vk.InstanceWrapper,
@@ -69,12 +71,38 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
 
 const Core = @import("Core.zig");
 const SwapChain = @import("SwapChain.zig");
+const Descriptor = @import("Descriptor.zig");
+const Pipeline = @import("Pipeline.zig");
+const Buffers = @import("Buffers.zig");
 
 pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void {
     const core = try Core.init(allocator, window);
     self.core = core;
 
     const _swap_chain = try SwapChain.init(&core, window.height, window.width);
+    const descriptor = try Descriptor.init(&core);
+    const _pipe_line = try Pipeline.init(&core, &_swap_chain, &descriptor);
+
+    self.atlas = try Atlas.create(allocator, 30, 20, 0, 128);
+
+    const grid_rows = window.height / self.atlas.cell_height;
+    const grid_cols = window.width / self.atlas.cell_width;
+
+    self.grid = try Grid.create(allocator, .{
+        .rows = grid_rows,
+        .cols = grid_cols,
+    });
+
+    const vertex_memory_size = 1024 * 16;
+    const altas_size = self.atlas.buffer.len;
+
+    const staging_memory_size = @max(altas_size, vertex_memory_size);
+
+    const buffers = try Buffers.init(&core, .{
+        .staging_size = staging_memory_size,
+        .vertex_size = staging_memory_size,
+        .uniform_size = 16 * 1024,
+    });
 
     self.vk_mem = self.core.vk_mem;
     errdefer allocator.destroy(self.vk_mem);
@@ -114,11 +142,13 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
         .graphics_family = core.graphics_family_index,
     };
 
-    self.swap_chain = _swap_chain.handle;
-    self.swap_chain_images = _swap_chain.images;
-    self.swap_chain_image_views = _swap_chain.image_views;
-    self.swap_chain_format = _swap_chain.format;
-    self.swap_chain_extent = _swap_chain.extent;
+    {
+        self.swap_chain = _swap_chain.handle;
+        self.swap_chain_images = _swap_chain.images;
+        self.swap_chain_image_views = _swap_chain.image_views;
+        self.swap_chain_format = _swap_chain.format;
+        self.swap_chain_extent = _swap_chain.extent;
+    }
 
     errdefer {
         for (self.swap_chain_image_views) |view| {
@@ -127,22 +157,33 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
         vkd.destroySwapchainKHR(self.device, self.swap_chain, &vk_mem_cb);
     }
 
-    try createRenderPass(self);
+    {
+        self.render_pass = _pipe_line.render_pass;
+    }
     errdefer vkd.destroyRenderPass(self.device, self.render_pass, &vk_mem_cb);
 
-    try createDescriptorSet(self);
+    {
+        self.descriptor_set = descriptor.set;
+        self.descriptor_pool = descriptor.pool;
+        self.descriptor_set_layout = descriptor.layout;
+    }
     errdefer {
         vkd.destroyDescriptorSetLayout(self.device, self.descriptor_set_layout, &vk_mem_cb);
         vkd.destroyDescriptorPool(self.device, self.descriptor_pool, &vk_mem_cb);
     }
 
-    try createPipeLine(self);
+    {
+        self.pipe_line = _pipe_line.handle;
+        self.pipe_line_layout = _pipe_line.layout;
+    }
     errdefer {
         vkd.destroyPipeline(self.device, self.pipe_line, &vk_mem_cb);
         vkd.destroyPipelineLayout(self.device, self.pipe_line_layout, &vk_mem_cb);
     }
 
-    try createFrameBuffers(self, allocator);
+    {
+        self.frame_buffers = _pipe_line.frame_buffers;
+    }
     errdefer {
         for (self.frame_buffers) |buffer| {
             vkd.destroyFramebuffer(self.device, buffer, &vk_mem_cb);
@@ -157,22 +198,17 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
         allocator.free(self.cmd_buffers);
     }
 
-    self.atlas = try Atlas.create(allocator, 30, 20, 0, 128);
+    {
+        self.vertex_buffer = buffers.vertex_buffer.handle;
+        self.vertex_memory = buffers.vertex_buffer.memory;
+        self.vertex_buffer_size = buffers.vertex_buffer.size;
 
-    const grid_rows = window.height / self.atlas.cell_height;
-    const grid_cols = window.width / self.atlas.cell_width;
+        self.uniform_buffer = buffers.uniform_buffer.handle;
+        self.uniform_memory = buffers.uniform_buffer.memory;
 
-    self.grid = try Grid.create(allocator, .{
-        .rows = grid_rows,
-        .cols = grid_cols,
-    });
-
-    const vertex_memory_size = 1024 * 16;
-    const altas_size = self.atlas.buffer.len;
-
-    const staging_memory_size = @max(altas_size, vertex_memory_size);
-
-    try createBuffers(self, vertex_memory_size, staging_memory_size);
+        self.staging_buffer = buffers.staging_buffer.handle;
+        self.staging_memory = buffers.staging_buffer.memory;
+    }
     errdefer {
         vkd.destroyBuffer(self.device, self.vertex_buffer, &vk_mem_cb);
         vkd.destroyBuffer(self.device, self.staging_buffer, &vk_mem_cb);
@@ -206,7 +242,11 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
 
     try uploadAtlas(self);
 
-    try stageVertexData(self);
+    try buffers.stageVertexData(
+        &core,
+        &self.grid,
+        &self.atlas,
+    );
 
     try updateDescriptorSets(self);
 }
@@ -272,9 +312,7 @@ pub fn deinit(self: *VulkanRenderer) void {
     allocator.free(self.swap_chain_images);
     allocator.free(self.swap_chain_image_views);
 
-    allocator.destroy(self.base_wrapper);
-    allocator.destroy(self.instance_wrapper);
-    allocator.destroy(self.device_wrapper);
+    allocator.destroy(self.core.dispatch);
 
     self.vk_mem.deinit();
     allocator.destroy(self.vk_mem);
@@ -343,17 +381,11 @@ const helpers = @import("helpers/root.zig");
 const QueueFamilyIndices = helpers.physical_device.QueueFamilyIndices;
 
 const setupDebugMessenger = helpers.debug.setupDebugMessenger;
-const createRenderPass = @import("render_pass.zig").createRenderPass;
-const createPipeLine = @import("pipe_line.zig").createPipeLine;
-const createFrameBuffers = @import("frame_buffers.zig").createFrameBuffers;
 const allocCmdBuffers = @import("cmd_buffers.zig").allocCmdBuffers;
 const recordCommandBuffer = @import("cmd_buffers.zig").recordCommandBuffer;
-const createBuffers = @import("vertex_buffer.zig").createBuffers;
-const stageVertexData = @import("vertex_buffer.zig").stageVertexData;
 const createAtlasTexture = @import("texture.zig").createAtlasTexture;
 const uploadAtlas = @import("texture.zig").uploadAtlas;
 const updateDescriptorSets = @import("uniform_data.zig").updateDescriptorSets;
 const updateUniformData = @import("uniform_data.zig").updateUniformData;
 const createSyncObjects = @import("sync.zig").createSyncObjects;
 const drawFrame = @import("frames.zig").drawFrame;
-const createDescriptorSet = @import("descriptor.zig").createDescriptorSet;

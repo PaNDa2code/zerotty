@@ -1,27 +1,42 @@
-const std = @import("std");
-const builtin = @import("builtin");
-const Allocator = std.mem.Allocator;
+const Buffers = @This();
 
+const std = @import("std");
 const vk = @import("vulkan");
 
-const VulkanRenderer = @import("Vulkan.zig");
+const Atlas = @import("../../font/Atlas.zig");
+const Grid = @import("../Grid.zig");
+const Cell = Grid.Cell;
 
-pub fn createBuffers(self: *VulkanRenderer, vertex_size: usize, staging_size: usize) !void {
-    const vkd = self.device_wrapper;
-    const vki = self.instance_wrapper;
-    const mem_cb = self.vk_mem.vkAllocatorCallbacks();
+const Core = @import("Core.zig");
+const math = @import("../math.zig");
+const Vec4 = math.Vec4;
+
+pub const BufferResource = struct {
+    handle: vk.Buffer,
+    memory: vk.DeviceMemory,
+    size: usize,
+};
+
+vertex_buffer: BufferResource,
+staging_buffer: BufferResource,
+uniform_buffer: BufferResource,
+
+pub fn init(core: *const Core, options: anytype) !Buffers {
+    const vki = &core.dispatch.vki;
+    const vkd = &core.dispatch.vkd;
+    const alloc_callbacks = core.vk_mem.vkAllocatorCallbacks();
 
     const mem_properties =
-        vki.getPhysicalDeviceMemoryProperties(self.physical_device);
+        vki.getPhysicalDeviceMemoryProperties(core.physical_device);
 
     var vertex_buffer: vk.Buffer = .null_handle;
     var vertex_memory: vk.DeviceMemory = .null_handle;
 
     try createBuffer(
         vkd,
-        self.device,
+        core.device,
         &mem_properties,
-        vertex_size,
+        options.vertex_size,
         .{
             .vertex_buffer_bit = true,
             .transfer_dst_bit = true,
@@ -29,7 +44,7 @@ pub fn createBuffers(self: *VulkanRenderer, vertex_size: usize, staging_size: us
         .{},
         &vertex_buffer,
         &vertex_memory,
-        &mem_cb,
+        &alloc_callbacks,
     );
 
     var uniform_buffer: vk.Buffer = .null_handle;
@@ -37,7 +52,7 @@ pub fn createBuffers(self: *VulkanRenderer, vertex_size: usize, staging_size: us
 
     try createBuffer(
         vkd,
-        self.device,
+        core.device,
         &mem_properties,
         @sizeOf(UniformsBlock),
         .{ .uniform_buffer_bit = true },
@@ -47,7 +62,7 @@ pub fn createBuffers(self: *VulkanRenderer, vertex_size: usize, staging_size: us
         },
         &uniform_buffer,
         &uniform_memory,
-        &mem_cb,
+        &alloc_callbacks,
     );
 
     var vertex_staging_buffer: vk.Buffer = .null_handle;
@@ -55,9 +70,9 @@ pub fn createBuffers(self: *VulkanRenderer, vertex_size: usize, staging_size: us
 
     try createBuffer(
         vkd,
-        self.device,
+        core.device,
         &mem_properties,
-        staging_size,
+        options.staging_size,
         .{ .transfer_src_bit = true },
         .{
             .host_visible_bit = true,
@@ -65,20 +80,36 @@ pub fn createBuffers(self: *VulkanRenderer, vertex_size: usize, staging_size: us
         },
         &vertex_staging_buffer,
         &vertex_staging_memory,
-        &mem_cb,
+        &alloc_callbacks,
     );
 
-    self.vertex_buffer = vertex_buffer;
-    self.vertex_memory = vertex_memory;
-
-    self.uniform_buffer = uniform_buffer;
-    self.uniform_memory = uniform_memory;
-
-    self.staging_buffer = vertex_staging_buffer;
-    self.staging_memory = vertex_staging_memory;
+    return .{
+        .vertex_buffer = .{
+            .handle = vertex_buffer,
+            .memory = vertex_memory,
+            .size = options.vertex_size,
+        },
+        .staging_buffer = .{
+            .handle = vertex_staging_buffer,
+            .memory = vertex_staging_memory,
+            .size = options.staging_size,
+        },
+        .uniform_buffer = .{
+            .handle = uniform_buffer,
+            .memory = uniform_memory,
+            .size = options.uniform_size,
+        },
+    };
 }
 
-pub fn stageVertexData(self: *const VulkanRenderer) !void {
+pub fn stageVertexData(
+    self: *const Buffers,
+    core: *const Core,
+    grid: *const Grid,
+    atlas: *const Atlas,
+) !void {
+    const vkd = &core.dispatch.vkd;
+
     const full_quad = [_]Vec4(f32){
         .{ .x = 0.0, .y = 0.0, .z = 0.0, .w = 0.0 }, // Bottom-left
         .{ .x = 1.0, .y = 0.0, .z = 1.0, .w = 0.0 }, // Bottom-right
@@ -88,9 +119,16 @@ pub fn stageVertexData(self: *const VulkanRenderer) !void {
         .{ .x = 0.0, .y = 0.0, .z = 0.0, .w = 0.0 }, // Bottom-left
     };
 
-    const vkd = self.device_wrapper;
-    const staging_ptr = try vkd.mapMemory(self.device, self.staging_memory, 0, 1024 * 16, .{});
-    defer vkd.unmapMemory(self.device, self.staging_memory);
+    const staging_ptr =
+        try vkd.mapMemory(
+            core.device,
+            self.staging_buffer.memory,
+            0,
+            1024 * 16,
+            .{},
+        );
+
+    defer vkd.unmapMemory(core.device, self.staging_buffer.memory);
 
     @memcpy(@as([*]Vec4(f32), @ptrCast(@alignCast(staging_ptr)))[0..6], full_quad[0..]);
 
@@ -99,17 +137,16 @@ pub fn stageVertexData(self: *const VulkanRenderer) !void {
     for ('a'..'a' + 64) |i| {
         const char: u8 = @intCast(i);
         slice[i % 63] = .{
-            .row = @intCast(i / self.grid.cols),
-            .col = @intCast(i % self.grid.cols),
+            .row = @intCast(i / grid.cols),
+            .col = @intCast(i % grid.cols),
             .char = char,
             .fg_color = .White,
             .bg_color = .Black,
-            .glyph_info = self.atlas.glyph_lookup_map.get(@intCast(char)) orelse
-                self.atlas.glyph_lookup_map.get('a').?,
+            .glyph_info = atlas.glyph_lookup_map.get(@intCast(char)) orelse
+                atlas.glyph_lookup_map.get('a').?,
         };
     }
 }
-
 pub fn createBuffer(
     vkd: *const vk.DeviceWrapper,
     device: vk.Device,
@@ -143,45 +180,7 @@ pub fn createBuffer(
     p_device_memory.* = memory;
 }
 
-pub fn getVertexBindingDescriptions() []const vk.VertexInputBindingDescription {
-    return &[_]vk.VertexInputBindingDescription{
-        .{ .binding = 0, .stride = @sizeOf(Vec4(f32)), .input_rate = .vertex },
-        .{ .binding = 1, .stride = @sizeOf(Cell), .input_rate = .instance },
-    };
-}
-
-pub fn getVertexAttributeDescriptions() []const vk.VertexInputAttributeDescription {
-    const descriptions = [_]vk.VertexInputAttributeDescription{
-        .{ .location = 0, .binding = 0, .format = .r32g32b32a32_sfloat, .offset = 0 },
-        .{ .location = 1, .binding = 1, .format = .r32_uint, .offset = @offsetOf(Cell, "row") },
-        .{ .location = 2, .binding = 1, .format = .r32_uint, .offset = @offsetOf(Cell, "col") },
-        .{ .location = 3, .binding = 1, .format = .r32_uint, .offset = @offsetOf(Cell, "char") },
-        .{ .location = 4, .binding = 1, .format = .r8g8b8a8_unorm, .offset = @offsetOf(Cell, "fg_color") },
-        .{ .location = 5, .binding = 1, .format = .r8g8b8a8_unorm, .offset = @offsetOf(Cell, "bg_color") },
-        .{
-            .location = 6,
-            .binding = 1,
-            .format = .r32g32_uint,
-            .offset = @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "coord_start"),
-        },
-        .{
-            .location = 7,
-            .binding = 1,
-            .format = .r32g32_uint,
-            .offset = @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "coord_end"),
-        },
-        .{
-            .location = 8,
-            .binding = 1,
-            .format = .r32g32_sint,
-            .offset = @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "bearing"),
-        },
-    };
-
-    return descriptions[0..];
-}
-
-pub inline fn findMemoryType(
+pub fn findMemoryType(
     mem_properties: *const vk.PhysicalDeviceMemoryProperties,
     type_filter: u32,
     properties: vk.MemoryPropertyFlags,
@@ -207,11 +206,3 @@ pub const UniformsBlock = packed struct {
     atlas_height: f32,
     descender: f32,
 };
-
-const Atlas = @import("../../font/Atlas.zig");
-const Cell = @import("../Grid.zig").Cell;
-
-const math = @import("../math.zig");
-const Vec2 = math.Vec2;
-const Vec3 = math.Vec3;
-const Vec4 = math.Vec4;
