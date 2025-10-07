@@ -1,9 +1,10 @@
 const VulkanRenderer = @This();
 
-core: Core,
+_core: Core,
 _swap_chain: SwapChain,
 _pipe_line: Pipeline,
-buffers: Buffers,
+_buffers: Buffers,
+_sync: Sync,
 
 base_wrapper: *vk.BaseWrapper,
 instance_wrapper: *vk.InstanceWrapper,
@@ -74,10 +75,11 @@ const SwapChain = @import("SwapChain.zig");
 const Descriptor = @import("Descriptor.zig");
 const Pipeline = @import("Pipeline.zig");
 const Buffers = @import("Buffers.zig");
+const Sync = @import("Sync.zig");
 
 pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void {
     const core = try Core.init(allocator, window);
-    self.core = core;
+    self._core = core;
 
     const _swap_chain = try SwapChain.init(&core, window.height, window.width);
     const descriptor = try Descriptor.init(&core);
@@ -98,13 +100,15 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
 
     const staging_memory_size = @max(altas_size, vertex_memory_size);
 
-    const buffers = try Buffers.init(&core, .{
+    const _buffers = try Buffers.init(&core, .{
         .staging_size = staging_memory_size,
         .vertex_size = staging_memory_size,
         .uniform_size = 16 * 1024,
     });
 
-    self.vk_mem = self.core.vk_mem;
+    const _sync = try Sync.init(&core, &_swap_chain);
+
+    self.vk_mem = self._core.vk_mem;
     errdefer allocator.destroy(self.vk_mem);
 
     const vk_mem_cb = self.vk_mem.vkAllocatorCallbacks();
@@ -199,15 +203,15 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     }
 
     {
-        self.vertex_buffer = buffers.vertex_buffer.handle;
-        self.vertex_memory = buffers.vertex_buffer.memory;
-        self.vertex_buffer_size = buffers.vertex_buffer.size;
+        self.vertex_buffer = _buffers.vertex_buffer.handle;
+        self.vertex_memory = _buffers.vertex_buffer.memory;
+        self.vertex_buffer_size = _buffers.vertex_buffer.size;
 
-        self.uniform_buffer = buffers.uniform_buffer.handle;
-        self.uniform_memory = buffers.uniform_buffer.memory;
+        self.uniform_buffer = _buffers.uniform_buffer.handle;
+        self.uniform_memory = _buffers.uniform_buffer.memory;
 
-        self.staging_buffer = buffers.staging_buffer.handle;
-        self.staging_memory = buffers.staging_buffer.memory;
+        self.staging_buffer = _buffers.staging_buffer.handle;
+        self.staging_memory = _buffers.staging_buffer.memory;
     }
     errdefer {
         vkd.destroyBuffer(self.device, self.vertex_buffer, &vk_mem_cb);
@@ -226,7 +230,12 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
         vkd.destroySampler(self.device, self.atlas_sampler, &vk_mem_cb);
     }
 
-    try createSyncObjects(self, allocator);
+    // try createSyncObjects(self, allocator);
+    {
+        self.render_finished_semaphores = _sync.render_finished_semaphores;
+        self.image_available_semaphore = _sync.image_available_semaphores[0];
+        self.in_flight_fence = _sync.in_flight_fences[0];
+    }
     errdefer {
         for (self.render_finished_semaphores) |semaphore| {
             vkd.destroySemaphore(self.device, semaphore, &vk_mem_cb);
@@ -242,7 +251,7 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
 
     try uploadAtlas(self);
 
-    try buffers.stageVertexData(
+    try _buffers.stageVertexData(
         &core,
         &self.grid,
         &self.atlas,
@@ -312,7 +321,7 @@ pub fn deinit(self: *VulkanRenderer) void {
     allocator.free(self.swap_chain_images);
     allocator.free(self.swap_chain_image_views);
 
-    allocator.destroy(self.core.dispatch);
+    allocator.destroy(self._core.dispatch);
 
     self.vk_mem.deinit();
     allocator.destroy(self.vk_mem);
@@ -387,5 +396,4 @@ const createAtlasTexture = @import("texture.zig").createAtlasTexture;
 const uploadAtlas = @import("texture.zig").uploadAtlas;
 const updateDescriptorSets = @import("uniform_data.zig").updateDescriptorSets;
 const updateUniformData = @import("uniform_data.zig").updateUniformData;
-const createSyncObjects = @import("sync.zig").createSyncObjects;
 const drawFrame = @import("frames.zig").drawFrame;
