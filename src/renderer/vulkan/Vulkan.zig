@@ -5,6 +5,7 @@ _swap_chain: SwapChain,
 _pipe_line: Pipeline,
 _buffers: Buffers,
 _sync: Sync,
+_cmd: Command,
 
 base_wrapper: *vk.BaseWrapper,
 instance_wrapper: *vk.InstanceWrapper,
@@ -76,6 +77,7 @@ const Descriptor = @import("Descriptor.zig");
 const Pipeline = @import("Pipeline.zig");
 const Buffers = @import("Buffers.zig");
 const Sync = @import("Sync.zig");
+const Command = @import("Command.zig");
 
 pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void {
     const core = try Core.init(allocator, window);
@@ -84,6 +86,7 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     const _swap_chain = try SwapChain.init(&core, window.height, window.width);
     const descriptor = try Descriptor.init(&core);
     const _pipe_line = try Pipeline.init(&core, &_swap_chain, &descriptor);
+    const _cmd = try Command.init(&core, 2);
 
     self.atlas = try Atlas.create(allocator, 30, 20, 0, 128);
 
@@ -195,7 +198,10 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
         allocator.free(self.frame_buffers);
     }
 
-    try allocCmdBuffers(self, allocator);
+    {
+        self.cmd_pool = _cmd.pool;
+        self.cmd_buffers = _cmd.buffers;
+    }
     errdefer {
         vkd.freeCommandBuffers(self.device, self.cmd_pool, @intCast(self.cmd_buffers.len), self.cmd_buffers.ptr);
         vkd.destroyCommandPool(self.device, self.cmd_pool, &vk_mem_cb);
