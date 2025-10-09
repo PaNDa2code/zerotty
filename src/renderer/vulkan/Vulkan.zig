@@ -6,6 +6,7 @@ _pipe_line: Pipeline,
 _buffers: Buffers,
 _sync: Sync,
 _cmd: Command,
+_tex: Texture,
 
 base_wrapper: *vk.BaseWrapper,
 instance_wrapper: *vk.InstanceWrapper,
@@ -78,17 +79,23 @@ const Pipeline = @import("Pipeline.zig");
 const Buffers = @import("Buffers.zig");
 const Sync = @import("Sync.zig");
 const Command = @import("Command.zig");
+const Texture = @import("Texture.zig");
 
 pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void {
     const core = try Core.init(allocator, window);
     self._core = core;
 
     const _swap_chain = try SwapChain.init(&core, window.height, window.width);
-    const descriptor = try Descriptor.init(&core);
-    const _pipe_line = try Pipeline.init(&core, &_swap_chain, &descriptor);
+    const _descriptor = try Descriptor.init(&core);
+    const _pipe_line = try Pipeline.init(&core, &_swap_chain, &_descriptor);
     const _cmd = try Command.init(&core, 2);
 
     self.atlas = try Atlas.create(allocator, 30, 20, 0, 128);
+
+    const _tex = try Texture.init(&core, .{
+        .height = @intCast(self.atlas.height),
+        .width = @intCast(self.atlas.width),
+    });
 
     const grid_rows = window.height / self.atlas.cell_height;
     const grid_cols = window.width / self.atlas.cell_width;
@@ -170,9 +177,9 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     errdefer vkd.destroyRenderPass(self.device, self.render_pass, &vk_mem_cb);
 
     {
-        self.descriptor_set = descriptor.set;
-        self.descriptor_pool = descriptor.pool;
-        self.descriptor_set_layout = descriptor.layout;
+        self.descriptor_set = _descriptor.set;
+        self.descriptor_pool = _descriptor.pool;
+        self.descriptor_set_layout = _descriptor.layout;
     }
     errdefer {
         vkd.destroyDescriptorSetLayout(self.device, self.descriptor_set_layout, &vk_mem_cb);
@@ -228,7 +235,13 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
         vkd.freeMemory(self.device, self.uniform_memory, &vk_mem_cb);
     }
 
-    try createAtlasTexture(self);
+    // try createAtlasTexture(self);
+    {
+        self.atlas_image = _tex.image;
+        self.atlas_image_view = _tex.image_view;
+        self.atlas_image_memory = _tex.image_memory;
+        self.atlas_sampler = _tex.sampler;
+    }
     errdefer {
         vkd.destroyImageView(self.device, self.atlas_image_view, &vk_mem_cb);
         vkd.destroyImage(self.device, self.atlas_image, &vk_mem_cb);
@@ -253,9 +266,25 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     self.window_height = window.height;
     self.window_width = window.width;
 
-    try updateUniformData(self);
+    try updateUniformData(&core, &_buffers, &.{
+        .cell_height = @floatFromInt(self.atlas.cell_height),
+        .cell_width = @floatFromInt(self.atlas.cell_width),
+        .screen_height = @floatFromInt(self.window_height),
+        .screen_width = @floatFromInt(self.window_width),
+        .atlas_cols = @floatFromInt(self.atlas.cols),
+        .atlas_rows = @floatFromInt(self.atlas.rows),
+        .atlas_height = @floatFromInt(self.atlas.height),
+        .atlas_width = @floatFromInt(self.atlas.width),
+        .descender = @floatFromInt(self.atlas.descender),
+    });
 
-    try uploadAtlas(self);
+    try _tex.uploadAtlas(
+        &core,
+        &_buffers,
+        &_cmd,
+        &self.atlas,
+        self.graphics_queue,
+    );
 
     try _buffers.stageVertexData(
         &core,
@@ -263,7 +292,13 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
         &self.atlas,
     );
 
-    try updateDescriptorSets(self);
+    try updateDescriptorSets(
+        &core,
+        &_descriptor,
+        &_buffers,
+        _tex.image_view,
+        _tex.sampler,
+    );
 }
 
 pub fn deinit(self: *VulkanRenderer) void {

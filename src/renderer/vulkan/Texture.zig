@@ -1,26 +1,43 @@
-const std = @import("std");
+const Texture = @This();
+
 const vk = @import("vulkan");
 
-const Allocator = std.mem.Allocator;
+const Atlas = @import("../../font/Atlas.zig");
+
+const Core = @import("Core.zig");
+const Command = @import("Command.zig");
+const SwapChian = @import("SwapChain.zig");
+
 const Buffers = @import("Buffers.zig");
 const findMemoryType = Buffers.findMemoryType;
 
-const VulkanRenderer = @import("Vulkan.zig");
+image: vk.Image,
+image_view: vk.ImageView,
+image_memory: vk.DeviceMemory,
+sampler: vk.Sampler,
 
-pub fn createAtlasTexture(self: *VulkanRenderer) !void {
-    const vkd = self.device_wrapper;
-    const vki = self.instance_wrapper;
-    const mem_cb = self.vk_mem.vkAllocatorCallbacks();
+pub const TextureCreateOptions = struct {
+    height: u32,
+    width: u32,
+};
+
+pub fn init(
+    core: *const Core,
+    options: TextureCreateOptions,
+) !Texture {
+    const vkd = &core.dispatch.vkd;
+    const vki = &core.dispatch.vki;
+    const alloc_callbacks = core.vk_mem.vkAllocatorCallbacks();
 
     const mem_properties =
-        vki.getPhysicalDeviceMemoryProperties(self.physical_device);
+        vki.getPhysicalDeviceMemoryProperties(core.physical_device);
 
     const image_info = vk.ImageCreateInfo{
         .image_type = .@"2d",
         .format = .r8_unorm,
         .extent = .{
-            .width = @intCast(self.atlas.width),
-            .height = @intCast(self.atlas.height),
+            .width = @intCast(options.width),
+            .height = @intCast(options.height),
             .depth = 1,
         },
         .mip_levels = 1,
@@ -35,22 +52,34 @@ pub fn createAtlasTexture(self: *VulkanRenderer) !void {
         .initial_layout = .undefined,
     };
 
-    const image = try vkd.createImage(self.device, &image_info, &mem_cb);
+    const image =
+        try vkd.createImage(
+            core.device,
+            &image_info,
+            &alloc_callbacks,
+        );
 
-    const mem_requrements = vkd.getImageMemoryRequirements(self.device, image);
+    const mem_requrements =
+        vkd.getImageMemoryRequirements(core.device, image);
 
-    const alloc_info = vk.MemoryAllocateInfo{
-        .allocation_size = mem_requrements.size,
-        .memory_type_index = findMemoryType(
-            &mem_properties,
-            mem_requrements.memory_type_bits,
-            .{ .device_local_bit = true },
-        ),
-    };
+    const alloc_info =
+        vk.MemoryAllocateInfo{
+            .allocation_size = mem_requrements.size,
+            .memory_type_index = findMemoryType(
+                &mem_properties,
+                mem_requrements.memory_type_bits,
+                .{ .device_local_bit = true },
+            ),
+        };
 
-    const image_memory = try vkd.allocateMemory(self.device, &alloc_info, &mem_cb);
+    const image_memory =
+        try vkd.allocateMemory(
+            core.device,
+            &alloc_info,
+            &alloc_callbacks,
+        );
 
-    try vkd.bindImageMemory(self.device, image, image_memory, 0);
+    try vkd.bindImageMemory(core.device, image, image_memory, 0);
 
     const image_view_info = vk.ImageViewCreateInfo{
         .image = image,
@@ -66,7 +95,12 @@ pub fn createAtlasTexture(self: *VulkanRenderer) !void {
         .components = .{ .r = .r, .g = .identity, .b = .identity, .a = .identity },
     };
 
-    const image_view = try vkd.createImageView(self.device, &image_view_info, &mem_cb);
+    const image_view =
+        try vkd.createImageView(
+            core.device,
+            &image_view_info,
+            &alloc_callbacks,
+        );
 
     const sampler_info = vk.SamplerCreateInfo{
         .mag_filter = .linear,
@@ -86,25 +120,44 @@ pub fn createAtlasTexture(self: *VulkanRenderer) !void {
         .mip_lod_bias = 0.0,
     };
 
-    const sampler = try vkd.createSampler(self.device, &sampler_info, &mem_cb);
+    const sampler = try vkd.createSampler(
+        core.device,
+        &sampler_info,
+        &alloc_callbacks,
+    );
 
-    self.atlas_image = image;
-    self.atlas_image_view = image_view;
-    self.atlas_image_memory = image_memory;
-    self.atlas_sampler = sampler;
+    return .{
+        .image = image,
+        .image_view = image_view,
+        .image_memory = image_memory,
+        .sampler = sampler,
+    };
 }
 
-pub fn uploadAtlas(self: *const VulkanRenderer) !void {
-    const vkd = self.device_wrapper;
-    const cmd_buffer = self.cmd_buffers[1];
+pub fn uploadAtlas(
+    self: *const Texture,
+    core: *const Core,
+    buffers: *const Buffers,
+    cmd: *const Command,
+    atlas: *const Atlas,
+    queue: vk.Queue,
+) !void {
+    const vkd = &core.dispatch.vkd;
+    const cmd_buffer = cmd.buffers[1];
 
-    const bytes = self.atlas.buffer.len;
+    const bytes = atlas.buffer.len;
     const statging_ptr: [*]u8 =
-        @ptrCast(try vkd.mapMemory(self.device, self.staging_memory, 0, bytes, .{}));
+        @ptrCast(try vkd.mapMemory(
+            core.device,
+            buffers.staging_buffer.memory,
+            0,
+            bytes,
+            .{},
+        ));
 
-    @memcpy(statging_ptr[0..bytes], self.atlas.buffer);
+    @memcpy(statging_ptr[0..bytes], atlas.buffer);
 
-    vkd.unmapMemory(self.device, self.staging_memory);
+    vkd.unmapMemory(core.device, buffers.staging_buffer.memory);
 
     const begin_info = vk.CommandBufferBeginInfo{};
 
@@ -113,7 +166,7 @@ pub fn uploadAtlas(self: *const VulkanRenderer) !void {
     transitionImageLayout(
         vkd,
         cmd_buffer,
-        self.atlas_image,
+        self.image,
         .{ .color_bit = true },
         .undefined,
         .transfer_dst_optimal,
@@ -131,16 +184,16 @@ pub fn uploadAtlas(self: *const VulkanRenderer) !void {
         },
         .image_offset = .{ .x = 0, .y = 0, .z = 0 },
         .image_extent = .{
-            .width = @intCast(self.atlas.width),
-            .height = @intCast(self.atlas.height),
+            .width = @intCast(atlas.width),
+            .height = @intCast(atlas.height),
             .depth = 1,
         },
     };
 
     vkd.cmdCopyBufferToImage(
         cmd_buffer,
-        self.staging_buffer,
-        self.atlas_image,
+        buffers.staging_buffer.handle,
+        self.image,
         .transfer_dst_optimal,
         1,
         &.{copy_region},
@@ -149,7 +202,7 @@ pub fn uploadAtlas(self: *const VulkanRenderer) !void {
     transitionImageLayout(
         vkd,
         cmd_buffer,
-        self.atlas_image,
+        self.image,
         .{ .color_bit = true },
         .transfer_dst_optimal,
         .shader_read_only_optimal,
@@ -168,8 +221,8 @@ pub fn uploadAtlas(self: *const VulkanRenderer) !void {
         .p_signal_semaphores = null,
     };
 
-    try vkd.queueSubmit(self.graphics_queue, 1, &.{submit_info}, .null_handle);
-    try vkd.queueWaitIdle(self.graphics_queue);
+    try vkd.queueSubmit(queue, 1, &.{submit_info}, .null_handle);
+    try vkd.queueWaitIdle(queue);
 }
 
 fn transitionImageLayout(
