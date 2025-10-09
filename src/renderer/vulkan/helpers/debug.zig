@@ -3,13 +3,13 @@ const vk = @import("vulkan");
 
 const log = std.log.scoped(.VulkanDebugUtils);
 
-const VulkanRenderer = @import("../Vulkan.zig");
+const Core = @import("../Core.zig");
 
-pub fn setupDebugMessenger(self: *VulkanRenderer) !void {
-    self.debug_messenger = try debugMessenger(
-        self.instance_wrapper,
-        self.instance,
-        &self.vk_mem.vkAllocatorCallbacks(),
+pub fn setupDebugMessenger(core: *const Core) !vk.DebugUtilsMessengerEXT {
+    return try debugMessenger(
+        &core.dispatch.vki,
+        core.instance,
+        &core.vk_mem.vkAllocatorCallbacks(),
     );
 }
 

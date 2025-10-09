@@ -66,6 +66,19 @@ pub fn init(core: *const Core, height: u32, width: u32) !SwapChain {
     };
 }
 
+pub fn deinit(self: *const SwapChain, core: *const Core) void {
+    const vkd = &core.dispatch.vkd;
+    const alloc_callbacks = core.vk_mem.vkAllocatorCallbacks();
+
+    for (self.image_views) |view| {
+        vkd.destroyImageView(core.device, view, &alloc_callbacks);
+    }
+    vkd.destroySwapchainKHR(core.device, self.handle, &alloc_callbacks);
+
+    core.vk_mem.allocator.free(self.images);
+    core.vk_mem.allocator.free(self.image_views);
+}
+
 pub fn recreate(
     self: *SwapChain,
     core: *const Core,
@@ -117,7 +130,6 @@ pub fn recreate(
         core.vk_mem.allocator,
         &alloc_callbacks,
     );
-
 
     self.format = format;
     self.extent = extent;

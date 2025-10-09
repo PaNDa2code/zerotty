@@ -134,13 +134,24 @@ pub fn init(
     };
 }
 
+pub fn deinit(
+    self: *const Texture,
+    core: *const Core,
+) void {
+    const vkd = &core.dispatch.vkd;
+    const alloc_callbacks = core.vk_mem.vkAllocatorCallbacks();
+    vkd.destroyImageView(core.device, self.image_view, &alloc_callbacks);
+    vkd.destroyImage(core.device, self.image, &alloc_callbacks);
+    vkd.freeMemory(core.device, self.image_memory, &alloc_callbacks);
+    vkd.destroySampler(core.device, self.sampler, &alloc_callbacks);
+}
+
 pub fn uploadAtlas(
     self: *const Texture,
     core: *const Core,
     buffers: *const Buffers,
     cmd: *const Command,
     atlas: *const Atlas,
-    queue: vk.Queue,
 ) !void {
     const vkd = &core.dispatch.vkd;
     const cmd_buffer = cmd.buffers[1];
@@ -221,8 +232,8 @@ pub fn uploadAtlas(
         .p_signal_semaphores = null,
     };
 
-    try vkd.queueSubmit(queue, 1, &.{submit_info}, .null_handle);
-    try vkd.queueWaitIdle(queue);
+    try vkd.queueSubmit(core.graphics_queue, 1, &.{submit_info}, .null_handle);
+    try vkd.queueWaitIdle(core.graphics_queue);
 }
 
 fn transitionImageLayout(

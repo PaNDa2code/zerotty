@@ -291,6 +291,20 @@ pub fn init(
     };
 }
 
+pub fn deinit(self: *const Pipeline, core: *const Core) void {
+    const vkd = &core.dispatch.vkd;
+    const alloc_callbacks = core.vk_mem.vkAllocatorCallbacks();
+
+    for (self.frame_buffers) |buffer| {
+        vkd.destroyFramebuffer(core.device, buffer, &alloc_callbacks);
+    }
+    core.vk_mem.allocator.free(self.frame_buffers);
+    
+    vkd.destroyPipeline(core.device, self.handle, &alloc_callbacks);
+    vkd.destroyRenderPass(core.device, self.render_pass, &alloc_callbacks);
+    vkd.destroyPipelineLayout(core.device, self.layout, &alloc_callbacks);
+}
+
 const vertex_binding = [_]vk.VertexInputBindingDescription{
     .{ .binding = 0, .stride = @sizeOf(Vec4(f32)), .input_rate = .vertex },
     .{ .binding = 1, .stride = @sizeOf(Cell), .input_rate = .instance },

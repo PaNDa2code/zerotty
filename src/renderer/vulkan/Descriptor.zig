@@ -3,6 +3,7 @@ const Descriptor = @This();
 const std = @import("std");
 const vk = @import("vulkan");
 const Core = @import("Core.zig");
+const Buffers = @import("Buffers.zig");
 
 set: vk.DescriptorSet,
 
@@ -84,4 +85,62 @@ pub fn init(core: *const Core) !Descriptor {
         .layout = layout,
         .pool = pool,
     };
+}
+
+pub fn deinit(
+    self: *const Descriptor,
+    core: *const Core,
+) void {
+    const vkd = &core.dispatch.vkd;
+    const alloc_callbacks = core.vk_mem.vkAllocatorCallbacks();
+
+    vkd.destroyDescriptorSetLayout(core.device, self.layout, &alloc_callbacks);
+    vkd.destroyDescriptorPool(core.device, self.pool, &alloc_callbacks);
+}
+
+pub fn updateDescriptorSets(
+    self: *const Descriptor,
+    core: *const Core,
+    buffers: *const Buffers,
+    atlas_view: vk.ImageView,
+    atlas_sampler: vk.Sampler,
+) !void {
+    const vkd = &core.dispatch.vkd;
+
+    const uniform_block_buffer_info = vk.DescriptorBufferInfo{
+        .buffer = buffers.uniform_buffer.handle,
+        .offset = 0,
+        .range = @sizeOf(Buffers.UniformsBlock),
+    };
+
+    const uniform_block_write = vk.WriteDescriptorSet{
+        .dst_set = self.set,
+        .dst_binding = 0,
+        .dst_array_element = 0,
+        .descriptor_type = .uniform_buffer,
+        .descriptor_count = 1,
+        .p_buffer_info = &.{uniform_block_buffer_info},
+        .p_image_info = &.{},
+        .p_texel_buffer_view = &.{},
+    };
+
+    const image_info = vk.DescriptorImageInfo{
+        .image_layout = .read_only_optimal,
+        .image_view = atlas_view,
+        .sampler = atlas_sampler,
+    };
+
+    const image_write = vk.WriteDescriptorSet{
+        .dst_set = self.set,
+        .dst_binding = 1,
+        .dst_array_element = 0,
+        .descriptor_type = .combined_image_sampler,
+        .descriptor_count = 1,
+        .p_buffer_info = &.{},
+        .p_image_info = &.{image_info},
+        .p_texel_buffer_view = &.{},
+    };
+
+    const writes = [_]vk.WriteDescriptorSet{ uniform_block_write, image_write };
+    vkd.updateDescriptorSets(core.device, writes.len, &writes, 0, null);
 }

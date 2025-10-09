@@ -6,9 +6,9 @@ const Allocator = std.mem.Allocator;
 const VulkanRenderer = @import("Vulkan.zig");
 
 pub fn drawFrame(self: *const VulkanRenderer) !void {
-    const vkd = self.device_wrapper;
-    const device = self.device;
-    const inflight_fence = self.in_flight_fence;
+    const vkd = &self.core.dispatch.vkd;
+    const device = self.core.device;
+    const inflight_fence = self.sync.in_flight_fences[0];
 
     _ = try vkd.waitForFences(
         device,
@@ -23,11 +23,11 @@ pub fn drawFrame(self: *const VulkanRenderer) !void {
     const next_image_index = try nextImage(
         vkd,
         device,
-        self.swap_chain,
-        self.image_available_semaphore,
+        self.swap_chain.handle,
+        self.sync.image_available_semaphores[0],
     );
 
-    try vkd.resetCommandBuffer(self.cmd_buffers[0], .{});
+    try vkd.resetCommandBuffer(self.cmd.buffers[0], .{});
 
     try recordCommandBuffer(self, next_image_index);
 
@@ -35,14 +35,14 @@ pub fn drawFrame(self: *const VulkanRenderer) !void {
 
     const present_info = vk.PresentInfoKHR{
         .swapchain_count = 1,
-        .p_swapchains = &.{self.swap_chain},
+        .p_swapchains = &.{self.swap_chain.handle},
         .p_image_indices = &.{next_image_index},
 
         .wait_semaphore_count = 1,
-        .p_wait_semaphores = &.{self.render_finished_semaphores[next_image_index]},
+        .p_wait_semaphores = &.{self.sync.render_finished_semaphores[next_image_index]},
     };
 
-    _ = try vkd.queuePresentKHR(self.present_queue, &present_info);
+    _ = try vkd.queuePresentKHR(self.core.present_queue, &present_info);
 }
 
 fn nextImage(
@@ -60,8 +60,8 @@ pub fn recordCommandBuffer(
     self: *const VulkanRenderer,
     image_index: usize,
 ) !void {
-    const vkd = self.device_wrapper;
-    const command_buffer = self.cmd_buffers[0];
+    const vkd = &self.core.dispatch.vkd;
+    const command_buffer = self.cmd.buffers[0];
 
     const begin_info = vk.CommandBufferBeginInfo{};
 
@@ -72,10 +72,10 @@ pub fn recordCommandBuffer(
     };
 
     const render_pass_begin_info = vk.RenderPassBeginInfo{
-        .render_pass = self.render_pass,
-        .framebuffer = self.frame_buffers[image_index],
+        .render_pass = self.pipe_line.render_pass,
+        .framebuffer = self.pipe_line.frame_buffers[image_index],
         .render_area = .{
-            .extent = self.swap_chain_extent,
+            .extent = self.swap_chain.extent,
             .offset = .{ .x = 0, .y = 0 },
         },
         .clear_value_count = 1,
@@ -90,8 +90,8 @@ pub fn recordCommandBuffer(
 
     vkd.cmdCopyBuffer(
         command_buffer,
-        self.staging_buffer,
-        self.vertex_buffer,
+        self.buffers.staging_buffer.handle,
+        self.buffers.vertex_buffer.handle,
         1,
         &regions,
     );
@@ -100,19 +100,22 @@ pub fn recordCommandBuffer(
         command_buffer,
         0,
         2,
-        &.{ self.vertex_buffer, self.vertex_buffer },
+        &.{
+            self.buffers.vertex_buffer.handle,
+            self.buffers.vertex_buffer.handle,
+        },
         &.{ 0, @sizeOf(Vec4(f32)) * 6 },
     );
 
     vkd.cmdBeginRenderPass(command_buffer, &render_pass_begin_info, .@"inline");
 
-    vkd.cmdBindPipeline(command_buffer, .graphics, self.pipe_line);
+    vkd.cmdBindPipeline(command_buffer, .graphics, self.pipe_line.handle);
 
     const view_port = vk.Viewport{
         .x = 0,
         .y = 0,
-        .width = @floatFromInt(self.swap_chain_extent.width),
-        .height = @floatFromInt(self.swap_chain_extent.height),
+        .width = @floatFromInt(self.swap_chain.extent.width),
+        .height = @floatFromInt(self.swap_chain.extent.height),
         .min_depth = 0,
         .max_depth = 1,
     };
@@ -121,7 +124,7 @@ pub fn recordCommandBuffer(
 
     const scissor = vk.Rect2D{
         .offset = .{ .x = 0, .y = 0 },
-        .extent = self.swap_chain_extent,
+        .extent = self.swap_chain.extent,
     };
 
     vkd.cmdSetScissor(command_buffer, 0, 1, @ptrCast(&scissor));
@@ -129,10 +132,10 @@ pub fn recordCommandBuffer(
     vkd.cmdBindDescriptorSets(
         command_buffer,
         .graphics,
-        self.pipe_line_layout,
+        self.pipe_line.layout,
         0,
         1,
-        &.{self.descriptor_set},
+        &.{self.descriptor.set},
         0,
         null,
     );
@@ -147,11 +150,11 @@ pub fn recordCommandBuffer(
 pub fn supmitCmdBuffer(self: *const VulkanRenderer, image_index: usize) !void {
     const submit_info = vk.SubmitInfo{
         .command_buffer_count = 1,
-        .p_command_buffers = &.{self.cmd_buffers[0]},
+        .p_command_buffers = &.{self.cmd.buffers[0]},
 
         .wait_semaphore_count = 1,
         .p_wait_semaphores = &.{
-            self.image_available_semaphore,
+            self.sync.image_available_semaphores[0],
         },
         .p_wait_dst_stage_mask = &.{
             .{ .color_attachment_output_bit = true },
@@ -159,17 +162,17 @@ pub fn supmitCmdBuffer(self: *const VulkanRenderer, image_index: usize) !void {
 
         .signal_semaphore_count = 1,
         .p_signal_semaphores = &.{
-            self.render_finished_semaphores[image_index],
+            self.sync.render_finished_semaphores[image_index],
         },
     };
 
-    const vkd = self.device_wrapper;
+    const vkd = &self.core.dispatch.vkd;
 
     try vkd.queueSubmit(
-        self.graphics_queue,
+        self.core.graphics_queue,
         1,
         &.{submit_info},
-        self.in_flight_fence,
+        self.sync.in_flight_fences[0],
     );
 }
 

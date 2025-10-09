@@ -102,6 +102,20 @@ pub fn init(core: *const Core, options: anytype) !Buffers {
     };
 }
 
+pub fn deinit(self: *const Buffers, core: *const Core) void {
+    const vkd = &core.dispatch.vkd;
+    const alloc_callbacks = core.vk_mem.vkAllocatorCallbacks();
+
+    vkd.destroyBuffer(core.device, self.vertex_buffer.handle, &alloc_callbacks);
+    vkd.destroyBuffer(core.device, self.staging_buffer.handle, &alloc_callbacks);
+    vkd.destroyBuffer(core.device, self.uniform_buffer.handle, &alloc_callbacks);
+
+    vkd.freeMemory(core.device, self.vertex_buffer.memory, &alloc_callbacks);
+    vkd.freeMemory(core.device, self.staging_buffer.memory, &alloc_callbacks);
+    vkd.freeMemory(core.device, self.uniform_buffer.memory, &alloc_callbacks);
+
+}
+
 pub fn stageVertexData(
     self: *const Buffers,
     core: *const Core,
@@ -206,3 +220,23 @@ pub const UniformsBlock = packed struct {
     atlas_height: f32,
     descender: f32,
 };
+
+/// set ubo values
+pub fn updateUniformData(
+    self: *const Buffers,
+    core: *const Core,
+    data: *const UniformsBlock,
+) !void {
+    const vkd = &core.dispatch.vkd;
+
+    const ptr = try vkd.mapMemory(
+        core.device,
+        self.uniform_buffer.memory,
+        0,
+        @sizeOf(UniformsBlock),
+        .{},
+    );
+    defer vkd.unmapMemory(core.device, self.uniform_buffer.memory);
+
+    @as(*UniformsBlock, @ptrCast(@alignCast(ptr))).* = data.*;
+}

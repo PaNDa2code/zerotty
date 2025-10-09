@@ -54,3 +54,12 @@ pub fn init(core: *const Core, primary_count: usize) !Command {
         .buffers = cmd_buffers,
     };
 }
+
+pub fn deinit(self: *const Command, core: *const Core) void {
+    const vkd = &core.dispatch.vkd;
+    const alloc_callbacks = core.vk_mem.vkAllocatorCallbacks();
+
+    vkd.freeCommandBuffers(core.device, self.pool, @intCast(self.buffers.len), self.buffers.ptr);
+    vkd.destroyCommandPool(core.device, self.pool, &alloc_callbacks);
+    core.vk_mem.allocator.free(self.buffers);
+}

@@ -145,9 +145,6 @@ pub fn deinit(self: *Core) void {
 
     const alloc_callbacks = self.vk_mem.vkAllocatorCallbacks();
 
-    self.dispatch
-        .vkd.deviceWaitIdle(self.device) catch unreachable;
-
     self.dispatch.vki.destroySurfaceKHR(
         self.instance,
         self.surface,
