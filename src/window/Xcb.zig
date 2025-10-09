@@ -179,11 +179,11 @@ pub fn open(self: *Window, allocator: Allocator) !void {
 
 /// set window opacity value from 0.0 to 1.0
 pub fn setOpacity(self: *Window, value: f32) !void {
-    if (value <= 0.0 or value >= 1.0) {
+    if (value < 0.0 or value > 1.0) {
         return error.InvalidValue;
     }
 
-    const opacity: u32 = @intFromFloat(@as(f32, 0xFFFFFFFF * value));
+    const opacity: u32 = @intFromFloat(@as(f64, 0xFFFFFFFF) * value);
     const opacity_cookie = c.xcb_change_property_checked(
         self.connection,
         c.XCB_PROP_MODE_REPLACE,
