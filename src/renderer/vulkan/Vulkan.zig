@@ -114,7 +114,7 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
 pub fn deinit(self: *VulkanRenderer) void {
 
     self.core.dispatch.vkd
-        .deviceWaitIdle(self.core.device) catch {};
+        .deviceWaitIdle(self.core.device) catch unreachable;
 
     self.grid.free();
     self.atlas.deinit(self.core.vk_mem.allocator);

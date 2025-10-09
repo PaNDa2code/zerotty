@@ -145,14 +145,18 @@ pub fn deinit(self: *Core) void {
 
     const alloc_callbacks = self.vk_mem.vkAllocatorCallbacks();
 
-    self.dispatch.vki.destroySurfaceKHR(
+    self.dispatch
+        .vkd.destroyDevice(self.device, &alloc_callbacks);
+
+    self.dispatch
+        .vki.destroySurfaceKHR(
         self.instance,
         self.surface,
         &alloc_callbacks,
     );
 
     self.dispatch
-        .vkd.destroyDevice(self.device, &alloc_callbacks);
+        .vki.destroyInstance(self.instance, &alloc_callbacks);
 
     allocator.destroy(self.dispatch);
 
