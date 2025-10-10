@@ -14,6 +14,7 @@ xkb: Xkb = undefined,
 keyboard_cb: ?*const fn (utf32: u32, press: bool) void = null,
 
 wm_delete_window_atom: c.xcb_atom_t = 0,
+wm_name_atom: c.xcb_atom_t = 0,
 
 exit: bool = false,
 title: []const u8,
@@ -140,6 +141,7 @@ pub fn open(self: *Window, allocator: Allocator) !void {
 
     const net_wm_icon_atom = get_atom(self.connection, "_NET_WM_ICON") orelse unreachable;
     const cardinal_atom = get_atom(self.connection, "CARDINAL") orelse unreachable;
+    self.wm_name_atom = get_atom(self.connection, "WM_NAME") orelse unreachable;
 
     const wm_protocols_atom = get_atom(self.connection, "WM_PROTOCOLS") orelse unreachable;
     self.wm_delete_window_atom = get_atom(self.connection, "WM_DELETE_WINDOW") orelse unreachable;
@@ -205,6 +207,24 @@ fn resizeCallBack(self: *Window, height: u32, width: u32) !void {
     self.height = height;
     self.width = width;
     try self.renderer.resize(width, height);
+}
+
+pub fn setTitle(self: *Window, title: [:0]const u8) !void {
+    const title_cookie = c.xcb_change_property_checked(
+        self.connection,
+        c.XCB_PROP_MODE_REPLACE,
+        self.window,
+        c.XCB_ATOM_WM_NAME,
+        c.XCB_ATOM_STRING,
+        8,
+        @intCast(title.len),
+        title.ptr,
+    );
+
+    if (c.xcb_request_check(self.connection, title_cookie)) |err| {
+        defer c.free(err);
+        return error.SetTitleFailed;
+    }
 }
 
 pub fn pumpMessages(self: *Window) void {

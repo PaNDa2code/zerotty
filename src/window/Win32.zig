@@ -78,7 +78,7 @@ pub fn open(self: *Window, allocator: Allocator) !void {
 
     _ = win32wm.ShowWindow(hwnd, .{ .SHOWNORMAL = 1 });
 
-    self.setAcrylicBlur();
+    // self.setAcrylicBlur();
 }
 
 pub fn close(self: *Window) void {
@@ -89,6 +89,10 @@ pub fn resize(self: *Window, height: u32, width: u32) !void {
     self.height = height;
     self.width = width;
     try self.renderer.resize(width, height);
+}
+
+pub fn setTitle(self: *Window, title: [:0]const u8) !void {
+    _ = win32wm.SetWindowTextA(self.hwnd, title.ptr);
 }
 
 fn WindowProcSetup(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) callconv(.winapi) LRESULT {

@@ -27,6 +27,7 @@ pub fn new(allocator: Allocator) App {
 }
 
 var render: *Renderer = undefined;
+var _window: *Window = undefined;
 var _pty: *Pty = undefined;
 var evloop: *zerio.EventLoop = undefined;
 var child_stdin: std.fs.File = undefined;
@@ -46,6 +47,7 @@ pub fn start(self: *App) !void {
     try self.child.start(self.allocator, &self.pty);
 
     render = &self.window.renderer;
+    _window = &self.window;
     _pty = &self.pty;
     evloop = &self.io_event_loop;
 
@@ -81,11 +83,21 @@ pub fn loop(self: *App) void {
     }
 }
 
+var fps: f64 = 0;
 pub fn drawCallBack(renderer: *Renderer) void {
     evloop.poll() catch unreachable;
     renderer.clearBuffer(.Black);
     renderer.renaderGrid();
     renderer.presentBuffer();
+
+    const _fps = renderer.getFps();
+    var buf: [1024]u8 = undefined;
+
+    if (_fps != fps) {
+        fps = _fps;
+        const title = std.fmt.bufPrintZ(buf[0..], "zerotty -- FPS: {:.2}", .{fps}) catch unreachable;
+        _window.setTitle(title) catch unreachable;
+    }
 }
 
 pub fn resizeCallBack(w: u32, h: u32) void {
