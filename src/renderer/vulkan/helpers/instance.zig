@@ -15,12 +15,14 @@ pub fn createInstance(
         .p_application_name = "zerotty",
 
         .application_version = @bitCast(vk.makeApiVersion(0, 0, 0, 0)),
-        .api_version = @bitCast(vk.API_VERSION_1_3),
+        .api_version = @bitCast(vk.API_VERSION_1_4),
 
         .engine_version = 0,
     };
 
-    if (build_options.@"renderer-debug" and !try @import("debug.zig").checkValidationLayerSupport(vkb, allocator))
+    if (build_options.@"renderer-debug" and
+        !try @import("debug.zig")
+            .checkValidationLayerSupport(vkb, allocator))
         @panic("Validation layer is not supported");
 
     const validation_layers = [_][*:0]const u8{

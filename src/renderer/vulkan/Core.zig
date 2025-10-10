@@ -3,6 +3,7 @@ const Core = @This();
 const std = @import("std");
 const builtin = @import("builtin");
 const vk = @import("vulkan");
+const build_options = @import("build_options");
 const os_tag = builtin.os.tag;
 
 const Allocator = std.mem.Allocator;
@@ -32,6 +33,8 @@ present_queue: vk.Queue,
 present_family_index: u32,
 
 vk_mem: *VkAllocatorAdapter,
+
+debug_messenger: vk.DebugUtilsMessengerEXT,
 
 pub const log = std.log.scoped(.Renderer);
 
@@ -65,6 +68,16 @@ pub fn init(allocator: Allocator, window: anytype) !Core {
         dispatch.vkb.dispatch.vkGetInstanceProcAddr.?;
 
     dispatch.vki = .load(instance, vkGetInstanceProcAddr);
+
+    const debug_messenger: vk.DebugUtilsMessengerEXT =
+        if (build_options.@"renderer-debug")
+            try helpers.debug.debugMessenger(
+                &dispatch.vki,
+                instance,
+                &alloc_callbacks,
+            )
+        else
+            .null_handle;
 
     const surface =
         try helpers.win_surface.createWindowSurface(
@@ -137,6 +150,8 @@ pub fn init(allocator: Allocator, window: anytype) !Core {
         .present_family_index = queue_families.present_family,
 
         .vk_mem = vk_mem,
+
+        .debug_messenger = debug_messenger,
     };
 }
 
@@ -154,6 +169,13 @@ pub fn deinit(self: *Core) void {
         self.surface,
         &alloc_callbacks,
     );
+
+    if (build_options.@"renderer-debug")
+        self.dispatch.vki.destroyDebugUtilsMessengerEXT(
+            self.instance,
+            self.debug_messenger,
+            &alloc_callbacks,
+        );
 
     self.dispatch
         .vki.destroyInstance(self.instance, &alloc_callbacks);

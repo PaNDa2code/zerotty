@@ -9,8 +9,6 @@ cmd: Command,
 tex: Texture,
 descriptor: Descriptor,
 
-debug_messenger: vk.DebugUtilsMessengerEXT,
-
 window_height: u32,
 window_width: u32,
 
@@ -27,12 +25,12 @@ pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
 
 pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void {
     const core = try Core.init(allocator, window);
-    self.core = core;
 
     const swap_chain = try SwapChain.init(&core, window.height, window.width);
     const descriptor = try Descriptor.init(&core);
     const pipe_line = try Pipeline.init(&core, &swap_chain, &descriptor);
     const cmd = try Command.init(&core, 2);
+    const sync = try Sync.init(&core, &swap_chain);
 
     self.atlas = try Atlas.create(allocator, 30, 20, 0, 128);
 
@@ -59,12 +57,6 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
         .vertex_size = staging_memory_size,
         .uniform_size = 16 * 1024,
     });
-
-    const sync = try Sync.init(&core, &swap_chain);
-
-    if (build_options.@"renderer-debug") {
-        self.debug_messenger = try setupDebugMessenger(&core);
-    }
 
     self.window_height = window.height;
     self.window_width = window.width;
@@ -112,7 +104,6 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
 }
 
 pub fn deinit(self: *VulkanRenderer) void {
-
     self.core.dispatch.vkd
         .deviceWaitIdle(self.core.device) catch unreachable;
 
@@ -133,12 +124,6 @@ pub fn deinit(self: *VulkanRenderer) void {
 
     self.swap_chain.deinit(&self.core);
 
-    if (build_options.@"renderer-debug")
-        self.core.dispatch.vki.destroyDebugUtilsMessengerEXT(
-            self.core.instance,
-            self.debug_messenger,
-            &self.core.vk_mem.vkAllocatorCallbacks(),
-        );
     self.core.deinit();
 }
 

@@ -5,15 +5,7 @@ const log = std.log.scoped(.VulkanDebugUtils);
 
 const Core = @import("../Core.zig");
 
-pub fn setupDebugMessenger(core: *const Core) !vk.DebugUtilsMessengerEXT {
-    return try debugMessenger(
-        &core.dispatch.vki,
-        core.instance,
-        &core.vk_mem.vkAllocatorCallbacks(),
-    );
-}
-
-fn debugMessenger(
+pub fn debugMessenger(
     vki: *const vk.InstanceWrapper,
     instance: vk.Instance,
     vk_mem_cb: *const vk.AllocationCallbacks,

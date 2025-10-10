@@ -209,7 +209,7 @@ fn resizeCallBack(self: *Window, height: u32, width: u32) !void {
     try self.renderer.resize(width, height);
 }
 
-pub fn setTitle(self: *Window, title: [:0]const u8) !void {
+pub fn setTitle(self: *Window, title: []const u8) !void {
     const title_cookie = c.xcb_change_property_checked(
         self.connection,
         c.XCB_PROP_MODE_REPLACE,
