@@ -113,7 +113,6 @@ pub fn deinit(self: *const Buffers, core: *const Core) void {
     vkd.freeMemory(core.device, self.vertex_buffer.memory, &alloc_callbacks);
     vkd.freeMemory(core.device, self.staging_buffer.memory, &alloc_callbacks);
     vkd.freeMemory(core.device, self.uniform_buffer.memory, &alloc_callbacks);
-
 }
 
 pub fn stageVertexData(
@@ -123,15 +122,6 @@ pub fn stageVertexData(
     atlas: *const Atlas,
 ) !void {
     const vkd = &core.dispatch.vkd;
-
-    const full_quad = [_]Vec4(f32){
-        .{ .x = 0.0, .y = 0.0, .z = 0.0, .w = 0.0 }, // Bottom-left
-        .{ .x = 1.0, .y = 0.0, .z = 1.0, .w = 0.0 }, // Bottom-right
-        .{ .x = 1.0, .y = 1.0, .z = 1.0, .w = 1.0 }, // Top-right
-        .{ .x = 1.0, .y = 1.0, .z = 1.0, .w = 1.0 }, // Top-right
-        .{ .x = 0.0, .y = 1.0, .z = 0.0, .w = 1.0 }, // Top-left
-        .{ .x = 0.0, .y = 0.0, .z = 0.0, .w = 0.0 }, // Bottom-left
-    };
 
     const staging_ptr =
         try vkd.mapMemory(
@@ -144,20 +134,19 @@ pub fn stageVertexData(
 
     defer vkd.unmapMemory(core.device, self.staging_buffer.memory);
 
-    @memcpy(@as([*]Vec4(f32), @ptrCast(@alignCast(staging_ptr)))[0..6], full_quad[0..]);
+    const slice = @as([*]Cell, @ptrFromInt(@intFromPtr(staging_ptr)))[0..128];
 
-    const slice = @as([*]Cell, @ptrFromInt(@intFromPtr(staging_ptr) + @sizeOf(Vec4(f32)) * 6))[0..64];
-
-    for ('a'..'a' + 64) |i| {
-        const char: u8 = @intCast(i);
-        slice[i % 63] = .{
+    var i: usize = 0;
+    var glyph_iter = atlas.glyph_lookup_map.iterator();
+    while (glyph_iter.next()) |entry| : (i += 1) {
+        if (i >= slice.len) break;
+        slice[i] = .{
             .row = @intCast(i / grid.cols),
             .col = @intCast(i % grid.cols),
-            .char = char,
+            .char = entry.key_ptr.*,
             .fg_color = .White,
             .bg_color = .Black,
-            .glyph_info = atlas.glyph_lookup_map.get(@intCast(char)) orelse
-                atlas.glyph_lookup_map.get('a').?,
+            .glyph_info = entry.value_ptr.*,
         };
     }
 }

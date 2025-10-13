@@ -306,32 +306,32 @@ pub fn deinit(self: *const Pipeline, core: *const Core) void {
 }
 
 const vertex_binding = [_]vk.VertexInputBindingDescription{
-    .{ .binding = 0, .stride = @sizeOf(Vec4(f32)), .input_rate = .vertex },
-    .{ .binding = 1, .stride = @sizeOf(Cell), .input_rate = .instance },
+    // .{ .binding = 0, .stride = @sizeOf(Vec4(f32)), .input_rate = .vertex },
+    .{ .binding = 0, .stride = @sizeOf(Cell), .input_rate = .instance },
 };
 
 const vertex_attributes = [_]vk.VertexInputAttributeDescription{
-    .{ .location = 0, .binding = 0, .format = .r32g32b32a32_sfloat, .offset = 0 },
-    .{ .location = 1, .binding = 1, .format = .r32_uint, .offset = @offsetOf(Cell, "row") },
-    .{ .location = 2, .binding = 1, .format = .r32_uint, .offset = @offsetOf(Cell, "col") },
-    .{ .location = 3, .binding = 1, .format = .r32_uint, .offset = @offsetOf(Cell, "char") },
-    .{ .location = 4, .binding = 1, .format = .r8g8b8a8_unorm, .offset = @offsetOf(Cell, "fg_color") },
-    .{ .location = 5, .binding = 1, .format = .r8g8b8a8_unorm, .offset = @offsetOf(Cell, "bg_color") },
+    // .{ .location = 0, .binding = 0, .format = .r32g32b32a32_sfloat, .offset = 0 },
+    .{ .location = 1, .binding = 0, .format = .r32_uint, .offset = @offsetOf(Cell, "row") },
+    .{ .location = 2, .binding = 0, .format = .r32_uint, .offset = @offsetOf(Cell, "col") },
+    .{ .location = 3, .binding = 0, .format = .r32_uint, .offset = @offsetOf(Cell, "char") },
+    .{ .location = 4, .binding = 0, .format = .r8g8b8a8_unorm, .offset = @offsetOf(Cell, "fg_color") },
+    .{ .location = 5, .binding = 0, .format = .r8g8b8a8_unorm, .offset = @offsetOf(Cell, "bg_color") },
     .{
         .location = 6,
-        .binding = 1,
+        .binding = 0,
         .format = .r32g32_uint,
         .offset = @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "coord_start"),
     },
     .{
         .location = 7,
-        .binding = 1,
+        .binding = 0,
         .format = .r32g32_uint,
         .offset = @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "coord_end"),
     },
     .{
         .location = 8,
-        .binding = 1,
+        .binding = 0,
         .format = .r32g32_sint,
         .offset = @offsetOf(Cell, "glyph_info") + @offsetOf(Atlas.GlyphInfo, "bearing"),
     },

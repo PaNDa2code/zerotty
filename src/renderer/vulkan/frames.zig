@@ -85,26 +85,23 @@ pub fn recordCommandBuffer(
     const regions = [_]vk.BufferCopy{.{
         .src_offset = 0,
         .dst_offset = 0,
-        .size = @sizeOf(@import("../Grid.zig").Cell) * 64,
+        .size = @sizeOf(@import("../Grid.zig").Cell) * 128,
     }};
 
     vkd.cmdCopyBuffer(
         command_buffer,
         self.buffers.staging_buffer.handle,
         self.buffers.vertex_buffer.handle,
-        1,
+        regions.len,
         &regions,
     );
 
     vkd.cmdBindVertexBuffers(
         command_buffer,
         0,
-        2,
-        &.{
-            self.buffers.vertex_buffer.handle,
-            self.buffers.vertex_buffer.handle,
-        },
-        &.{ 0, @sizeOf(Vec4(f32)) * 6 },
+        1,
+        &.{self.buffers.vertex_buffer.handle},
+        &.{0},
     );
 
     vkd.cmdBeginRenderPass(command_buffer, &render_pass_begin_info, .@"inline");
