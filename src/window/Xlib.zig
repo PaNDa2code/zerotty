@@ -51,6 +51,11 @@ fn resizeCallBack(self: *Window, height: u32, width: u32) !void {
     try self.renderer.resize(width, height);
 }
 
+pub fn setTitle(self: *Window, title: []const u8) !void {
+    _ = title; // autofix
+    _ = self; // autofix
+}
+
 pub fn messageLoop(self: *Window) void {
     while (!self.exit) {
         self.pumpMessages();
