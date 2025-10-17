@@ -32,23 +32,23 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     const cmd = try Command.init(&core, 2);
     const sync = try Sync.init(&core, &swap_chain);
 
-    self.atlas = try Atlas.create(allocator, 30, 20, 0, 128);
+    const atlas = try Atlas.create(allocator, 30, 20, 0, 128);
 
     const tex = try Texture.init(&core, .{
-        .height = @intCast(self.atlas.height),
-        .width = @intCast(self.atlas.width),
+        .height = @intCast(atlas.height),
+        .width = @intCast(atlas.width),
     });
 
-    const grid_rows = window.height / self.atlas.cell_height;
-    const grid_cols = window.width / self.atlas.cell_width;
+    const grid_rows = window.height / atlas.cell_height;
+    const grid_cols = window.width / atlas.cell_width;
 
-    self.grid = try Grid.create(allocator, .{
+    const grid = try Grid.create(allocator, .{
         .rows = grid_rows,
         .cols = grid_cols,
     });
 
     const vertex_memory_size = 1024 * 16;
-    const altas_size = self.atlas.buffer.len;
+    const altas_size = atlas.buffer.len;
 
     const staging_memory_size = @max(altas_size, vertex_memory_size);
 
@@ -58,32 +58,29 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
         .uniform_size = 16 * 1024,
     });
 
-    self.window_height = window.height;
-    self.window_width = window.width;
-
     try buffers.updateUniformData(&core, &.{
-        .cell_height = @floatFromInt(self.atlas.cell_height),
-        .cell_width = @floatFromInt(self.atlas.cell_width),
-        .screen_height = @floatFromInt(self.window_height),
-        .screen_width = @floatFromInt(self.window_width),
-        .atlas_cols = @floatFromInt(self.atlas.cols),
-        .atlas_rows = @floatFromInt(self.atlas.rows),
-        .atlas_height = @floatFromInt(self.atlas.height),
-        .atlas_width = @floatFromInt(self.atlas.width),
-        .descender = @floatFromInt(self.atlas.descender),
+        .cell_height = @floatFromInt(atlas.cell_height),
+        .cell_width = @floatFromInt(atlas.cell_width),
+        .screen_height = @floatFromInt(window.height),
+        .screen_width = @floatFromInt(window.width),
+        .atlas_cols = @floatFromInt(atlas.cols),
+        .atlas_rows = @floatFromInt(atlas.rows),
+        .atlas_height = @floatFromInt(atlas.height),
+        .atlas_width = @floatFromInt(atlas.width),
+        .descender = @floatFromInt(atlas.descender),
     });
 
     try tex.uploadAtlas(
         &core,
         &buffers,
         &cmd,
-        &self.atlas,
+        &atlas,
     );
 
     try buffers.stageVertexData(
         &core,
-        &self.grid,
-        &self.atlas,
+        &grid,
+        &atlas,
     );
 
     try descriptor.updateDescriptorSets(
@@ -93,14 +90,22 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
         tex.sampler,
     );
 
-    self.core = core;
-    self.cmd = cmd;
-    self.buffers = buffers;
-    self.pipe_line = pipe_line;
-    self.swap_chain = swap_chain;
-    self.sync = sync;
-    self.descriptor = descriptor;
-    self.tex = tex;
+    self.* = .{
+        .core = core,
+        .cmd = cmd,
+        .buffers = buffers,
+        .pipe_line = pipe_line,
+        .swap_chain = swap_chain,
+        .sync = sync,
+        .descriptor = descriptor,
+        .tex = tex,
+
+        .window_height = window.height,
+        .window_width = window.width,
+
+        .atlas = atlas,
+        .grid = grid,
+    };
 }
 
 pub fn deinit(self: *VulkanRenderer) void {
