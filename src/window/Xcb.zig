@@ -253,6 +253,10 @@ pub fn pumpMessages(self: *Window) void {
                 if (@as(*c.xcb_client_message_event_t, @ptrCast(event)).data.data32[0] == self.wm_delete_window_atom)
                     self.exit = true;
             },
+            c.XCB_CONFIGURE_NOTIFY => {
+                const cfg: *c.xcb_configure_notify_event_t = @ptrCast(event);
+                self.resizeCallBack(@intCast(cfg.height), @intCast(cfg.width)) catch unreachable;
+            },
             else => {},
         }
 

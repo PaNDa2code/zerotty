@@ -299,10 +299,20 @@ pub fn deinit(self: *const Pipeline, core: *const Core) void {
         vkd.destroyFramebuffer(core.device, buffer, &alloc_callbacks);
     }
     core.vk_mem.allocator.free(self.frame_buffers);
-    
+
     vkd.destroyPipeline(core.device, self.handle, &alloc_callbacks);
     vkd.destroyRenderPass(core.device, self.render_pass, &alloc_callbacks);
     vkd.destroyPipelineLayout(core.device, self.layout, &alloc_callbacks);
+}
+
+pub fn recreate(
+    self: *Pipeline,
+    core: *const Core,
+    swap_chain: *const SwapChain,
+    descriptor: *const Descriptor,
+) !void {
+    self.deinit(core);
+    self.* = try Pipeline.init(core, swap_chain, descriptor);
 }
 
 const vertex_binding = [_]vk.VertexInputBindingDescription{

@@ -138,9 +138,13 @@ pub fn clearBuffer(self: *VulkanRenderer, color: ColorRGBAf32) void {
 }
 
 pub fn resize(self: *VulkanRenderer, width: u32, height: u32) !void {
-    _ = self;
-    _ = width;
-    _ = height;
+    try self.core.waitDeviceIdle();
+
+    try self.swap_chain.recreate(&self.core, height, width);
+    try self.pipe_line.recreate(&self.core, &self.swap_chain, &self.descriptor);
+
+    Buffers.uniform_buffer_ptr.?.screen_height = @floatFromInt(height);
+    Buffers.uniform_buffer_ptr.?.screen_width = @floatFromInt(width);
 }
 
 pub fn presentBuffer(self: *VulkanRenderer) void {

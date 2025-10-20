@@ -85,6 +85,7 @@ pub fn recreate(
     height: u32,
     width: u32,
 ) !void {
+    const vkd = &core.dispatch.vkd;
     const alloc_callbacks = core.vk_mem.vkAllocatorCallbacks();
 
     var extent: vk.Extent2D = undefined;
@@ -110,11 +111,6 @@ pub fn recreate(
             &alloc_callbacks,
         );
 
-    defer {
-        core.dispatch.vkd.destroySwapchainKHR(core.device, self.handle, &alloc_callbacks);
-        self.handle = swap_chain;
-    }
-
     const images = try getSwapChainImages(
         &core.dispatch.vkd,
         swap_chain,
@@ -131,6 +127,14 @@ pub fn recreate(
         &alloc_callbacks,
     );
 
+    core.dispatch.vkd.destroySwapchainKHR(core.device, self.handle, &alloc_callbacks);
+    for (self.image_views) |view| {
+        vkd.destroyImageView(core.device, view, &alloc_callbacks);
+    }
+    core.vk_mem.allocator.free(self.image_views);
+    core.vk_mem.allocator.free(self.images);
+
+    self.handle = swap_chain;
     self.format = format;
     self.extent = extent;
     self.images = images;

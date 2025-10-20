@@ -210,6 +210,7 @@ pub const UniformsBlock = packed struct {
     descender: f32,
 };
 
+pub var uniform_buffer_ptr: ?*UniformsBlock = null;
 /// set ubo values
 pub fn updateUniformData(
     self: *const Buffers,
@@ -225,7 +226,8 @@ pub fn updateUniformData(
         @sizeOf(UniformsBlock),
         .{},
     );
-    defer vkd.unmapMemory(core.device, self.uniform_buffer.memory);
+    // defer vkd.unmapMemory(core.device, self.uniform_buffer.memory);
 
     @as(*UniformsBlock, @ptrCast(@alignCast(ptr))).* = data.*;
+    uniform_buffer_ptr = @ptrCast(@alignCast(ptr));
 }

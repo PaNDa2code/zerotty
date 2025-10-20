@@ -187,6 +187,11 @@ pub fn deinit(self: *Core) void {
     allocator.destroy(self.vk_mem);
 }
 
+
+pub fn waitDeviceIdle(self: *const Core) !void {
+    try self.dispatch.vkd.deviceWaitIdle(self.device);
+}
+
 fn baseGetInstanceProcAddress(
     _: vk.Instance,
     procname: [*:0]const u8,
