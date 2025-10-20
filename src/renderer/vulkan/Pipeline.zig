@@ -305,14 +305,38 @@ pub fn deinit(self: *const Pipeline, core: *const Core) void {
     vkd.destroyPipelineLayout(core.device, self.layout, &alloc_callbacks);
 }
 
-pub fn recreate(
+pub fn recreateFrameBuffers(
     self: *Pipeline,
     core: *const Core,
     swap_chain: *const SwapChain,
-    descriptor: *const Descriptor,
 ) !void {
-    self.deinit(core);
-    self.* = try Pipeline.init(core, swap_chain, descriptor);
+    const alloc_callbacks = core.vk_mem.vkAllocatorCallbacks();
+
+    const frame_buffers = self.frame_buffers;
+
+    for (0..frame_buffers.len) |i| {
+        core.dispatch.vkd.destroyFramebuffer(
+            core.device,
+            frame_buffers[i],
+            &alloc_callbacks,
+        );
+
+        const frame_buffer_create_info = vk.FramebufferCreateInfo{
+            .render_pass = self.render_pass,
+            .attachment_count = 1,
+            .p_attachments = &.{swap_chain.image_views[i]},
+            .width = swap_chain.extent.width,
+            .height = swap_chain.extent.height,
+            .layers = 1,
+        };
+
+        frame_buffers[i] =
+            try core.dispatch.vkd.createFramebuffer(
+                core.device,
+                &frame_buffer_create_info,
+                &alloc_callbacks,
+            );
+    }
 }
 
 const vertex_binding = [_]vk.VertexInputBindingDescription{

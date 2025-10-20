@@ -141,7 +141,7 @@ pub fn resize(self: *VulkanRenderer, width: u32, height: u32) !void {
     try self.core.waitDeviceIdle();
 
     try self.swap_chain.recreate(&self.core, height, width);
-    try self.pipe_line.recreate(&self.core, &self.swap_chain, &self.descriptor);
+    try self.pipe_line.recreateFrameBuffers(&self.core, &self.swap_chain);
 
     Buffers.uniform_buffer_ptr.?.screen_height = @floatFromInt(height);
     Buffers.uniform_buffer_ptr.?.screen_width = @floatFromInt(width);
