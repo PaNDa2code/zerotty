@@ -1,8 +1,14 @@
 #version 450 core
 
-// Vertex inputs
+#if !defined(VULKAN) && !defined(GL_SPIRV)
+#error "This shader must be compiled for Vulkan or OpenGL"
+#endif
 
-// layout(location = 0) in vec4 quad_vertex; // xy = position, zw = UV
+// Vertex inputs
+#ifdef GL_SPIRV
+layout(location = 0) in vec4 quad_vertex; // xy = position, zw = UV
+#endif
+
 layout(location = 1) in uint row;
 layout(location = 2) in uint col;
 layout(location = 3) in uint character;
@@ -32,18 +38,17 @@ layout(location = 1) out vec4 v_fg_color;
 layout(location = 2) out vec4 v_bg_color;
 
 void main() {
+    vec2 position;
+
+#ifdef VULKAN
     // bitmask trick to generate a full quad vertices.
     // no noticeable preformace gain, but it was fun
     // to come up with
-    vec2 position;
-#ifdef VULKAN
     // 14 = 0b1110, 28 = 0b11100
     position.x = float((14 >> gl_VertexIndex) & 1);
     position.y = float((28 >> gl_VertexIndex) & 1);
-#else
-    // 6 = 0b0110, 12 = 0b1100
-    position.x = float((6 >> gl_VertexID) & 1);
-    position.y = float((12 >> gl_VertexID) & 1);
+#elif GL_SPIRV
+    position = quad_vertex.xy;
 #endif
 
     vec2 atlas_size = vec2(ubo.atlas_width, ubo.atlas_height);
@@ -65,7 +70,7 @@ void main() {
     vec2 normalized = vertex_pos / screen_size;
     vec2 clip_pos = normalized * 2.0 - 1.0;
 
-#ifndef VULKAN
+#ifdef GL_SPIRV
     clip_pos.y = -clip_pos.y; // Flip Y for OpenGL
 #endif
 
