@@ -50,10 +50,9 @@ pub fn set(self: *CellProgram, cell: Cell) !void {
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const common = @import("common.zig");
-const ColorRGBAu8 = common.ColorRGBAu8;
+const ColorRGBAu8 = @import("color.zig").ColorRGBAu8;
 const math = @import("math.zig");
 const Vec2 = math.Vec2;
 
-const font = @import("../font/root.zig");
+const font = @import("../../font/root.zig");
 const Atlas = font.Atlas;

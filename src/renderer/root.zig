@@ -1,13 +1,12 @@
 //! Abstract renderer interface implemented by backends
-//! [`OpenGLRenderer`](src/renderer/opengl/OpenGL.zig) or [`VulkanRenderer`](src/renderer/vulkan/Vulkan.zig)
 const Renderer = @This();
 
-backend: RendererBackend,
+backend: Backend,
 fps: FPS,
 cursor: Cursor,
 
 pub fn init(window: *Window, allocator: Allocator) !Renderer {
-    const backend = try RendererBackend.init(window, allocator);
+    const backend = try Backend.init(window, allocator);
     var cursor = try Cursor.init();
     cursor.row_len = backend.grid.cols;
     return .{
@@ -59,15 +58,15 @@ pub fn getFps(self: *Renderer) f64 {
 
 pub const Api = @import("build_options").@"render-backend";
 
-pub const RendererBackend = switch (Api) {
-    .OpenGL => @import("opengl/OpenGL.zig"),
-    .D3D11 => @import("d3d11/D3D11.zig"),
-    .Vulkan => @import("vulkan/Vulkan.zig"),
+pub const Backend = switch (Api) {
+    .OpenGL => @import("backend/opengl/OpenGL.zig"),
+    .D3D11 => @compileError("D3D11 is deprecated"),
+    .Vulkan => @import("backend/vulkan/Backend.zig"),
 };
 
-pub const FPS = @import("FPS.zig");
-pub const Cursor = @import("Cursor.zig");
+pub const FPS = @import("common/FPS.zig");
+pub const Cursor = @import("common/Cursor.zig");
 const Window = @import("../window/root.zig").Window;
 const Allocator = @import("std").mem.Allocator;
-const ColorRGBAu8 = @import("common.zig").ColorRGBAu8;
-const ColorRGBAf32 = @import("common.zig").ColorRGBAf32;
+const ColorRGBAu8 = @import("common/color.zig").ColorRGBAu8;
+const ColorRGBAf32 = @import("common/color.zig").ColorRGBAf32;

@@ -3,9 +3,9 @@ const vk = @import("vulkan");
 
 const Allocator = std.mem.Allocator;
 
-const VulkanRenderer = @import("Vulkan.zig");
+const Backend = @import("Backend.zig");
 
-pub fn drawFrame(self: *const VulkanRenderer) !void {
+pub fn drawFrame(self: *const Backend) !void {
     const vkd = &self.core.dispatch.vkd;
     const device = self.core.device;
     const inflight_fence = self.sync.in_flight_fences[0];
@@ -57,7 +57,7 @@ fn nextImage(
 }
 
 pub fn recordCommandBuffer(
-    self: *const VulkanRenderer,
+    self: *const Backend,
     image_index: usize,
 ) !void {
     const vkd = &self.core.dispatch.vkd;
@@ -85,7 +85,7 @@ pub fn recordCommandBuffer(
     const regions = [_]vk.BufferCopy{.{
         .src_offset = 0,
         .dst_offset = 0,
-        .size = @sizeOf(@import("../Grid.zig").Cell) * 128,
+        .size = @sizeOf(@import("../../common/Grid.zig").Cell) * 128,
     }};
 
     vkd.cmdCopyBuffer(
@@ -144,7 +144,7 @@ pub fn recordCommandBuffer(
     try vkd.endCommandBuffer(command_buffer);
 }
 
-pub fn supmitCmdBuffer(self: *const VulkanRenderer, image_index: usize) !void {
+pub fn supmitCmdBuffer(self: *const Backend, image_index: usize) !void {
     const submit_info = vk.SubmitInfo{
         .command_buffer_count = 1,
         .p_command_buffers = &.{self.cmd.buffers[0]},
@@ -173,7 +173,7 @@ pub fn supmitCmdBuffer(self: *const VulkanRenderer, image_index: usize) !void {
     );
 }
 
-const math = @import("../math.zig");
+const math = @import("../../common/math.zig");
 const Vec2 = math.Vec2;
 const Vec3 = math.Vec3;
 const Vec4 = math.Vec4;

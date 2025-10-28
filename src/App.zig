@@ -194,7 +194,7 @@ const Pty = @import("pty/root.zig").Pty;
 const CircularBuffer = @import("CircularBuffer.zig");
 const ChildProcess = @import("ChildProcess.zig");
 const Renderer = @import("renderer/root.zig");
-const FPS = @import("renderer/FPS.zig");
+const FPS = @import("renderer/common/FPS.zig");
 const VTParser = vtparse.VTParser;
 const Allocator = std.mem.Allocator;
 

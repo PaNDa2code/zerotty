@@ -2,7 +2,7 @@ const Texture = @This();
 
 const vk = @import("vulkan");
 
-const Atlas = @import("../../font/Atlas.zig");
+const Atlas = @import("../../../font/Atlas.zig");
 
 const Core = @import("Core.zig");
 const Command = @import("Command.zig");

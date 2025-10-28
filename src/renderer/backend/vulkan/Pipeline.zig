@@ -2,15 +2,15 @@ const Pipeline = @This();
 
 const std = @import("std");
 const vk = @import("vulkan");
-const math = @import("../math.zig");
+const math = @import("../../common/math.zig");
 const helper = @import("helpers/root.zig");
 const assets = @import("assets");
 
 const Core = @import("Core.zig");
 const Descriptor = @import("Descriptor.zig");
 const SwapChain = @import("SwapChain.zig");
-const Atlas = @import("../../font/Atlas.zig");
-const Grid = @import("../Grid.zig");
+const Atlas = @import("../../../font/Atlas.zig");
+const Grid = @import("../../common/Grid.zig");
 const Cell = Grid.Cell;
 
 const Vec4 = math.Vec4;

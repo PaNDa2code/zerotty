@@ -1,4 +1,4 @@
-const VulkanRenderer = @This();
+const Backend = @This();
 
 core: Core,
 swap_chain: SwapChain,
@@ -17,13 +17,13 @@ grid: Grid,
 
 pub const log = std.log.scoped(.Renderer);
 
-pub fn init(window: *Window, allocator: Allocator) !VulkanRenderer {
-    var self: VulkanRenderer = undefined;
+pub fn init(window: *Window, allocator: Allocator) !Backend {
+    var self: Backend = undefined;
     try self.setup(window, allocator);
     return self;
 }
 
-pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void {
+pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
     const core = try Core.init(allocator, window);
 
     const swap_chain = try SwapChain.init(&core, window.height, window.width);
@@ -108,7 +108,7 @@ pub fn setup(self: *VulkanRenderer, window: *Window, allocator: Allocator) !void
     };
 }
 
-pub fn deinit(self: *VulkanRenderer) void {
+pub fn deinit(self: *Backend) void {
     self.core.dispatch.vkd
         .deviceWaitIdle(self.core.device) catch unreachable;
 
@@ -132,12 +132,12 @@ pub fn deinit(self: *VulkanRenderer) void {
     self.core.deinit();
 }
 
-pub fn clearBuffer(self: *VulkanRenderer, color: ColorRGBAf32) void {
+pub fn clearBuffer(self: *Backend, color: ColorRGBAf32) void {
     _ = self;
     _ = color;
 }
 
-pub fn resize(self: *VulkanRenderer, width: u32, height: u32) !void {
+pub fn resize(self: *Backend, width: u32, height: u32) !void {
     try self.core.waitDeviceIdle();
 
     try self.swap_chain.recreate(&self.core, height, width);
@@ -147,16 +147,16 @@ pub fn resize(self: *VulkanRenderer, width: u32, height: u32) !void {
     Buffers.uniform_buffer_ptr.?.screen_width = @floatFromInt(width);
 }
 
-pub fn presentBuffer(self: *VulkanRenderer) void {
+pub fn presentBuffer(self: *Backend) void {
     drawFrame(self) catch @panic("drawFrame failed");
 }
 
-pub fn renaderGrid(self: *VulkanRenderer) void {
+pub fn renaderGrid(self: *Backend) void {
     _ = self;
 }
 
 pub fn setCell(
-    self: *VulkanRenderer,
+    self: *Backend,
     row: u32,
     col: u32,
     char_code: u32,
@@ -181,7 +181,6 @@ const build_options = @import("build_options");
 
 const os_tag = builtin.os.tag;
 const vk = @import("vulkan");
-const common = @import("../common.zig");
 
 const Core = @import("Core.zig");
 const SwapChain = @import("SwapChain.zig");
@@ -192,14 +191,14 @@ const Sync = @import("Sync.zig");
 const Command = @import("Command.zig");
 const Texture = @import("Texture.zig");
 
-const Window = @import("../../window/root.zig").Window;
+const Window = @import("../../../window/root.zig").Window;
 const Allocator = std.mem.Allocator;
-const ColorRGBAu8 = common.ColorRGBAu8;
-const ColorRGBAf32 = common.ColorRGBAf32;
-const DynamicLibrary = @import("../../DynamicLibrary.zig");
+const ColorRGBAu8 = @import("../../common/color.zig").ColorRGBAu8;
+const ColorRGBAf32 = @import("../../common/color.zig").ColorRGBAf32;
+const DynamicLibrary = @import("../../../DynamicLibrary.zig");
 const VkAllocatorAdapter = @import("VkAllocatorAdapter.zig");
-const Grid = @import("../Grid.zig");
-const Atlas = @import("../../font/Atlas.zig");
+const Grid = @import("../../common/Grid.zig");
+const Atlas = @import("../../../font/Atlas.zig");
 
 const helpers = @import("helpers/root.zig");
 const setupDebugMessenger = helpers.debug.setupDebugMessenger;
