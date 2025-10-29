@@ -2,18 +2,22 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://panda2code.github.io/zerotty/</loc>
-         <lastmod>2025-09-28</lastmod>
+         <lastmod>2025-10-29</lastmod>
     </url>
     <url>
          <loc>https://panda2code.github.io/zerotty/build/</loc>
-         <lastmod>2025-09-28</lastmod>
+         <lastmod>2025-10-29</lastmod>
     </url>
     <url>
          <loc>https://panda2code.github.io/zerotty/config/</loc>
-         <lastmod>2025-09-28</lastmod>
+         <lastmod>2025-10-29</lastmod>
+    </url>
+    <url>
+         <loc>https://panda2code.github.io/zerotty/development/</loc>
+         <lastmod>2025-10-29</lastmod>
     </url>
     <url>
          <loc>https://panda2code.github.io/zerotty/install/</loc>
-         <lastmod>2025-09-28</lastmod>
+         <lastmod>2025-10-29</lastmod>
     </url>
 </urlset>
