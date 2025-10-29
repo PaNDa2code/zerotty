@@ -9,6 +9,7 @@ nav:
   - Build: build.md
   - Install: install.md 
   - Config: config.md
+  - Developemnt: development.md
 
 theme:
   name: simple-blog
