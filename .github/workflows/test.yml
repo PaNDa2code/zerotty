@@ -39,6 +39,7 @@ jobs:
         run: zig build test -Dtarget=${{ matrix.target }} -Dno-lsp-check
 
       - name: Make test badge
+        if: always()
         uses: action-badges/core@0.3.1
         with:
           label: test-${{ matrix.target }}
