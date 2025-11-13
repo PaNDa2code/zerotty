@@ -132,13 +132,6 @@ pub fn build(b: *Build) !void {
     const harfbuzz_mod = harfbuzz.module("harfbuzz");
     try imports.append(b.allocator, .{ .name = "harfbuzz", .module = harfbuzz_mod });
 
-    const zerio = b.dependency("zerio", .{
-        .target = target,
-        .optimize = optimize,
-    });
-    const zerio_mod = zerio.module("zerio");
-    try imports.append(b.allocator, .{ .name = "zerio", .module = zerio_mod });
-
     const zigimg = b.dependency("zigimg", .{
         .target = target,
         .optimize = optimize,

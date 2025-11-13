@@ -1,154 +1,165 @@
-//! Event loop to handle async io
 const EventLoop = @This();
 
-handle: switch (builtin.os.tag) {
-    .windows => HANDLE,
-    .linux => linux.fd_t,
-    else => void,
-},
+pub const Callback = *const fn (*Event, usize, ?*anyopaque) CallbackAction;
 
-events: std.ArrayListUnmanaged(Event) = .empty,
+pub const CallbackAction = enum {
+    keep,
+    retry,
+    destroy,
+};
 
-pub fn init() !EventLoop {
-    return switch (builtin.os.tag) {
-        .windows => initWindows(),
-        .linux => initLinux(),
-        else => initPosix(),
-    };
-}
+pub const Event = struct {
+    pub const Status = enum { reserved, running, none };
 
-pub fn deinit(self: *EventLoop, allocator: Allocator) void {
-    for (self.events.items) |*ev|
-        ev.deinit(allocator);
+    request: Request,
+    status: Status = .none,
+    completion_callback: ?Callback = null,
+    user_data: ?*anyopaque = null,
+};
 
-    defer self.events.deinit(allocator);
+backend_context: BackendContext,
+event_queue: []Event,
+free_events: std.ArrayList(usize),
 
-    return switch (builtin.os.tag) {
-        .windows => self.deinitWindows(allocator),
-        .linux => self.deinitLinux(),
-        else => self.deinitPosix(),
-    };
-}
+pub fn init(allocator: std.mem.Allocator, max_events: usize) !EventLoop {
+    const event_queue = try allocator.alloc(Event, max_events);
+    errdefer allocator.free(event_queue);
 
-pub fn run(self: *const EventLoop) !void {
-    return switch (builtin.os.tag) {
-        .windows => self.runWindows(),
-        .linux => self.runLinux(),
-        else => {},
-    };
-}
+    var free_events = try std.ArrayList(usize).initCapacity(allocator, max_events);
 
-fn initLinux() !EventLoop {
-    const handle: linux.fd_t = @intCast(linux.epoll_create1(0));
-    return .{
-        .handle = handle,
-    };
-}
+    for (0..max_events) |i|
+        free_events.appendAssumeCapacity(i);
 
-fn initWindows() !EventLoop {
-    const handle =
-        win32.system.io.CreateIoCompletionPort(INVALID_HANDLE_VALUE, null, 0, 0) orelse
-        return error.CreateIoCompletionPortFailed;
+    var backend_context: BackendContext = undefined;
+    try backend_context.setup();
 
     return .{
-        .handle = handle,
+        .backend_context = backend_context,
+        .event_queue = event_queue,
+        .free_events = free_events,
     };
 }
 
-fn deinitWindows(self: *EventLoop, allocator: Allocator) void {
-    _ = allocator; // autofix
-    _ = self; // autofix
+pub fn read(
+    self: *EventLoop,
+    file: std.fs.File,
+    buf: []u8,
+    completion_callback: ?Callback,
+    user_data: ?*anyopaque,
+) !void {
+    try self.pushAndRunRequest(.{
+        .handle = file.handle,
+        .op_data = .{ .read = buf },
+    }, completion_callback, user_data);
 }
 
-fn deinitLinux(self: *EventLoop) void {
-    _ = self; // autofix
+pub fn write(
+    self: *EventLoop,
+    file: std.fs.File,
+    buf: []const u8,
+    completion_callback: ?Callback,
+    user_data: ?*anyopaque,
+) !void {
+    try self.pushAndRunRequest(.{
+        .handle = file.handle,
+        .op_data = .{ .write = buf },
+    }, completion_callback, user_data);
 }
 
-// Posix systems other than linux will not have a handle
-// to epoll or iocp, It will mostly just relay on libc poll
-fn initPosix() !EventLoop {
-    return .{};
-}
+pub fn poll(self: *EventLoop) !void {
+    var res: i32 = 0;
+    const completed_req = (try self.backend_context.dequeue_timeout(0, &res)) orelse return;
+    const event: *Event = @fieldParentPtr("request", @constCast(completed_req));
 
-pub fn addEvent(self: *EventLoop, allocator: Allocator, event: Event) !void {
-    try self.events.append(allocator, event);
-
-    switch (builtin.os.tag) {
-        .windows => {
-            _ = win32.system.io.CreateIoCompletionPort(
-                event.handle,
-                self.handle,
-                self.events.items.len - 1,
-                0,
-            );
-        },
-        .linux => {
-            var epoll_event = std.mem.zeroes(linux.epoll_event);
-            epoll_event.data.ptr = self.events.items.len - 1;
-            epoll_event.events = linux.EPOLL.IN;
-            _ = linux.epoll_ctl(self.handle, linux.EPOLL.CTL_ADD, event.handle, &epoll_event);
-        },
-        else => {},
-    }
-}
-
-fn runLinux(self: *const EventLoop) !void {
-    var events: [10]linux.epoll_event = undefined;
-
-    while (true) {
-        const count = linux.epoll_wait(self.handle, &events, 10, 0);
-
-        if (@as(isize, @bitCast(count)) == -1)
-            std.debug.panic("epoll_wait failed: {}", .{count});
-        if (count == 0)
-            return;
-
-        for (0..count) |i| {
-            const event_index = events[i].data.ptr;
-            const event_ptr = &self.events.items[event_index];
-            const available: i32 = 0;
-            _ = linux.ioctl(event_ptr.handle, 0x541B, @intFromPtr(&available));
-            const len = event_ptr.dispatch_fn(event_ptr.handle, event_ptr.dispatch_buf);
-            event_ptr.callback_fn(event_ptr, event_ptr.dispatch_buf[0..len], event_ptr.data);
-            return;
+    if (event.completion_callback) |cb| {
+        switch (cb(event, @intCast(res), event.user_data)) {
+            .destroy => {
+                self.free_events.appendAssumeCapacity(
+                    (@intFromPtr(event) - @intFromPtr(self.event_queue.ptr)) / @sizeOf(Event),
+                );
+            },
+            .keep => {
+                event.status = .reserved;
+            },
+            .retry => {
+                try self.backend_context.queue(completed_req);
+                try self.backend_context.submit();
+            },
         }
+    } else {
+        self.free_events.appendAssumeCapacity(
+            (@intFromPtr(event) - @intFromPtr(self.event_queue.ptr)) / @sizeOf(Event),
+        );
     }
 }
 
-fn runWindows(self: *const EventLoop) !void {
-    while (true) {
-        var len: u32 = 0;
-        var event_index: usize = 0;
-        var control_block: *Event.ControlBlock = undefined;
-        if (win32.system.io.GetQueuedCompletionStatus(
-            self.handle,
-            &len,
-            &event_index,
-            @ptrCast(&control_block),
-            0,
-        ) == 0) {
-            return;
-        } else {
-            const event_ptr = &self.events.items[event_index];
-            event_ptr.callback_fn(event_ptr, event_ptr.dispatch_buf[0..len], event_ptr.data);
-
-            // TODO: i'll handle this better ^_^
-            _ = win32.storage.file_system.ReadFile(event_ptr.handle, event_ptr.dispatch_buf.ptr, @intCast(event_ptr.dispatch_buf.len), null, event_ptr.control_block);
-            // return;
-        }
+pub fn run(self: *EventLoop) !void {
+    while (self.free_events.items.len < self.event_queue.len) {
+        try self.poll();
     }
+}
+
+inline fn pushAndRunRequest(self: *EventLoop, req: Request, cb: anytype, user_data: ?*anyopaque) !void {
+    const ev_idx = self.free_events.pop() orelse return error.ReachedMaxEvents;
+    self.event_queue[ev_idx].request = req;
+    try self.backend_context.register(&self.event_queue[ev_idx].request);
+    try self.backend_context.queue(&self.event_queue[ev_idx].request);
+    try self.backend_context.submit();
+
+    self.event_queue[ev_idx].completion_callback = cb;
+    self.event_queue[ev_idx].user_data = user_data;
+}
+
+pub fn deinit(self: *EventLoop, allocator: std.mem.Allocator) void {
+    allocator.free(self.event_queue);
+    self.free_events.deinit(allocator);
 }
 
 const std = @import("std");
+const root = @import("root.zig");
 const builtin = @import("builtin");
 
-const posix = std.posix;
-const linux = std.os.linux;
-const win32 = @import("win32");
+const Request = root.Request;
+const Operation = root.Operation;
+const Result = root.Result;
 
-const Allocator = std.mem.Allocator;
+const BackendContext = root.Backend.Context;
 
-pub const Event = @import("Event.zig");
+test "event loop basic pipe rw" {
+    var loop = try EventLoop.init(std.testing.allocator, 8);
+    defer loop.deinit(std.testing.allocator);
 
-const HANDLE = win32.foundation.HANDLE;
-const INVALID_HANDLE_VALUE = win32.foundation.INVALID_HANDLE_VALUE;
+    var fds: [2]std.os.linux.fd_t = undefined;
+    _ = std.os.linux.pipe(&fds);
+
+    const read_file = std.fs.File{ .handle = fds[0] };
+    const write_file = std.fs.File{ .handle = fds[1] };
+
+    var read_buf: [5]u8 = undefined;
+
+    try loop.write(write_file, "hello", write_cb, null);
+    try loop.read(read_file, read_buf[0..], read_cb, null);
+
+    try loop.run();
+}
+
+var counter: usize = 0;
+
+fn read_cb(ev: *EventLoop.Event, _: usize, _: ?*anyopaque) EventLoop.CallbackAction {
+    const buf = ev.request.op_data.read;
+    std.testing.expectEqualStrings("hello", buf[0..5]) catch unreachable;
+
+    if (counter >= 100)
+        return .destroy;
+
+    return .retry;
+}
+
+fn write_cb(_: *EventLoop.Event, _: usize, _: ?*anyopaque) EventLoop.CallbackAction {
+    counter += 1;
+
+    if (counter >= 100)
+        return .destroy;
+
+    return .retry;
+}

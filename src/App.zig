@@ -5,7 +5,7 @@ child: ChildProcess,
 vt_parser: VTParser,
 allocator: Allocator,
 
-io_event_loop: zerio.EventLoop,
+io_event_loop: io.EventLoop,
 
 const App = @This();
 
@@ -29,7 +29,7 @@ pub fn new(allocator: Allocator) App {
 var render: *Renderer = undefined;
 var _window: *Window = undefined;
 var _pty: *Pty = undefined;
-var evloop: *zerio.EventLoop = undefined;
+var evloop: *io.EventLoop = undefined;
 var child_stdin: std.fs.File = undefined;
 
 pub fn start(self: *App) !void {
@@ -51,14 +51,14 @@ pub fn start(self: *App) !void {
     _pty = &self.pty;
     evloop = &self.io_event_loop;
 
-    self.io_event_loop = try zerio.EventLoop.init(self.allocator, 8);
+    self.io_event_loop = try io.EventLoop.init(self.allocator, 8);
 
     try self.io_event_loop.read(self.child.stdout.?, self.buffer.buffer, &pty_read_callback, self);
 
     child_stdin = self.child.stdin.?;
 }
 
-pub fn pty_read_callback(ev: *const zerio.EventLoop.Event, n: usize, data: ?*anyopaque) zerio.EventLoop.CallbackAction {
+pub fn pty_read_callback(ev: *const io.EventLoop.Event, n: usize, data: ?*anyopaque) io.EventLoop.CallbackAction {
     const buf = ev.request.op_data.read[0..n];
     const app: *App = @ptrCast(@alignCast(data));
     app.vt_parser.parse(buf);
@@ -201,4 +201,4 @@ const Allocator = std.mem.Allocator;
 const std = @import("std");
 const build_options = @import("build_options");
 const vtparse = @import("vtparse");
-const zerio = @import("zerio");
+const io = @import("io/root.zig");
