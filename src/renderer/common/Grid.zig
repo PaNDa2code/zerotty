@@ -34,7 +34,7 @@ pub fn free(self: *CellProgram) void {
     self.map.deinit();
 }
 
-pub fn data(self: *CellProgram) []Cell {
+pub fn data(self: *const CellProgram) []const Cell {
     return self.map.values();
 }
 

@@ -77,12 +77,6 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
         &atlas,
     );
 
-    try buffers.stageVertexData(
-        &core,
-        &grid,
-        &atlas,
-    );
-
     try descriptor.updateDescriptorSets(
         &core,
         &buffers,
@@ -148,6 +142,11 @@ pub fn resize(self: *Backend, width: u32, height: u32) !void {
 }
 
 pub fn presentBuffer(self: *Backend) void {
+    self.buffers.stageVertexData(
+        &self.core,
+        &self.grid,
+    ) catch unreachable;
+
     drawFrame(self) catch @panic("drawFrame failed");
 }
 

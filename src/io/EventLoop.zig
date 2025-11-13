@@ -18,12 +18,12 @@ pub const Event = struct {
 };
 
 backend_context: BackendContext,
-event_queue: []Event,
+event_pool: []Event,
 free_events: std.ArrayList(usize),
 
 pub fn init(allocator: std.mem.Allocator, max_events: usize) !EventLoop {
-    const event_queue = try allocator.alloc(Event, max_events);
-    errdefer allocator.free(event_queue);
+    const event_pool = try allocator.alloc(Event, max_events);
+    errdefer allocator.free(event_pool);
 
     var free_events = try std.ArrayList(usize).initCapacity(allocator, max_events);
 
@@ -35,7 +35,7 @@ pub fn init(allocator: std.mem.Allocator, max_events: usize) !EventLoop {
 
     return .{
         .backend_context = backend_context,
-        .event_queue = event_queue,
+        .event_pool = event_pool,
         .free_events = free_events,
     };
 }
@@ -66,16 +66,36 @@ pub fn write(
     }, completion_callback, user_data);
 }
 
-pub fn poll(self: *EventLoop) !void {
+pub fn allocEvent(self: *EventLoop) !*Event {
+    const ev_idx = self.free_events.pop() orelse return error.ReachedMaxEvents;
+    const event_ptr = &self.event_pool[ev_idx];
+    event_ptr.status = .reserved;
+    return event_ptr;
+}
+
+pub fn freeEvent(self: *EventLoop, event: *Event) void {
+    event.status = .none;
+    self.free_events.appendAssumeCapacity(
+        (@intFromPtr(event) - @intFromPtr(self.event_pool.ptr)) / @sizeOf(Event),
+    );
+}
+
+pub fn submitEvent(self: *EventLoop, event: *Event) !void {
+    try self.backend_context.register(&event.request);
+    try self.backend_context.queue(&event.request);
+    try self.backend_context.submit();
+}
+
+pub fn poll(self: *EventLoop, timeout_ms: u32) !void {
     var res: i32 = 0;
-    const completed_req = (try self.backend_context.dequeue_timeout(0, &res)) orelse return;
+    const completed_req = (try self.backend_context.dequeue_timeout(timeout_ms, &res)) orelse return;
     const event: *Event = @fieldParentPtr("request", @constCast(completed_req));
 
     if (event.completion_callback) |cb| {
         switch (cb(event, @intCast(res), event.user_data)) {
             .destroy => {
                 self.free_events.appendAssumeCapacity(
-                    (@intFromPtr(event) - @intFromPtr(self.event_queue.ptr)) / @sizeOf(Event),
+                    (@intFromPtr(event) - @intFromPtr(self.event_pool.ptr)) / @sizeOf(Event),
                 );
             },
             .keep => {
@@ -86,32 +106,35 @@ pub fn poll(self: *EventLoop) !void {
                 try self.backend_context.submit();
             },
         }
-    } else {
-        self.free_events.appendAssumeCapacity(
-            (@intFromPtr(event) - @intFromPtr(self.event_queue.ptr)) / @sizeOf(Event),
-        );
     }
 }
 
 pub fn run(self: *EventLoop) !void {
-    while (self.free_events.items.len < self.event_queue.len) {
-        try self.poll();
+    while (self.free_events.items.len < self.event_pool.len) {
+        try self.poll(std.math.maxInt(u32));
     }
 }
 
-inline fn pushAndRunRequest(self: *EventLoop, req: Request, cb: anytype, user_data: ?*anyopaque) !void {
-    const ev_idx = self.free_events.pop() orelse return error.ReachedMaxEvents;
-    self.event_queue[ev_idx].request = req;
-    try self.backend_context.register(&self.event_queue[ev_idx].request);
-    try self.backend_context.queue(&self.event_queue[ev_idx].request);
-    try self.backend_context.submit();
+fn pushRequest(self: *EventLoop, req: Request, cb: anytype, user_data: ?*anyopaque) !*Event {
+    const event_ptr = try self.allocEvent();
 
-    self.event_queue[ev_idx].completion_callback = cb;
-    self.event_queue[ev_idx].user_data = user_data;
+    event_ptr.request = req;
+    event_ptr.completion_callback = cb;
+    event_ptr.user_data = user_data;
+
+    try self.backend_context.register(&event_ptr.request);
+
+    return event_ptr;
+}
+
+fn pushAndRunRequest(self: *EventLoop, req: Request, cb: anytype, user_data: ?*anyopaque) !void {
+    const event_ptr = try self.pushRequest(req, cb, user_data);
+    try self.backend_context.queue(&event_ptr.request);
+    try self.backend_context.submit();
 }
 
 pub fn deinit(self: *EventLoop, allocator: std.mem.Allocator) void {
-    allocator.free(self.event_queue);
+    allocator.free(self.event_pool);
     self.free_events.deinit(allocator);
 }
 

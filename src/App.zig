@@ -6,6 +6,7 @@ vt_parser: VTParser,
 allocator: Allocator,
 
 io_event_loop: io.EventLoop,
+write_event: *io.EventLoop.Event,
 
 const App = @This();
 
@@ -23,9 +24,11 @@ pub fn new(allocator: Allocator) App {
         .pty = undefined,
         .buffer = undefined,
         .io_event_loop = undefined,
+        .write_event = undefined,
     };
 }
 
+var _app: *App = undefined;
 var render: *Renderer = undefined;
 var _window: *Window = undefined;
 var _pty: *Pty = undefined;
@@ -42,6 +45,8 @@ pub fn start(self: *App) !void {
         },
     });
 
+    _app = self;
+
     // self.child.unsetEvnVar("PS0");
     // try self.child.setEnvVar(self.allocator, "PS1", "\\h@\\u:\\w> ");
     try self.child.start(self.allocator, &self.pty);
@@ -55,22 +60,43 @@ pub fn start(self: *App) !void {
 
     try self.io_event_loop.read(self.child.stdout.?, self.buffer.buffer, &pty_read_callback, self);
 
+    self.write_event = try self.io_event_loop.allocEvent();
+    self.write_event.completion_callback = null;
+    self.write_event.request.handle = child_stdin.handle;
+
     child_stdin = self.child.stdin.?;
 }
 
-pub fn pty_read_callback(ev: *const io.EventLoop.Event, n: usize, data: ?*anyopaque) io.EventLoop.CallbackAction {
+fn pty_read_callback(
+    ev: *const io.EventLoop.Event,
+    n: usize,
+    data: ?*anyopaque,
+) io.EventLoop.CallbackAction {
     const buf = ev.request.op_data.read[0..n];
     const app: *App = @ptrCast(@alignCast(data));
+    log.debug("readed = {s}", .{buf});
     app.vt_parser.parse(buf);
     return .retry;
 }
 
+var utf8: [4]u8 = undefined;
+
 fn keyboard_cb(utf32: u32, press: bool) void {
-    var utf8: [4]u8 = undefined;
-    const n = std.unicode.utf8Encode(@intCast(utf32), utf8[0..]) catch unreachable;
-    log.debug("key pressed = {s} - 0x{x:04}", .{ utf8[0..@intCast(n)], utf32 });
-    if (press)
-        child_stdin.writeAll(utf8[0..n]) catch unreachable;
+    if (!press) return;
+
+    var data: []const u8 = undefined;
+
+    switch (utf32) {
+        0x000D => data = "\r",
+        else => {
+            const n = std.unicode.utf8Encode(@intCast(utf32), utf8[0..]) catch return;
+            data = utf8[0..n];
+        },
+    }
+
+    log.debug("key pressed = {s} - 0x{x:04}", .{ data, utf32 });
+
+    child_stdin.writeAll(data) catch unreachable;
 }
 
 pub fn loop(self: *App) void {
@@ -85,7 +111,7 @@ pub fn loop(self: *App) void {
 
 var fps: f64 = 0;
 pub fn drawCallBack(renderer: *Renderer) void {
-    evloop.poll() catch unreachable;
+    evloop.poll(0) catch unreachable;
     renderer.clearBuffer(.Black);
     renderer.renaderGrid();
     renderer.presentBuffer();

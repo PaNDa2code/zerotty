@@ -119,7 +119,6 @@ pub fn stageVertexData(
     self: *const Buffers,
     core: *const Core,
     grid: *const Grid,
-    atlas: *const Atlas,
 ) !void {
     const vkd = &core.dispatch.vkd;
 
@@ -135,21 +134,12 @@ pub fn stageVertexData(
     defer vkd.unmapMemory(core.device, self.staging_buffer.memory);
 
     const slice = @as([*]Cell, @ptrFromInt(@intFromPtr(staging_ptr)))[0..128];
+    @memset(slice, std.mem.zeroes(Cell));
 
-    var i: usize = 0;
-    var glyph_iter = atlas.glyph_lookup_map.iterator();
-    while (glyph_iter.next()) |entry| : (i += 1) {
-        if (i >= slice.len) break;
-        slice[i] = .{
-            .row = @intCast(i / grid.cols),
-            .col = @intCast(i % grid.cols),
-            .char = entry.key_ptr.*,
-            .fg_color = .White,
-            .bg_color = .Black,
-            .glyph_info = entry.value_ptr.*,
-        };
-    }
+    const n = @min(slice.len, grid.data().len);
+    @memcpy(slice[0..n], grid.data()[0..n]);
 }
+
 pub fn createBuffer(
     vkd: *const vk.DeviceWrapper,
     device: vk.Device,

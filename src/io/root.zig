@@ -18,7 +18,7 @@ pub const Request = struct {
     op_data: union(Operation) {
         read: []u8,
         write: []const u8,
-        none: void,
+        none,
     },
     control_block: ControlBlock = std.mem.zeroes(ControlBlock),
 };
