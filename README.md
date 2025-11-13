@@ -1,48 +1,80 @@
-# ZeroTTY - A Cross-Compiled Terminal Emulator
+<div align="center">
+  <img src="docs/assets/images/zerotty.png" alt="ZeroTTY Logo">
+  <h1>ZeroTTY</h1>
+  <p>
+    <b>A high-performance, cross-platform terminal emulator built with Zig.</b>
+  </p>
+  <p>
+    <a href="https://github.com/PaNDa2code/zerotty/actions/workflows/test.yml"><img src="https://raw.githubusercontent.com/PaNDa2code/zerotty/badges/.badges/master/badges/test-x86_64-linux-gnu.svg" alt="Linux Test Status"></a>
+    <a href="https://github.com/PaNDa2code/zerotty/actions/workflows/test.yml"><img src="https://raw.githubusercontent.com/PaNDa2code/zerotty/badges/.badges/master/badges/test-x86_64-windows-gnu.svg" alt="Windows Test Status"></a>
+  </p>
+</div>
 
-![Logo](docs/assets/images/zerotty.png)
+ZeroTTY is a modern terminal emulator designed for speed, efficiency, and cross-platform compatibility. By leveraging the power of Zig and a low-level design, ZeroTTY aims to provide a native, high-performance experience with minimal dependencies.
 
-## Description
-ZeroTTY is a terminal emulator project. It focuses on **cross-compilation**, **native execution**, and **low-level design** to achieve high **speed and performance** across various operating systems.
+## Features
 
-## Getting started
+*   **Cross-Platform:** Runs on Linux, Windows, and macOS.
+*   **Multiple Renderer Backends:** Supports Vulkan and OpenGL.
+*   **High Performance:** Built for speed and low resource usage.
+*   **Customizable:** Configure fonts, colors, and more.
+*   **Minimal Dependencies:** A lightweight and focused design.
 
-1. clone the repository
+## Getting Started
+
+### Prerequisites
+
+*   **Zig:** The project is built using the Zig compiler.
+*   **System Libraries:** Additional system libraries may be required depending on your OS, chosen windowing system, and rendering backend (e.g., `X11`, `xcb`, `xkbcommon`, `GL` for Linux). Zig's `build.zig.zon` handles Zig-specific dependencies automatically.
+
+### Building from Source
+
+1.  **Clone the repository:**
+
 ```bash
-git clone github.com/PaNDa2code/zerotty
+git clone https://github.com/PaNDa2code/zerotty.git
 cd zerotty
 ```
 
-2. build the project, [more info](docs/build.md)
+2.  **Build the project:**
+
+You can build ZeroTTY with the following command:
+
 ```bash
-zig build -Drender-backend=OpenGL
+zig build
 ```
 
-3. run
+You can also specify the rendering backend:
+
+```bash
+# Build with OpenGL renderer
+zig build -Drender-backend=OpenGL
+
+# Build with Vulkan renderer
+zig build -Drender-backend=Vulkan
+
+# Build with D3D11 renderer (for Windows)
+zig build -Drender-backend=D3D11
+```
+
+3.  **Run ZeroTTY:**
+
+After a successful build, the executable will be located in the `zig-out/bin` directory.
+
 ```bash
 ./zig-out/bin/zerotty
 ```
 
-## Technologies
-Developed primarily in **Zig**, leveraging its capabilities for cross-compilation and system-level programming.
+## Contributing
 
-## Tests
+Contributions are welcome! If you'd like to contribute to ZeroTTY, please follow these steps:
 
-The following badges show the results of running `zig build -Dtarget={{ target }} test` via [test.yml](.github/workflows/test.yml).
+1.  Fork the repository.
+2.  Create a new branch for your feature or bug fix.
+3.  Make your changes and commit them with a clear and descriptive message.
+4.  Push your changes to your fork.
+5.  Submit a pull request to the `master` branch of the original repository.
 
-| Status   |
-|----------|
-| ![linux-test](https://raw.githubusercontent.com/PaNDa2code/zerotty/badges/.badges/master/badges/test-x86_64-linux-gnu.svg) |
-| ![windows-test](https://raw.githubusercontent.com/PaNDa2code/zerotty/badges/.badges/master/badges/test-x86_64-windows-gnu.svg) |
+## License
 
----
-## Core Principles
-* **Native Performance:** Prioritizes direct system interaction for speed.
-* **Minimal Dependencies:** Reduces overhead and complexity.
-* **Cross-Platform:** Designed for broad operating system compatibility.
-* **Efficiency:** Focus on low resource usage.
-
----
-
-## Contribution
-Contributions are welcome. Fork the repository and submit pull requests.
+This project is not licensed.
