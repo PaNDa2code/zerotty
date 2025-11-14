@@ -138,7 +138,6 @@ test "iocp overlapped pipe write test (Windows)" {
     var write_req = Request{
         .handle = client,
         .op_data = .{ .write = buf },
-        .user_data = null,
     };
     try context.register(&write_req);
     try context.queue(&write_req);
@@ -155,7 +154,6 @@ test "iocp overlapped pipe write test (Windows)" {
     var read_req = Request{
         .handle = server,
         .op_data = .{ .read = read_buf[0..] },
-        .user_data = null,
     };
     try context.register(&read_req);
     try context.queue(&read_req);
