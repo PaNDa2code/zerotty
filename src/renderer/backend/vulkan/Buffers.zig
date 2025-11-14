@@ -178,11 +178,13 @@ pub fn findMemoryType(
     type_filter: u32,
     properties: vk.MemoryPropertyFlags,
 ) u32 {
-    for (0..mem_properties.memory_type_count) |i| {
-        if ((type_filter & (std.math.shl(u32, 1, i))) != 0 and
+    var mask = type_filter;
+    while (mask != 0) : (mask &= mask - 1) {
+        const i = @ctz(mask);
+        if (i < mem_properties.memory_type_count and
             mem_properties.memory_types[i].property_flags.contains(properties))
         {
-            return @intCast(i);
+            return i;
         }
     }
     std.debug.panic("Failed to find suitable memory index for type {f}!", .{properties});
