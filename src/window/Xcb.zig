@@ -21,6 +21,8 @@ title: []const u8,
 height: u32,
 width: u32,
 
+const log = std.log.scoped(.window);
+
 pub fn new(title: []const u8, height: u32, width: u32) Window {
     return .{
         .title = title,
@@ -265,9 +267,15 @@ pub fn pumpMessages(self: *Window) void {
     }
 }
 pub fn close(self: *Window) void {
-    _ = c.xcb_destroy_window(self.connection, self.window);
-    c.xcb_disconnect(self.connection);
     self.renderer.deinit();
+
+    const cookie = c.xcb_destroy_window_checked(self.connection, self.window);
+    if (c.xcb_request_check(self.connection, cookie)) |err| {
+        log.debug("xcb_destroy_window_checked: {}", .{err.*.error_code});
+        c.free(err);
+    }
+
+    c.xcb_disconnect(self.connection);
 }
 
 fn get_argb_visual(screen: *c.xcb_screen_t) ?u32 {
