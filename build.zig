@@ -13,6 +13,7 @@ pub const WindowSystem = enum {
     Win32,
     Xlib,
     Xcb,
+    Wayland,
 };
 
 pub fn build(b: *Build) !void {
@@ -263,6 +264,49 @@ fn linkSystemLibraries(
                     module.linkLibrary(libxkbcommon);
                 }
             }
+        },
+        .Wayland => {
+            const shimizu_dep_lazy = b.lazyDependency("shimizu", .{
+                .target = target,
+                .optimize = module.optimize.?,
+            });
+
+            const wayland_dep_lazy = b.lazyDependency("wayland", .{});
+            const wayland_protocols_dep_lazy = b.lazyDependency("wayland-protocols", .{});
+
+            if (shimizu_dep_lazy == null or wayland_dep_lazy == null or wayland_protocols_dep_lazy == null)
+                return;
+
+            const shimizu_dep = shimizu_dep_lazy.?;
+            const wayland_dep = wayland_dep_lazy.?;
+            const wayland_protocols_dep = wayland_protocols_dep_lazy.?;
+
+            const generate_wayland_unstable_zig_cmd = b.addRunArtifact(shimizu_dep.artifact("shimizu-scanner"));
+            generate_wayland_unstable_zig_cmd.addFileArg(wayland_protocols_dep.path("unstable/xdg-decoration/xdg-decoration-unstable-v1.xml"));
+            generate_wayland_unstable_zig_cmd.addArgs(&.{ "--interface-version", "zxdg_decoration_manager_v1", "1" });
+
+            generate_wayland_unstable_zig_cmd.addArg("--import");
+            generate_wayland_unstable_zig_cmd.addFileArg(wayland_dep.path("protocol/wayland.xml"));
+            generate_wayland_unstable_zig_cmd.addArg("@import(\"core\")");
+
+            generate_wayland_unstable_zig_cmd.addArg("--import");
+            generate_wayland_unstable_zig_cmd.addFileArg(wayland_protocols_dep.path("stable/xdg-shell/xdg-shell.xml"));
+            generate_wayland_unstable_zig_cmd.addArg("@import(\"wayland-protocols\").xdg_shell");
+
+            generate_wayland_unstable_zig_cmd.addArg("--output");
+            const wayland_unstable_dir = generate_wayland_unstable_zig_cmd.addOutputDirectoryArg("wayland-unstable");
+
+            const wayland_unstable_module = b.addModule("wayland-unstable", .{
+                .root_source_file = wayland_unstable_dir.path(b, "root.zig"),
+                .target = target,
+                .optimize = module.optimize.?,
+                .imports = &.{
+                    .{ .name = "wire", .module = shimizu_dep.module("wire") },
+                    .{ .name = "core", .module = shimizu_dep.module("core") },
+                    .{ .name = "wayland-protocols", .module = shimizu_dep.module("wayland-protocols") },
+                },
+            });
+            module.addImport("wayland", wayland_unstable_module);
         },
     }
 }

@@ -71,6 +71,21 @@
             .hash = "zbench-0.11.2-YTdc7zolAQDlBF9i0ywXIvDjafL3Kg27S-aFUq6dU5zy",
             .lazy = true,
         },
+        .shimizu = .{
+            .url = "https://git.sr.ht/~geemili/shimizu/archive/dev.tar.gz",
+            .hash = "shimizu-0.2.0-dev-irfMUTouBACdh84pZlkB0T_o0EFnX0rhBdDgvLNIqJyf",
+            .lazy = true,
+        },
+        .wayland = .{
+            .url = "https://gitlab.freedesktop.org/wayland/wayland/-/archive/1.23.1/wayland-1.23.1.tar.gz",
+            .hash = "N-V-__8AAJC3GAC2LeGXShVNoV0oWVW9T293JVzmx0kY5KVa",
+            .lazy = true,
+        },
+        .@"wayland-protocols" = .{
+            .url = "https://gitlab.freedesktop.org/wayland/wayland-protocols/-/archive/1.38/wayland-protocols-1.38.tar.gz",
+            .hash = "N-V-__8AAPSiCwBmhGfdDQlw65XlO55QP1pogBUo1ZeGUv_C",
+            .lazy = true,
+        },
     },
     .paths = .{
         "build.zig",
