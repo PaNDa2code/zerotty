@@ -77,4 +77,4 @@ Contributions are welcome! If you'd like to contribute to ZeroTTY, please follow
 
 ## License
 
-This project is not licensed.
+This project is under MIT license.
