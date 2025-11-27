@@ -26,7 +26,7 @@ pub fn initInPlace(self: *VkAllocatorAdapter, allocator: Allocator) void {
     self.record_map = .empty;
 
     self.alloc_callbacks = .{
-        .p_user_data = @constCast(self),
+        .p_user_data = self,
         .pfn_allocation = VkAllocatorAdapter.vkAlloc,
         .pfn_reallocation = VkAllocatorAdapter.vkRealloc,
         .pfn_free = VkAllocatorAdapter.vkFree,
@@ -140,8 +140,10 @@ const std = @import("std");
 const vk = @import("vulkan");
 const Allocator = std.mem.Allocator;
 
-test Allocator {
-    var vk_allocator = VkAllocatorAdapter.init(std.testing.allocator);
+test VkAllocatorAdapter {
+    var vk_allocator: VkAllocatorAdapter = undefined;
+    vk_allocator.initInPlace(std.testing.allocator);
+
     defer vk_allocator.deinit();
 
     const callbacks = vk_allocator.vkAllocatorCallbacks();
