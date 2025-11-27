@@ -27,9 +27,14 @@ pub fn createDevice(
         "VK_LAYER_KHRONOS_validation",
     };
 
+    var int16bit_features = vk.PhysicalDevice16BitStorageFeatures{
+        .storage_input_output_16 = .false,
+    };
+
     const sync2_features =
         vk.PhysicalDeviceSynchronization2Features{
             .synchronization_2 = .true,
+            .p_next = &int16bit_features,
         };
 
     const layer_extensions = [_][*:0]const u8{} ++

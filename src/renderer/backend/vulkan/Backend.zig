@@ -52,10 +52,12 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
 
     const staging_memory_size = @max(altas_size, vertex_memory_size);
 
-    const buffers = try Buffers.init(&core, .{
+    var buffers = try Buffers.init(&core, .{
         .staging_size = staging_memory_size,
         .vertex_size = staging_memory_size,
         .uniform_size = 16 * 1024,
+        .glyph_ssbo_size = atlas.glyph_lookup_map.values().len * @sizeOf(Atlas.GlyphInfo),
+        .style_ssbo_size = 1024 * 16,
     });
 
     try buffers.updateUniformData(&core, &.{
@@ -142,6 +144,11 @@ pub fn resize(self: *Backend, width: u32, height: u32) !void {
 }
 
 pub fn presentBuffer(self: *Backend) void {
+    self.buffers.updateSSBOs(
+        &self.core,
+        &self.atlas,
+    ) catch unreachable;
+
     self.buffers.stageVertexData(
         &self.core,
         &self.grid,
@@ -162,15 +169,15 @@ pub fn setCell(
     fg_color: ?ColorRGBAu8,
     bg_color: ?ColorRGBAu8,
 ) !void {
-    const glyph_info = self.atlas.glyph_lookup_map.get(char_code) orelse self.atlas.glyph_lookup_map.get(' ').?;
+    _ = bg_color;
+    _ = fg_color;
+
+    const glyph_index = self.atlas.glyph_lookup_map.getIndex(char_code) orelse 0;
 
     try self.grid.set(.{
-        .row = row,
-        .col = col,
-        .char = char_code,
-        .fg_color = fg_color orelse .White,
-        .bg_color = bg_color orelse .Black,
-        .glyph_info = glyph_info,
+        .packed_pos = (col << 16) | row,
+        .glyph_index = @intCast(glyph_index),
+        .style_index = 0,
     });
 }
 

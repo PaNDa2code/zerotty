@@ -1,13 +1,13 @@
 const Atlas = @This();
 
-pub const GlyphInfo = packed struct {
+pub const GlyphInfo = extern struct {
     coord_start: Vec2(u32),
     coord_end: Vec2(u32),
     bearing: Vec2(i32),
 };
 
 buffer: []u8,
-glyph_lookup_map: std.AutoHashMap(u32, GlyphInfo),
+glyph_lookup_map: std.AutoArrayHashMap(u32, GlyphInfo),
 
 height: usize,
 width: usize,
@@ -54,7 +54,7 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
 
     var pixels = try allocator.alloc(u8, tex_width * tex_height);
     @memset(pixels, 0);
-    var glyph_map = std.AutoHashMap(u32, GlyphInfo).init(allocator);
+    var glyph_map = std.AutoArrayHashMap(u32, GlyphInfo).init(allocator);
 
     var pin: Vec2(u32) = .zero;
     for (from..to) |c| {

@@ -28,6 +28,18 @@ pub fn init(core: *const Core) !Descriptor {
             .descriptor_count = 1,
             .stage_flags = .{ .fragment_bit = true },
         },
+        .{
+            .binding = 2,
+            .descriptor_type = .storage_buffer,
+            .descriptor_count = 1,
+            .stage_flags = .{ .vertex_bit = true },
+        },
+        .{
+            .binding = 3,
+            .descriptor_type = .storage_buffer,
+            .descriptor_count = 1,
+            .stage_flags = .{ .vertex_bit = true },
+        },
     };
 
     const set_layout_info = vk.DescriptorSetLayoutCreateInfo{
@@ -51,12 +63,24 @@ pub fn init(core: *const Core) !Descriptor {
         .descriptor_count = 1,
     };
 
+    const glyph_ssbo_pool_size = vk.DescriptorPoolSize{
+        .type = .storage_buffer,
+        .descriptor_count = 1,
+    };
+
+    const style_ssbo_pool_size = vk.DescriptorPoolSize{
+        .type = .storage_buffer,
+        .descriptor_count = 1,
+    };
+
     const descriptor_pool_info = vk.DescriptorPoolCreateInfo{
         .max_sets = 1,
-        .pool_size_count = 2,
+        .pool_size_count = 4,
         .p_pool_sizes = &.{
             uniform_descriptor_pool_size,
             sampled_image_descriptor_pool_size,
+            glyph_ssbo_pool_size,
+            style_ssbo_pool_size,
         },
     };
 
@@ -141,6 +165,46 @@ pub fn updateDescriptorSets(
         .p_texel_buffer_view = &.{},
     };
 
-    const writes = [_]vk.WriteDescriptorSet{ uniform_block_write, image_write };
+    const glyph_ssbo_info = vk.DescriptorBufferInfo{
+        .buffer = buffers.glyph_ssbo.handle,
+        .offset = 0,
+        .range = @intCast(buffers.glyph_ssbo.memory.size),
+    };
+
+    const glyph_ssbo_write = vk.WriteDescriptorSet{
+        .dst_set = self.set,
+        .dst_binding = 2,
+        .dst_array_element = 0,
+        .descriptor_type = .storage_buffer,
+        .descriptor_count = 1,
+        .p_buffer_info = &.{glyph_ssbo_info},
+        .p_image_info = &.{},
+        .p_texel_buffer_view = &.{},
+    };
+
+    const style_ssbo_info = vk.DescriptorBufferInfo{
+        .buffer = buffers.style_ssbo.handle,
+        .offset = 0,
+        .range = @intCast(buffers.style_ssbo.memory.size),
+    };
+
+    const style_ssbo_write = vk.WriteDescriptorSet{
+        .dst_set = self.set,
+        .dst_binding = 3,
+        .dst_array_element = 0,
+        .descriptor_type = .storage_buffer,
+        .descriptor_count = 1,
+        .p_buffer_info = &.{style_ssbo_info},
+        .p_image_info = &.{},
+        .p_texel_buffer_view = &.{},
+    };
+
+    const writes = [_]vk.WriteDescriptorSet{
+        uniform_block_write,
+        image_write,
+        glyph_ssbo_write,
+        style_ssbo_write,
+    };
+
     vkd.updateDescriptorSets(core.device, writes.len, &writes, 0, null);
 }

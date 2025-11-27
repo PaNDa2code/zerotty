@@ -1,5 +1,5 @@
 pub fn Vec2(T: type) type {
-    return packed struct {
+    return extern struct {
         x: T,
         y: T,
         pub const zero = std.mem.zeroes(@This());

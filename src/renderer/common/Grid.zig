@@ -1,17 +1,19 @@
 const CellProgram = @This();
 
 pub const Cell = packed struct {
-    row: u32, // location 1
-    col: u32, // location 2
-    char: u32, // location 3
-    fg_color: ColorRGBAu8, // location 4
-    bg_color: ColorRGBAu8, // location 5
-    glyph_info: Atlas.GlyphInfo = undefined, // location 6, 7, 8
+    packed_pos: u32,
+    glyph_index: u32,
+    style_index: u32,
+};
+
+pub const CellStyle = extern struct {
+    fg_color: ColorRGBAf32,
+    bg_color: ColorRGBAf32,
 };
 
 const test_cell = Cell;
 
-map: std.AutoArrayHashMap(Vec2(u32), Cell),
+map: std.AutoArrayHashMap(u32, Cell),
 rows: u32 = 0,
 cols: u32 = 0,
 
@@ -21,7 +23,7 @@ pub const CellProgramOptions = struct {
 };
 
 pub fn create(allocator: Allocator, options: CellProgramOptions) !CellProgram {
-    const map = std.AutoArrayHashMap(Vec2(u32), Cell).init(allocator);
+    const map = std.AutoArrayHashMap(u32, Cell).init(allocator);
 
     return .{
         .map = map,
@@ -45,12 +47,13 @@ pub fn resize(self: *CellProgram, allocator: Allocator, options: CellProgramOpti
 }
 
 pub fn set(self: *CellProgram, cell: Cell) !void {
-    try self.map.put(.{ .x = cell.row, .y = cell.col }, cell);
+    try self.map.put(cell.packed_pos, cell);
 }
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const ColorRGBAu8 = @import("color.zig").ColorRGBAu8;
+const ColorRGBAf32 = @import("color.zig").ColorRGBAf32;
 const math = @import("math.zig");
 const Vec2 = math.Vec2;
 

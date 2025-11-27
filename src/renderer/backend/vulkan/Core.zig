@@ -40,7 +40,7 @@ pub const log = std.log.scoped(.Renderer);
 
 const vk_lib_path: [*:0]const u8 = switch (os_tag) {
     .windows => "C:\\Windows\\System32\\vulkan-1.dll",
-    .linux => "/usr/lib/x86_64-linux-gnu/libvulkan.so.1",
+    .linux => "libvulkan.so.1",
     else => {},
 };
 
