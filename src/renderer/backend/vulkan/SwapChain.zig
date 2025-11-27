@@ -269,18 +269,10 @@ fn chooseSwapSurfaceFormat(formats: []const vk.SurfaceFormatKHR) vk.SurfaceForma
 }
 
 fn chooseSwapPresentMode(modes: []const vk.PresentModeKHR) vk.PresentModeKHR {
-    var presend_mode = vk.PresentModeKHR.fifo_khr;
-
     for (modes) |mode| {
-        if (mode == .mailbox_khr) {
-            presend_mode = mode;
-            break;
-        } else if (mode == .immediate_khr) {
-            presend_mode = mode;
-        }
+        if (mode == .mailbox_khr) return .mailbox_khr;
     }
-
-    return presend_mode;
+    return .fifo_khr;
 }
 
 fn pickCompositeAlpha(supported: vk.CompositeAlphaFlagsKHR) vk.CompositeAlphaFlagsKHR {

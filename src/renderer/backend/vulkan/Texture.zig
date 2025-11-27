@@ -65,7 +65,7 @@ pub fn init(
     const alloc_info =
         vk.MemoryAllocateInfo{
             .allocation_size = mem_requrements.size,
-            .memory_type_index = findMemoryType(
+            .memory_type_index = try findMemoryType(
                 &mem_properties,
                 mem_requrements.memory_type_bits,
                 .{ .device_local_bit = true },
@@ -160,7 +160,7 @@ pub fn uploadAtlas(
     const statging_ptr: [*]u8 =
         @ptrCast(try vkd.mapMemory(
             core.device,
-            buffers.staging_buffer.memory,
+            buffers.staging_buffer.memory.memory,
             0,
             bytes,
             .{},
@@ -168,7 +168,7 @@ pub fn uploadAtlas(
 
     @memcpy(statging_ptr[0..bytes], atlas.buffer);
 
-    vkd.unmapMemory(core.device, buffers.staging_buffer.memory);
+    vkd.unmapMemory(core.device, buffers.staging_buffer.memory.memory);
 
     const begin_info = vk.CommandBufferBeginInfo{};
 

@@ -85,7 +85,7 @@ pub fn recordCommandBuffer(
     const regions = [_]vk.BufferCopy{.{
         .src_offset = 0,
         .dst_offset = 0,
-        .size = @sizeOf(@import("../../common/Grid.zig").Cell) * 128,
+        .size = @intCast(self.buffers.staging_buffer.memory.size),
     }};
 
     vkd.cmdCopyBuffer(
@@ -137,7 +137,7 @@ pub fn recordCommandBuffer(
         null,
     );
 
-    vkd.cmdDraw(command_buffer, 6, 64, 0, 0);
+    vkd.cmdDraw(command_buffer, 6, @intCast(self.grid.data().len), 0, 0);
 
     vkd.cmdEndRenderPass(command_buffer);
 

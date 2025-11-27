@@ -55,13 +55,13 @@ pub fn init(allocator: Allocator, window: anytype) !Core {
     const vk_mem = try allocator.create(VkAllocatorAdapter);
     vk_mem.initInPlace(allocator);
 
-    const alloc_callbacks = vk_mem.vkAllocatorCallbacks();
+    const alloc_cb = vk_mem.vkAllocatorCallbacks();
 
     const instance =
         try helpers.instance.createInstance(
             &dispatch.vkb,
             allocator,
-            &alloc_callbacks,
+            &alloc_cb,
         );
 
     const vkGetInstanceProcAddr =
@@ -74,7 +74,7 @@ pub fn init(allocator: Allocator, window: anytype) !Core {
             try helpers.debug.debugMessenger(
                 &dispatch.vki,
                 instance,
-                &alloc_callbacks,
+                &alloc_cb,
             )
         else
             .null_handle;
@@ -84,7 +84,7 @@ pub fn init(allocator: Allocator, window: anytype) !Core {
             &dispatch.vki,
             instance,
             window,
-            &alloc_callbacks,
+            &alloc_cb,
         );
 
     var physical_devices: []vk.PhysicalDevice = &.{};
@@ -110,7 +110,7 @@ pub fn init(allocator: Allocator, window: anytype) !Core {
 
     for (physical_devices, queue_family_indcies, 0..) |p, q, i| {
         device = helpers.device
-            .createDevice(&dispatch.vki, p, q, &alloc_callbacks) catch continue;
+            .createDevice(&dispatch.vki, p, q, &alloc_cb) catch continue;
         physical_device = p;
         queue_families = q;
         log.debug("using GPU{}", .{i});
@@ -158,27 +158,27 @@ pub fn init(allocator: Allocator, window: anytype) !Core {
 pub fn deinit(self: *Core) void {
     const allocator = self.vk_mem.allocator;
 
-    const alloc_callbacks = self.vk_mem.vkAllocatorCallbacks();
+    const alloc_cb = self.vk_mem.vkAllocatorCallbacks();
 
     self.dispatch
-        .vkd.destroyDevice(self.device, &alloc_callbacks);
+        .vkd.destroyDevice(self.device, &alloc_cb);
 
     self.dispatch
         .vki.destroySurfaceKHR(
         self.instance,
         self.surface,
-        &alloc_callbacks,
+        &alloc_cb,
     );
 
     if (build_options.@"renderer-debug")
         self.dispatch.vki.destroyDebugUtilsMessengerEXT(
             self.instance,
             self.debug_messenger,
-            &alloc_callbacks,
+            &alloc_cb,
         );
 
     self.dispatch
-        .vki.destroyInstance(self.instance, &alloc_callbacks);
+        .vki.destroyInstance(self.instance, &alloc_cb);
 
     allocator.destroy(self.dispatch);
 
@@ -187,6 +187,22 @@ pub fn deinit(self: *Core) void {
     allocator.destroy(self.vk_mem);
 }
 
+// Some helper functions
+pub inline fn vkb(self: *const Core) *const vk.BaseWrapper {
+    return &self.dispatch.vkb;
+}
+
+pub inline fn vki(self: *const Core) *const vk.InstanceWrapper {
+    return &self.dispatch.vki;
+}
+
+pub inline fn vkd(self: *const Core) *const vk.DeviceWrapper {
+    return &self.dispatch.vkd;
+}
+
+pub inline fn alloc_callbacks(self: *const Core) *const vk.AllocationCallbacks {
+    return &self.vk_mem.alloc_callbacks;
+}
 
 pub fn waitDeviceIdle(self: *const Core) !void {
     try self.dispatch.vkd.deviceWaitIdle(self.device);

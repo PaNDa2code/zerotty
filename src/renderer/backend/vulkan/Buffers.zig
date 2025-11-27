@@ -8,186 +8,164 @@ const Grid = @import("../../common/Grid.zig");
 const Cell = Grid.Cell;
 
 const Core = @import("Core.zig");
+const DeviceAllocator = @import("VkDeviceAllocator.zig");
+
 const math = @import("../../common/math.zig");
 const Vec4 = math.Vec4;
 
+pub const findMemoryType = DeviceAllocator.findMemoryType;
+
 pub const BufferResource = struct {
     handle: vk.Buffer,
-    memory: vk.DeviceMemory,
-    size: usize,
+    memory: DeviceAllocator.Allocation,
 };
 
 vertex_buffer: BufferResource,
 staging_buffer: BufferResource,
 uniform_buffer: BufferResource,
 
+device_allocator: DeviceAllocator,
+
 pub fn init(core: *const Core, options: anytype) !Buffers {
-    const vki = &core.dispatch.vki;
-    const vkd = &core.dispatch.vkd;
-    const alloc_callbacks = core.vk_mem.vkAllocatorCallbacks();
+    var device_allocator = try DeviceAllocator.init(
+        core,
+        core.vk_mem.allocator,
+    );
 
-    const mem_properties =
-        vki.getPhysicalDeviceMemoryProperties(core.physical_device);
-
-    var vertex_buffer: vk.Buffer = .null_handle;
-    var vertex_memory: vk.DeviceMemory = .null_handle;
-
-    try createBuffer(
-        vkd,
-        core.device,
-        &mem_properties,
+    const vertex_res = try createBuffer(
+        core,
+        &device_allocator,
         options.vertex_size,
         .{
             .vertex_buffer_bit = true,
             .transfer_dst_bit = true,
         },
         .{},
-        &vertex_buffer,
-        &vertex_memory,
-        &alloc_callbacks,
     );
 
-    var uniform_buffer: vk.Buffer = .null_handle;
-    var uniform_memory: vk.DeviceMemory = .null_handle;
-
-    try createBuffer(
-        vkd,
-        core.device,
-        &mem_properties,
+    const uniform_res = try createBuffer(
+        core,
+        &device_allocator,
         @sizeOf(UniformsBlock),
         .{ .uniform_buffer_bit = true },
         .{
             .host_visible_bit = true,
             .host_coherent_bit = true,
         },
-        &uniform_buffer,
-        &uniform_memory,
-        &alloc_callbacks,
     );
 
-    var vertex_staging_buffer: vk.Buffer = .null_handle;
-    var vertex_staging_memory: vk.DeviceMemory = .null_handle;
-
-    try createBuffer(
-        vkd,
-        core.device,
-        &mem_properties,
+    const staging_res = try createBuffer(
+        core,
+        &device_allocator,
         options.staging_size,
         .{ .transfer_src_bit = true },
         .{
             .host_visible_bit = true,
             .host_coherent_bit = true,
         },
-        &vertex_staging_buffer,
-        &vertex_staging_memory,
-        &alloc_callbacks,
     );
 
     return .{
-        .vertex_buffer = .{
-            .handle = vertex_buffer,
-            .memory = vertex_memory,
-            .size = options.vertex_size,
-        },
-        .staging_buffer = .{
-            .handle = vertex_staging_buffer,
-            .memory = vertex_staging_memory,
-            .size = options.staging_size,
-        },
-        .uniform_buffer = .{
-            .handle = uniform_buffer,
-            .memory = uniform_memory,
-            .size = options.uniform_size,
-        },
+        .vertex_buffer = vertex_res,
+        .staging_buffer = staging_res,
+        .uniform_buffer = uniform_res,
+        .device_allocator = device_allocator,
     };
 }
 
 pub fn deinit(self: *const Buffers, core: *const Core) void {
     const vkd = &core.dispatch.vkd;
-    const alloc_callbacks = core.vk_mem.vkAllocatorCallbacks();
+    const vk_cb = core.vk_mem.vkAllocatorCallbacks();
 
-    vkd.destroyBuffer(core.device, self.vertex_buffer.handle, &alloc_callbacks);
-    vkd.destroyBuffer(core.device, self.staging_buffer.handle, &alloc_callbacks);
-    vkd.destroyBuffer(core.device, self.uniform_buffer.handle, &alloc_callbacks);
+    // Destroy buffers
+    vkd.destroyBuffer(core.device, self.vertex_buffer.handle, &vk_cb);
+    vkd.destroyBuffer(core.device, self.staging_buffer.handle, &vk_cb);
+    vkd.destroyBuffer(core.device, self.uniform_buffer.handle, &vk_cb);
 
-    vkd.freeMemory(core.device, self.vertex_buffer.memory, &alloc_callbacks);
-    vkd.freeMemory(core.device, self.staging_buffer.memory, &alloc_callbacks);
-    vkd.freeMemory(core.device, self.uniform_buffer.memory, &alloc_callbacks);
-}
-
-pub fn stageVertexData(
-    self: *const Buffers,
-    core: *const Core,
-    grid: *const Grid,
-) !void {
-    const vkd = &core.dispatch.vkd;
-
-    const staging_ptr =
-        try vkd.mapMemory(
-            core.device,
-            self.staging_buffer.memory,
-            0,
-            1024 * 16,
-            .{},
-        );
-
-    defer vkd.unmapMemory(core.device, self.staging_buffer.memory);
-
-    const slice = @as([*]Cell, @ptrFromInt(@intFromPtr(staging_ptr)))[0..128];
-    @memset(slice, std.mem.zeroes(Cell));
-
-    const n = @min(slice.len, grid.data().len);
-    @memcpy(slice[0..n], grid.data()[0..n]);
+    // Free device memory through allocator
+    @as(*Buffers, (@ptrCast(@constCast(self)))).device_allocator.free(core, self.vertex_buffer.memory);
+    @as(*Buffers, (@ptrCast(@constCast(self)))).device_allocator.free(core, self.staging_buffer.memory);
+    @as(*Buffers, (@ptrCast(@constCast(self)))).device_allocator.free(core, self.uniform_buffer.memory);
 }
 
 pub fn createBuffer(
-    vkd: *const vk.DeviceWrapper,
-    device: vk.Device,
-    physical_mem_props: *const vk.PhysicalDeviceMemoryProperties,
+    core: *const Core,
+    device_alloc: *DeviceAllocator,
     size: vk.DeviceSize,
     usage: vk.BufferUsageFlags,
     mem_props: vk.MemoryPropertyFlags,
-    p_buffer: *vk.Buffer,
-    p_device_memory: *vk.DeviceMemory,
-    vk_mem_cb: *const vk.AllocationCallbacks,
-) !void {
+) !BufferResource {
+    const vk_mem_cb = core.alloc_callbacks();
+
+    // Create the Vulkan buffer
     const buffer_create_info = vk.BufferCreateInfo{
         .size = size,
         .usage = usage,
         .sharing_mode = .exclusive,
     };
-    const buffer = try vkd.createBuffer(device, &buffer_create_info, vk_mem_cb);
+    const buffer = try core.vkd().createBuffer(core.device, &buffer_create_info, vk_mem_cb);
 
-    const mem_reqs = vkd.getBufferMemoryRequirements(device, buffer);
+    // Get memory requirements
+    const mem_reqs = core.vkd().getBufferMemoryRequirements(core.device, buffer);
 
-    const alloc_info = vk.MemoryAllocateInfo{
-        .allocation_size = mem_reqs.size,
-        .memory_type_index = findMemoryType(physical_mem_props, mem_reqs.memory_type_bits, mem_props),
+    // Allocate with your device allocator
+    const dev_alloc = try device_alloc.alloc(
+        core,
+        @intCast(mem_reqs.size),
+        mem_reqs.memory_type_bits,
+        mem_props,
+    );
+
+    // Bind memory
+    try core.vkd().bindBufferMemory(core.device, buffer, dev_alloc.memory, dev_alloc.offset);
+
+    return .{
+        .handle = buffer,
+        .memory = dev_alloc,
     };
-
-    const memory = try vkd.allocateMemory(device, &alloc_info, vk_mem_cb);
-
-    try vkd.bindBufferMemory(device, buffer, memory, 0);
-
-    p_buffer.* = buffer;
-    p_device_memory.* = memory;
 }
 
-pub fn findMemoryType(
-    mem_properties: *const vk.PhysicalDeviceMemoryProperties,
-    type_filter: u32,
-    properties: vk.MemoryPropertyFlags,
-) u32 {
-    var mask = type_filter;
-    while (mask != 0) : (mask &= mask - 1) {
-        const i = @ctz(mask);
-        if (i < mem_properties.memory_type_count and
-            mem_properties.memory_types[i].property_flags.contains(properties))
-        {
-            return i;
-        }
+pub fn stageVertexData(
+    self: *Buffers,
+    core: *const Core,
+    grid: *const Grid,
+) !void {
+    const data_size = grid.data().len * @sizeOf(Cell);
+    if (data_size > self.staging_buffer.memory.size) {
+        try self.staging_buffer.memory.unmap(core);
+        _ = try self.device_allocator.resize(core, &self.staging_buffer.memory, data_size);
+        try self.staging_buffer.memory.map(core);
     }
-    std.debug.panic("Failed to find suitable memory index for type {f}!", .{properties});
+
+    var host_slice_ptr = self.staging_buffer.memory.hostSlicePtr(Cell) orelse blk: {
+        try self.staging_buffer.memory.map(core);
+        break :blk self.staging_buffer.memory.hostSlicePtr(Cell).?;
+    };
+    const host_slice = host_slice_ptr[0..grid.data().len];
+
+    @memcpy(host_slice, grid.data());
+}
+
+pub var uniform_buffer_ptr: ?*UniformsBlock = null;
+
+pub fn updateUniformData(
+    self: *const Buffers,
+    core: *const Core,
+    data: *const UniformsBlock,
+) !void {
+    const vkd = &core.dispatch.vkd;
+
+    const ptr = try vkd.mapMemory(
+        core.device,
+        self.uniform_buffer.memory.memory,
+        0,
+        @sizeOf(UniformsBlock),
+        .{},
+    );
+    // defer vkd.unmapMemory(core.device, self.uniform_buffer.memory);
+
+    @as(*UniformsBlock, @ptrCast(@alignCast(ptr))).* = data.*;
+    uniform_buffer_ptr = @ptrCast(@alignCast(ptr));
 }
 
 pub const UniformsBlock = packed struct {
@@ -201,25 +179,3 @@ pub const UniformsBlock = packed struct {
     atlas_height: f32,
     descender: f32,
 };
-
-pub var uniform_buffer_ptr: ?*UniformsBlock = null;
-/// set ubo values
-pub fn updateUniformData(
-    self: *const Buffers,
-    core: *const Core,
-    data: *const UniformsBlock,
-) !void {
-    const vkd = &core.dispatch.vkd;
-
-    const ptr = try vkd.mapMemory(
-        core.device,
-        self.uniform_buffer.memory,
-        0,
-        @sizeOf(UniformsBlock),
-        .{},
-    );
-    // defer vkd.unmapMemory(core.device, self.uniform_buffer.memory);
-
-    @as(*UniformsBlock, @ptrCast(@alignCast(ptr))).* = data.*;
-    uniform_buffer_ptr = @ptrCast(@alignCast(ptr));
-}

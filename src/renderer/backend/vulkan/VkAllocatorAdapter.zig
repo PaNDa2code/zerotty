@@ -13,6 +13,8 @@ const RecordMap = std.AutoHashMapUnmanaged(usize, Record);
 allocator: Allocator,
 record_map: RecordMap = .empty,
 
+alloc_callbacks: vk.AllocationCallbacks,
+
 pub fn init(allocator: Allocator) VkAllocatorAdapter {
     var self: VkAllocatorAdapter = undefined;
     self.initInPlace(allocator);
@@ -22,6 +24,13 @@ pub fn init(allocator: Allocator) VkAllocatorAdapter {
 pub fn initInPlace(self: *VkAllocatorAdapter, allocator: Allocator) void {
     self.allocator = allocator;
     self.record_map = .empty;
+
+    self.alloc_callbacks = .{
+        .p_user_data = @constCast(self),
+        .pfn_allocation = VkAllocatorAdapter.vkAlloc,
+        .pfn_reallocation = VkAllocatorAdapter.vkRealloc,
+        .pfn_free = VkAllocatorAdapter.vkFree,
+    };
 }
 
 pub fn deinit(self: *VkAllocatorAdapter) void {
@@ -29,12 +38,7 @@ pub fn deinit(self: *VkAllocatorAdapter) void {
 }
 
 pub fn vkAllocatorCallbacks(self: *const VkAllocatorAdapter) vk.AllocationCallbacks {
-    return .{
-        .p_user_data = @constCast(self),
-        .pfn_allocation = VkAllocatorAdapter.vkAlloc,
-        .pfn_reallocation = VkAllocatorAdapter.vkRealloc,
-        .pfn_free = VkAllocatorAdapter.vkFree,
-    };
+    return self.alloc_callbacks;
 }
 
 fn allocAndRecord(
