@@ -41,13 +41,20 @@ pub fn open(self: *Window, allocator: Allocator) !void {
         null,
     ) orelse return error.GLFWCreateWindow;
 
+    var fb_w: c_int = 0;
+    var fb_h: c_int = 0;
+    c.glfwGetFramebufferSize(self.window, &fb_w, &fb_h);
+
+    self.width = @intCast(fb_w);
+    self.height = @intCast(fb_h);
+
     self.xkb = try Xkb.init();
     self.renderer = try Renderer.init(self, allocator);
 
     _ = c.glfwSetWindowUserPointer(self.window, self);
 
     _ = c.glfwSetWindowSizeCallback(self.window, struct {
-        fn callback(glfw_window: ?*c.GLFWwindow, height: c_int, width: c_int) callconv(.c) void {
+        fn callback(glfw_window: ?*c.GLFWwindow, width: c_int, height: c_int) callconv(.c) void {
             const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
             window.height = @intCast(height);
             window.width = @intCast(width);
