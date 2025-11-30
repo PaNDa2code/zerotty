@@ -71,6 +71,11 @@
             .hash = "zbench-0.11.2-YTdc7zolAQDlBF9i0ywXIvDjafL3Kg27S-aFUq6dU5zy",
             .lazy = true,
         },
+        .glfw_zig = .{
+            .url = "git+https://github.com/tiawl/glfw.zig#cb3d4a29e5151218ac8cca6f4b1750703c7cd31b",
+            .hash = "glfw_zig-1.0.0-NrvYo8bXGQDNplF8UkNbZbjoTEXXwSu7aKICMnlJiuhl",
+            .lazy = true,
+        },
     },
     .paths = .{
         "build.zig",

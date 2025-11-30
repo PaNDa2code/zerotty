@@ -266,7 +266,10 @@ fn linkSystemLibraries(
             }
         },
         .GLFW => {
-            module.linkSystemLibrary("glfw", .{});
+            if (b.lazyDependency("glfw_zig", .{
+                .target = target,
+                .optimize = module.optimize.?,
+            })) |dep| module.linkLibrary(dep.artifact("glfw"));
             module.linkSystemLibrary("xkbcommon", .{});
         },
     }
