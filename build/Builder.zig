@@ -30,6 +30,7 @@ pub const WindowSystem = enum {
     Win32,
     Xlib,
     Xcb,
+    GLFW,
 };
 
 pub const OptionsModule = struct {
@@ -287,6 +288,9 @@ fn linkLibrarys(self: *Builder, module: *Build.Module) void {
                     module.linkLibrary(libxkbcommon);
                 }
             }
+        },
+        .GLFW => {
+            module.linkSystemLibrary("glfw", .{});
         },
     }
 }

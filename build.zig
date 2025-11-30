@@ -13,6 +13,7 @@ pub const WindowSystem = enum {
     Win32,
     Xlib,
     Xcb,
+    GLFW,
 };
 
 pub fn build(b: *Build) !void {
@@ -263,6 +264,10 @@ fn linkSystemLibraries(
                     module.linkLibrary(libxkbcommon);
                 }
             }
+        },
+        .GLFW => {
+            module.linkSystemLibrary("glfw", .{});
+            module.linkSystemLibrary("xkbcommon", .{});
         },
     }
 }

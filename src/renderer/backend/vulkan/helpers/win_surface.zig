@@ -36,5 +36,32 @@ pub fn createWindowSurface(
             };
             return vki.createXcbSurfaceKHR(instance, &surface_info, vk_mem_cb);
         },
+        .GLFW => {
+            var surface: vk.SurfaceKHR = .null_handle;
+
+            const res = c.glfwCreateWindowSurface(
+                @ptrFromInt(@intFromEnum(instance)),
+                @ptrCast(window.window),
+                @ptrCast(vk_mem_cb),
+                @ptrCast(&surface),
+            );
+
+            if (res != 0) {
+                std.debug.panic("glfwCreateWindowSurface({},{},{},{}) returns {}", .{
+                    @intFromEnum(instance),
+                    window.window,
+                    vk_mem_cb,
+                    surface,
+                    res,
+                });
+            }
+
+            return surface;
+        },
     }
 }
+
+const c = @cImport({
+    @cDefine("GLFW_INCLUDE_VULKAN", "");
+    @cInclude("GLFW/glfw3.h");
+});

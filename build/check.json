@@ -23,5 +23,10 @@
     "target": "native-linux-gnu",
     "render_backend": "OpenGL",
     "window_system": "Xlib"
+  },
+  {
+    "target": "native-linux-gnu",
+    "render_backend": "Vulkan",
+    "window_system": "GLFW"
   }
 ]

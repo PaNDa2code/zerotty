@@ -6,6 +6,10 @@ const vk = @import("vulkan");
 
 const build_options = @import("build_options");
 
+const c = @cImport({
+    @cInclude("GLFW/glfw3.h");
+});
+
 pub fn createInstance(
     vkb: *const vk.BaseWrapper,
     allocator: Allocator,
@@ -44,21 +48,42 @@ pub fn createInstance(
         "VK_KHR_xcb_surface",
     };
 
-    const extensions = [_][*:0]const u8{
+    const comptime_extensions = [_][*:0]const u8{
         "VK_KHR_surface",
     } ++ switch (build_options.@"window-system") {
         .Win32 => win32_exts,
         .Xlib => xlib_exts,
         .Xcb => xcb_exts,
+        .GLFW => .{},
     } ++ if (build_options.@"renderer-debug")
         .{"VK_EXT_debug_utils"}
     else
         .{};
 
+    const runtime_extensions: [][*:0]const u8 = if (build_options.@"window-system" == .GLFW) blk: {
+        var count: u32 = 0;
+        const glfw_exts =
+            @as(?[*][*:0]const u8, @ptrCast(c.glfwGetRequiredInstanceExtensions(&count))) orelse
+            @panic("can't get glfw requred extensions");
+        break :blk glfw_exts[0..@intCast(count)];
+    } else &.{};
+
+    const slices = [_][]const [*:0]const u8{ &comptime_extensions, runtime_extensions };
+
+    const extensions =
+        try std.mem.concatMaybeSentinel(
+            allocator,
+            [*:0]const u8,
+            &slices,
+            null,
+        );
+
+    defer allocator.free(extensions);
+
     const inst_info = vk.InstanceCreateInfo{
         .p_application_info = &app_info,
-        .enabled_extension_count = extensions.len,
-        .pp_enabled_extension_names = &extensions,
+        .enabled_extension_count = @intCast(extensions.len),
+        .pp_enabled_extension_names = extensions.ptr,
         .enabled_layer_count = layers.len,
         .pp_enabled_layer_names = &layers,
     };
