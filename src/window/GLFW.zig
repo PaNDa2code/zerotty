@@ -52,49 +52,10 @@ pub fn open(self: *Window, allocator: Allocator) !void {
     self.renderer = try Renderer.init(self, allocator);
 
     _ = c.glfwSetWindowUserPointer(self.window, self);
-
-    _ = c.glfwSetWindowSizeCallback(self.window, struct {
-        fn callback(glfw_window: ?*c.GLFWwindow, width: c_int, height: c_int) callconv(.c) void {
-            const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
-            window.height = @intCast(height);
-            window.width = @intCast(width);
-            window.renderer.resize(@intCast(width), @intCast(height)) catch @panic("resize failed");
-        }
-    }.callback);
-
-    _ = c.glfwSetWindowCloseCallback(self.window, struct {
-        fn callback(glfw_window: ?*c.GLFWwindow) callconv(.c) void {
-            const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
-            window.exit = true;
-        }
-    }.callback);
-
-    _ = c.glfwSetKeyCallback(self.window, struct {
-        fn callback(glfw_window: ?*c.GLFWwindow, key: i32, scancode: i32, action: i32, mods: i32) callconv(.c) void {
-            _ = mods;
-            _ = scancode;
-            const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
-            if (key == c.GLFW_KEY_ESCAPE) {
-                window.exit = true;
-                return;
-            }
-
-            if (key == c.GLFW_KEY_ENTER) {
-                if (window.keyboard_cb) |cb| {
-                    cb('\n', action == c.GLFW_PRESS);
-                }
-            }
-        }
-    }.callback);
-
-    _ = c.glfwSetCharCallback(self.window, struct {
-        fn callback(glfw_window: ?*c.GLFWwindow, codepoint: u32) callconv(.c) void {
-            const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
-            if (window.keyboard_cb) |cb| {
-                cb(codepoint, true);
-            }
-        }
-    }.callback);
+    _ = c.glfwSetWindowSizeCallback(self.window, callbacks.windowSize);
+    _ = c.glfwSetWindowCloseCallback(self.window, callbacks.windowClose);
+    _ = c.glfwSetKeyCallback(self.window, callbacks.key);
+    _ = c.glfwSetCharCallback(self.window, callbacks.char);
 }
 
 pub fn setTitle(self: *Window, title: []const u8) !void {
@@ -111,6 +72,43 @@ pub fn close(self: *Window) void {
     self.renderer.deinit();
     c.glfwTerminate();
 }
+
+const callbacks = struct {
+    fn key(glfw_window: ?*c.GLFWwindow, _key: c_int, scancode: c_int, action: c_int, mods: c_int) callconv(.c) void {
+        _ = mods;
+        _ = scancode;
+        const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
+        if (_key == c.GLFW_KEY_ESCAPE) {
+            window.exit = true;
+            return;
+        }
+
+        if (_key == c.GLFW_KEY_ENTER) {
+            if (window.keyboard_cb) |cb| {
+                cb('\n', action == c.GLFW_PRESS);
+            }
+        }
+    }
+
+    fn char(glfw_window: ?*c.GLFWwindow, codepoint: c_uint) callconv(.c) void {
+        const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
+        if (window.keyboard_cb) |cb| {
+            cb(codepoint, true);
+        }
+    }
+
+    fn windowSize(glfw_window: ?*c.GLFWwindow, width: c_int, height: c_int) callconv(.c) void {
+        const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
+        window.height = @intCast(height);
+        window.width = @intCast(width);
+        window.renderer.resize(@intCast(width), @intCast(height)) catch @panic("resize failed");
+    }
+
+    fn windowClose(glfw_window: ?*c.GLFWwindow) callconv(.c) void {
+        const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
+        window.exit = true;
+    }
+};
 
 const std = @import("std");
 
