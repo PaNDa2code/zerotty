@@ -12,6 +12,9 @@
 
 ZeroTTY is a modern terminal emulator designed for speed, efficiency, and cross-platform compatibility. By leveraging the power of Zig and a low-level design, ZeroTTY aims to provide a native, high-performance experience with minimal dependencies.
 
+> **⚠️ This project is currently in an early stage of development.  
+> Expect bugs, missing features, and fast-moving changes**
+
 ## Features
 
 *   **Cross-Platform:** Runs on Linux, Windows, and macOS.
@@ -25,7 +28,7 @@ ZeroTTY is a modern terminal emulator designed for speed, efficiency, and cross-
 ### Prerequisites
 
 *   **Zig:** The project is built using the Zig compiler.
-*   **System Libraries:** Additional system libraries may be required depending on your OS, chosen windowing system, and rendering backend (e.g., `X11`, `xcb`, `xkbcommon`, `GL` for Linux). Zig's `build.zig.zon` handles Zig-specific dependencies automatically.
+*   **System Libraries:** Additional system libraries may be required depending on your OS, chosen windowing system, and rendering backend (e.g., `X11`, `xcb`, `xkbcommon`, `GL` for Linux).
 
 ### Building from Source
 
@@ -41,20 +44,23 @@ cd zerotty
 You can build ZeroTTY with the following command:
 
 ```bash
-zig build
+zig build -Doptimize=ReleaseSafe
 ```
+This will build it with the recommend options for your setup.
 
 You can also specify the rendering backend:
 
 ```bash
 # Build with OpenGL renderer
-zig build -Drender-backend=OpenGL
+zig build -Doptimize=ReleaseSafe -Drender-backend=OpenGL
 
 # Build with Vulkan renderer
-zig build -Drender-backend=Vulkan
+zig build -Doptimize=ReleaseSafe -Drender-backend=Vulkan
+```
 
-# Build with D3D11 renderer (for Windows)
-zig build -Drender-backend=D3D11
+Also the window backend:
+```bash
+zig build -Dwindow-system=GLFW
 ```
 
 3.  **Run ZeroTTY:**
