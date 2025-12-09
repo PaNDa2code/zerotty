@@ -21,16 +21,16 @@ exe: ?*Build.Step.Compile = null,
 lib: ?*Build.Step.Compile = null,
 
 pub const RenderBackend = enum {
-    D3D11,
-    OpenGL,
-    Vulkan,
+    d3d11,
+    opengl,
+    vulkan,
 };
 
 pub const WindowSystem = enum {
-    Win32,
-    Xlib,
-    Xcb,
-    GLFW,
+    win32,
+    xlib,
+    xcb,
+    glfw,
 };
 
 pub const OptionsModule = struct {
@@ -111,7 +111,7 @@ pub fn addExcutable(self: *Builder, name: []const u8) *Builder {
     });
 
     // debug builds needs a console
-    if (self.window_system == .Win32 and self.optimize != .Debug) {
+    if (self.window_system == .win32 and self.optimize != .Debug) {
         exe.subsystem = .Windows;
         exe.mingw_unicode_entry_point = true;
         exe.bundle_compiler_rt = true;
@@ -188,11 +188,11 @@ fn addImports(self: *Builder) void {
     }
 
     switch (self.render_backend) {
-        .D3D11 => {},
-        .OpenGL => {
+        .d3d11 => {},
+        .opengl => {
             self.import_table.put("gl", self.getOpenGLBindings()) catch unreachable;
         },
-        .Vulkan => {
+        .vulkan => {
             var vulkan: ?*Build.Dependency = null;
             const vulkan_headers = self.b.lazyDependency("vulkan_headers", .{});
 
@@ -261,12 +261,12 @@ fn addImports(self: *Builder) void {
 
 fn linkLibrarys(self: *Builder, module: *Build.Module) void {
     switch (self.window_system) {
-        .Win32 => {},
-        .Xlib => {
+        .win32 => {},
+        .xlib => {
             module.linkSystemLibrary("X11", .{ .needed = true });
-            if (self.render_backend == .OpenGL) module.linkSystemLibrary("GL", .{});
+            if (self.render_backend == .opengl) module.linkSystemLibrary("GL", .{});
         },
-        .Xcb => {
+        .xcb => {
             if (self.target.query.isNativeOs()) {
                 module.linkSystemLibrary("xcb", .{});
                 module.linkSystemLibrary("xkbcommon", .{});
@@ -289,7 +289,7 @@ fn linkLibrarys(self: *Builder, module: *Build.Module) void {
                 }
             }
         },
-        .GLFW => {
+        .glfw => {
             module.linkSystemLibrary("glfw", .{});
         },
     }

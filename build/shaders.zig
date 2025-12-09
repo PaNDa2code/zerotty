@@ -42,9 +42,9 @@ pub fn compiledShadersPathes(
         glslangValidator_cmd.addFileArg(path);
         glslangValidator_cmd.addPrefixedDirectoryArg("-I", path.dirname());
 
-        if (renderer == .Vulkan)
+        if (renderer == .vulkan)
             glslangValidator_cmd.addArg("-V");
-        if (renderer == .OpenGL)
+        if (renderer == .opengl)
             glslangValidator_cmd.addArg("-G");
 
         // addPrefixedOutputFileArg not working with glslang

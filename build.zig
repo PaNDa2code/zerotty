@@ -1,19 +1,19 @@
 const std = @import("std");
 const Build = std.Build;
 
-const DEFAULT_RENDER_BACKEND: RenderBackend = .Vulkan;
+const DEFAULT_RENDER_BACKEND: RenderBackend = .vulkan;
 
 pub const RenderBackend = enum {
-    D3D11,
-    OpenGL,
-    Vulkan,
+    d3d11,
+    opengl,
+    vulkan,
 };
 
 pub const WindowSystem = enum {
-    Win32,
-    Xlib,
-    Xcb,
-    GLFW,
+    win32,
+    xlib,
+    xcb,
+    glfw,
 };
 
 pub fn build(b: *Build) !void {
@@ -23,9 +23,9 @@ pub fn build(b: *Build) !void {
     const render_backend = b.option(RenderBackend, "render-backend", "") orelse DEFAULT_RENDER_BACKEND;
 
     const default_window_system: WindowSystem = switch (target.result.os.tag) {
-        .windows => .Win32,
-        .linux => if (DEFAULT_RENDER_BACKEND == .Vulkan) .Xcb else .Xlib,
-        else => .Xlib,
+        .windows => .win32,
+        .linux => if (DEFAULT_RENDER_BACKEND == .vulkan) .xcb else .xlib,
+        else => .xlib,
     };
 
     const window_system = b.option(WindowSystem, "window-system", "") orelse default_window_system;
@@ -90,13 +90,13 @@ pub fn build(b: *Build) !void {
     }
 
     switch (render_backend) {
-        .D3D11 => {},
-        .OpenGL => {
+        .d3d11 => {},
+        .opengl => {
             const gl_mod = createOpenGLBindings(b, target);
             renderer_module.addImport("gl", gl_mod);
             try imports.append(b.allocator, .{ .name = "gl", .module = gl_mod });
         },
-        .Vulkan => {
+        .vulkan => {
             const vulkan_headers = b.lazyDependency("vulkan_headers", .{});
             const vulkan = if (vulkan_headers) |vk_headers|
                 b.lazyDependency("vulkan", .{ .registry = vk_headers.path("registry/vk.xml") })
@@ -177,7 +177,7 @@ pub fn build(b: *Build) !void {
         .root_module = exe_mod,
     });
 
-    if (window_system == .Win32 and optimize != .Debug) {
+    if (window_system == .win32 and optimize != .Debug) {
         exe.subsystem = .Windows;
         exe.mingw_unicode_entry_point = true;
         exe.bundle_compiler_rt = true;
@@ -235,14 +235,14 @@ fn linkSystemLibraries(
     linkage: std.builtin.LinkMode,
 ) void {
     switch (window_system) {
-        .Win32 => {},
-        .Xlib => {
+        .win32 => {},
+        .xlib => {
             module.linkSystemLibrary("X11", .{ .needed = true });
-            if (render_backend == .OpenGL) {
+            if (render_backend == .opengl) {
                 module.linkSystemLibrary("GL", .{});
             }
         },
-        .Xcb => {
+        .xcb => {
             if (target.query.isNativeOs()) {
                 module.linkSystemLibrary("xcb", .{});
                 module.linkSystemLibrary("xkbcommon", .{});
@@ -265,7 +265,7 @@ fn linkSystemLibraries(
                 }
             }
         },
-        .GLFW => {
+        .glfw => {
             if (b.lazyDependency("glfw_zig", .{
                 .target = target,
                 .optimize = module.optimize.?,

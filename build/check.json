@@ -1,32 +1,32 @@
 [
   {
     "target": "native-windows",
-    "render_backend": "OpenGL",
-    "window_system": "Win32"
+    "render_backend": "opengl",
+    "window_system": "win32"
   },
   {
     "target": "native-windows",
-    "render_backend": "Vulkan",
-    "window_system": "Win32"
+    "render_backend": "vulkan",
+    "window_system": "win32"
   },
   {
     "target": "native-linux-gnu",
-    "render_backend": "Vulkan",
-    "window_system": "Xcb"
+    "render_backend": "vulkan",
+    "window_system": "xcb"
   },
   {
     "target": "native-linux-gnu",
-    "render_backend": "Vulkan",
-    "window_system": "Xlib"
+    "render_backend": "vulkan",
+    "window_system": "xlib"
   },
   {
     "target": "native-linux-gnu",
-    "render_backend": "OpenGL",
-    "window_system": "Xlib"
+    "render_backend": "opengl",
+    "window_system": "xlib"
   },
   {
     "target": "native-linux-gnu",
-    "render_backend": "Vulkan",
-    "window_system": "GLFW"
+    "render_backend": "vulkan",
+    "window_system": "glfw"
   }
 ]
