@@ -51,16 +51,16 @@ pub fn createInstance(
     const comptime_extensions = [_][*:0]const u8{
         "VK_KHR_surface",
     } ++ switch (build_options.@"window-system") {
-        .Win32 => win32_exts,
-        .Xlib => xlib_exts,
-        .Xcb => xcb_exts,
-        .GLFW => .{},
+        .win32 => win32_exts,
+        .xlib => xlib_exts,
+        .xcb => xcb_exts,
+        .glfw => .{},
     } ++ if (build_options.@"renderer-debug")
         .{"VK_EXT_debug_utils"}
     else
         .{};
 
-    const runtime_extensions: [][*:0]const u8 = if (build_options.@"window-system" == .GLFW) blk: {
+    const runtime_extensions: [][*:0]const u8 = if (build_options.@"window-system" == .glfw) blk: {
         var count: u32 = 0;
         const glfw_exts =
             @as(?[*][*:0]const u8, @ptrCast(c.glfwGetRequiredInstanceExtensions(&count))) orelse

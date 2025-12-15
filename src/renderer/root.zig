@@ -59,9 +59,9 @@ pub fn getFps(self: *Renderer) f64 {
 pub const Api = @import("build_options").@"render-backend";
 
 pub const Backend = switch (Api) {
-    .OpenGL => @import("backend/opengl/OpenGL.zig"),
-    .D3D11 => @compileError("D3D11 is deprecated"),
-    .Vulkan => @import("backend/vulkan/Backend.zig"),
+    .opengl => @import("backend/opengl/OpenGL.zig"),
+    .d3d11 => @compileError("D3D11 is deprecated"),
+    .vulkan => @import("backend/vulkan/Backend.zig"),
 };
 
 pub const FPS = @import("common/FPS.zig");

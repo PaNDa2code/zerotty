@@ -15,28 +15,28 @@ pub fn createWindowSurface(
     vk_mem_cb: *const vk.AllocationCallbacks,
 ) !vk.SurfaceKHR {
     switch (build_options.@"window-system") {
-        .Win32 => {
+        .win32 => {
             const surface_info: vk.Win32SurfaceCreateInfoKHR = .{
                 .hwnd = @ptrCast(window.hwnd),
                 .hinstance = window.h_instance,
             };
             return vki.createWin32SurfaceKHR(instance, &surface_info, vk_mem_cb);
         },
-        .Xlib => {
+        .xlib => {
             const surface_info: vk.XlibSurfaceCreateInfoKHR = .{
                 .window = window.w,
                 .dpy = @ptrCast(window.display),
             };
             return vki.createXlibSurfaceKHR(instance, &surface_info, vk_mem_cb);
         },
-        .Xcb => {
+        .xcb => {
             const surface_info: vk.XcbSurfaceCreateInfoKHR = .{
                 .connection = @ptrCast(window.connection),
                 .window = window.window,
             };
             return vki.createXcbSurfaceKHR(instance, &surface_info, vk_mem_cb);
         },
-        .GLFW => {
+        .glfw => {
             var surface: vk.SurfaceKHR = .null_handle;
 
             const res = c.glfwCreateWindowSurface(

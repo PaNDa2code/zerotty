@@ -52,15 +52,15 @@ You can also specify the rendering backend:
 
 ```bash
 # Build with OpenGL renderer
-zig build -Doptimize=ReleaseSafe -Drender-backend=OpenGL
+zig build -Doptimize=ReleaseSafe -Drender-backend=opengl
 
 # Build with Vulkan renderer
-zig build -Doptimize=ReleaseSafe -Drender-backend=Vulkan
+zig build -Doptimize=ReleaseSafe -Drender-backend=vulkan
 ```
 
 Also the window backend:
 ```bash
-zig build -Dwindow-system=GLFW
+zig build -Dwindow-system=glfw
 ```
 
 3.  **Run ZeroTTY:**
