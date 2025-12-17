@@ -32,7 +32,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
     const cmd = try Command.init(&core, 2);
     const sync = try Sync.init(&core, &swap_chain);
 
-    const atlas = try Atlas.create(allocator, 30, 20, 0, 128);
+    const atlas = try Atlas.create(allocator, 22, 15, 0, 128);
 
     const tex = try Texture.init(&core, .{
         .height = @intCast(atlas.height),

@@ -175,6 +175,7 @@ pub fn build(b: *Build) !void {
     const exe = b.addExecutable(.{
         .name = "zerotty",
         .root_module = exe_mod,
+        .use_llvm = true,
     });
 
     if (window_system == .win32 and optimize != .Debug) {

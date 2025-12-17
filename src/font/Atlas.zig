@@ -42,21 +42,25 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
     const atlas_cols = std.math.sqrt(glyphs_count);
     const atlas_rows = try std.math.divCeil(u32, glyphs_count, atlas_cols);
 
-    const padding_x = 1;
-    const padding_y = 1;
+    const padding_x = 0;
+    const padding_y = 0;
 
-    const glyph_height = (@as(u32, @intCast(ft_face.ft_face.*.size.*.metrics.height)) >> 6);
+    const max_glyph_height = (@as(u32, @intCast(ft_face.ft_face.*.size.*.metrics.height)) >> 6);
     const glyph_width = (@as(u32, @intCast(ft_face.ft_face.*.size.*.metrics.max_advance)) >> 6);
     const descender = (@as(i32, @intCast(ft_face.ft_face.*.size.*.metrics.descender)) >> 6);
 
-    const tex_height = (glyph_height + padding_y) * atlas_rows;
+    const tex_height = (max_glyph_height + padding_y) * atlas_rows;
     const tex_width = tex_height;
 
     var pixels = try allocator.alloc(u8, tex_width * tex_height);
-    @memset(pixels, 0);
+    if (builtin.mode == .Debug)
+        @memset(pixels, 0);
+
     var glyph_map = std.AutoArrayHashMap(u32, GlyphInfo).init(allocator);
 
+    var line_height: u32 = 0;
     var pin: Vec2(u32) = .zero;
+
     for (from..to) |c| {
         var glyph = try ft_face.getGlyph(@intCast(c));
         defer glyph.deinit();
@@ -64,9 +68,12 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
         const bitmap_glyph = try glyph.glyphBitmap();
         const bitmap = bitmap_glyph.bitmap;
 
+        line_height = @max(line_height, bitmap.rows);
+
         if (pin.x + bitmap.width > tex_width) {
             pin.x = 0;
-            pin.y += glyph_height;
+            pin.y += line_height;
+            line_height = 0;
         }
 
         for (0..bitmap.rows) |row| {
