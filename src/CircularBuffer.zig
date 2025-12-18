@@ -196,8 +196,7 @@ fn writeCommit(self: *CircularBuffer, bytes_count: usize) void {
     }
 }
 
-pub fn write(self: *CircularBuffer, buffer: []const u8) anyerror!usize {
-    @setRuntimeSafety(false);
+pub fn write(self: *CircularBuffer, buffer: []const u8) usize {
     const bytes = @min(self.view_size, buffer.len);
     const write_start = self.start + self.len;
     const write_end = write_start + bytes;
@@ -206,7 +205,7 @@ pub fn write(self: *CircularBuffer, buffer: []const u8) anyerror!usize {
     return bytes;
 }
 
-pub fn read(self: *CircularBuffer, buffer: []u8) anyerror!usize {
+pub fn read(self: *CircularBuffer, buffer: []u8) usize {
     const bytes = @min(self.len, buffer.len);
     @memcpy(buffer[0..bytes], self.buffer[self.start..]);
     return bytes;
@@ -216,16 +215,13 @@ pub fn getReadableSlice(self: *const CircularBuffer) []const u8 {
     return self.buffer[self.start..][0..self.len];
 }
 
-const Writer = std.io.GenericWriter(*CircularBuffer, anyerror, write);
-const Reader = std.io.GenericReader(*CircularBuffer, anyerror, read);
-
-pub fn writer(self: *CircularBuffer) Writer {
-    return .{ .context = self };
-}
-
-pub fn reader(self: *CircularBuffer) Reader {
-    return .{ .context = self };
-}
+// pub fn writer(self: *CircularBuffer) std.Io.Writer {
+//     return .{ .vtable = .{} };
+// }
+//
+// pub fn reader(self: *CircularBuffer) std.io.Reader {
+//     return .{ .vtable = .{} };
+// }
 
 test CircularBuffer {
     var ciruler_buffer = try CircularBuffer.new(0);
@@ -235,7 +231,7 @@ test CircularBuffer {
     // var ciruler_buffer_reader = ciruler_buffer.reader();
 
     const data = "0123456789ABCDEF";
-    _ = try ciruler_buffer_writer.write(data);
+    _ = try ciruler_buffer_writer.writeAll(data);
 
     try std.testing.expectEqualSlices(u8, data, ciruler_buffer.getReadableSlice());
 }

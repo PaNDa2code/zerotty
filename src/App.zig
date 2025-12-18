@@ -1,6 +1,7 @@
 window: Window,
 pty: Pty,
 buffer: CircularBuffer,
+scroll: Scrollback,
 child: ChildProcess,
 vt_parser: VTParser,
 allocator: Allocator,
@@ -23,6 +24,7 @@ pub fn new(allocator: Allocator) App {
             .{ .exe_path = "bash", .args = &.{ "bash", "--norc", "--noprofile" } },
         .pty = undefined,
         .buffer = undefined,
+        .scroll = undefined,
         .io_event_loop = undefined,
         .write_event = undefined,
     };
@@ -30,6 +32,7 @@ pub fn new(allocator: Allocator) App {
 
 var _app: *App = undefined;
 var render: *Renderer = undefined;
+var _scroll: *Scrollback = undefined;
 var _window: *Window = undefined;
 var _pty: *Pty = undefined;
 var evloop: *io.EventLoop = undefined;
@@ -38,6 +41,7 @@ var child_stdin: std.fs.File = undefined;
 pub fn start(self: *App) !void {
     try self.window.open(self.allocator);
     try self.buffer.init(1024 * 64);
+    self.scroll = try Scrollback.init(self.allocator, 10 * 1024);
     try self.pty.open(.{
         .size = .{
             .height = @intCast(self.window.renderer.backend.grid.rows),
@@ -52,6 +56,7 @@ pub fn start(self: *App) !void {
     try self.child.start(self.allocator, &self.pty);
 
     render = &self.window.renderer;
+    _scroll = &self.scroll;
     _window = &self.window;
     _pty = &self.pty;
     evloop = &self.io_event_loop;
@@ -194,9 +199,11 @@ fn vtParseCallback(state: *const vtparse.ParserData, to_action: vtparse.Action, 
                 },
                 '\n' => {
                     render.cursor.row += 1;
+                    _scroll.addLineBreak();
                 },
                 else => {
-                    render.setCursorCell(char) catch unreachable;
+                    _scroll.addCodepoint(_app.allocator, @intCast(char)) catch unreachable;
+                    // render.setCursorCell(char) catch unreachable;
                 },
             }
         },
@@ -211,6 +218,7 @@ pub fn exit(self: *App) void {
     self.child.terminate();
     self.child.deinit();
     self.buffer.deinit();
+    self.scroll.deinit(self.allocator);
     self.pty.close();
     self.io_event_loop.deinit(self.allocator);
 }
@@ -218,6 +226,7 @@ pub fn exit(self: *App) void {
 const Window = @import("window/root.zig").Window;
 const Pty = @import("pty/root.zig").Pty;
 const CircularBuffer = @import("CircularBuffer.zig");
+const Scrollback = @import("Scrollback.zig");
 const ChildProcess = @import("ChildProcess.zig");
 const Renderer = @import("renderer/root.zig");
 const FPS = @import("renderer/common/FPS.zig");
