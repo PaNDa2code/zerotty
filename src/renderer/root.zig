@@ -4,6 +4,7 @@ const Renderer = @This();
 backend: Backend,
 fps: FPS,
 cursor: Cursor,
+grid: Grid,
 
 pub fn init(window: *Window, allocator: Allocator) !Renderer {
     const backend = try Backend.init(window, allocator);
@@ -65,7 +66,8 @@ pub const Backend = switch (Api) {
 };
 
 pub const FPS = @import("common/FPS.zig");
-pub const Cursor = @import("common/Cursor.zig");
+pub const Cursor = @import("../Cursor.zig");
+pub const Grid = @import("../Grid.zig");
 const Window = @import("../window/root.zig").Window;
 const Allocator = @import("std").mem.Allocator;
 const ColorRGBAu8 = @import("common/color.zig").ColorRGBAu8;

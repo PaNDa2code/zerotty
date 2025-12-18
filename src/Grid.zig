@@ -11,8 +11,6 @@ pub const CellStyle = extern struct {
     bg_color: ColorRGBAf32,
 };
 
-const test_cell = Cell;
-
 map: std.AutoArrayHashMap(u32, Cell),
 rows: u32 = 0,
 cols: u32 = 0,
@@ -52,10 +50,10 @@ pub fn set(self: *CellProgram, cell: Cell) !void {
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const ColorRGBAu8 = @import("color.zig").ColorRGBAu8;
-const ColorRGBAf32 = @import("color.zig").ColorRGBAf32;
-const math = @import("math.zig");
+const ColorRGBAu8 = @import("renderer/common/color.zig").ColorRGBAu8;
+const ColorRGBAf32 = @import("renderer/common/color.zig").ColorRGBAf32;
+const math = @import("renderer/common/math.zig");
 const Vec2 = math.Vec2;
 
-const font = @import("../../font/root.zig");
+const font = @import("font/root.zig");
 const Atlas = font.Atlas;

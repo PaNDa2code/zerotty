@@ -4,7 +4,7 @@ const std = @import("std");
 const vk = @import("vulkan");
 
 const Atlas = @import("../../../font/Atlas.zig");
-const Grid = @import("../../common/Grid.zig");
+const Grid = @import("../../../Grid.zig");
 const Cell = Grid.Cell;
 
 const Core = @import("Core.zig");

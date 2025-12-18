@@ -203,7 +203,7 @@ const ColorRGBAu8 = @import("../../common/color.zig").ColorRGBAu8;
 const ColorRGBAf32 = @import("../../common/color.zig").ColorRGBAf32;
 const DynamicLibrary = @import("../../../DynamicLibrary.zig");
 const VkAllocatorAdapter = @import("VkAllocatorAdapter.zig");
-const Grid = @import("../../common/Grid.zig");
+const Grid = @import("../../../Grid.zig");
 const Atlas = @import("../../../font/Atlas.zig");
 
 const helpers = @import("helpers/root.zig");

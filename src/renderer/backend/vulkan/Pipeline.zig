@@ -10,7 +10,7 @@ const Core = @import("Core.zig");
 const Descriptor = @import("Descriptor.zig");
 const SwapChain = @import("SwapChain.zig");
 const Atlas = @import("../../../font/Atlas.zig");
-const Grid = @import("../../common/Grid.zig");
+const Grid = @import("../../../Grid.zig");
 const Cell = Grid.Cell;
 
 const Vec4 = math.Vec4;

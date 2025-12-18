@@ -145,6 +145,6 @@ const math = @import("../../common/math.zig");
 const font = @import("../../../font/root.zig");
 const Vec2 = math.Vec2;
 const Vec4 = math.Vec4;
-const Grid = @import("../../common/Grid.zig");
+const Grid = @import("../../../Grid.zig");
 const Cell = Grid.Cell;
 const Atlas = font.Atlas;
