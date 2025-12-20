@@ -32,7 +32,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
     const cmd = try Command.init(&core, 2);
     const sync = try Sync.init(&core, &swap_chain);
 
-    const atlas = try Atlas.create(allocator, 22, 15, 0, 128);
+    const atlas = try Atlas.loadAll(allocator, 22, 15, 2000);
 
     const tex = try Texture.init(&core, .{
         .height = @intCast(atlas.height),
@@ -47,7 +47,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
         .cols = grid_cols,
     });
 
-    const vertex_memory_size = 1024 * 16;
+    const vertex_memory_size = 1024 * 1024 * 512;
     const altas_size = atlas.buffer.len;
 
     const staging_memory_size = @max(altas_size, vertex_memory_size);
@@ -108,7 +108,7 @@ pub fn deinit(self: *Backend) void {
     self.core.dispatch.vkd
         .deviceWaitIdle(self.core.device) catch unreachable;
 
-    self.grid.free();
+    self.grid.free(self.core.vk_mem.allocator);
     self.atlas.deinit(self.core.vk_mem.allocator);
 
     self.cmd.deinit(&self.core);
@@ -141,6 +141,14 @@ pub fn resize(self: *Backend, width: u32, height: u32) !void {
 
     Buffers.uniform_buffer_ptr.?.screen_height = @floatFromInt(height);
     Buffers.uniform_buffer_ptr.?.screen_width = @floatFromInt(width);
+
+    const grid_rows = height / self.atlas.cell_height;
+    const grid_cols = width / self.atlas.cell_width;
+
+    try self.grid.resize(self.core.vk_mem.allocator, .{
+        .rows = grid_rows,
+        .cols = grid_cols,
+    });
 }
 
 pub fn presentBuffer(self: *Backend) void {

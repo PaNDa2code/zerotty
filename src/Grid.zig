@@ -30,7 +30,8 @@ pub fn create(allocator: Allocator, options: CellProgramOptions) !CellProgram {
     };
 }
 
-pub fn free(self: *CellProgram) void {
+pub fn free(self: *CellProgram, allocator: Allocator) void {
+    _ = allocator;
     self.map.deinit();
 }
 

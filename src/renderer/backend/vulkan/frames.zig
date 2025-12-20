@@ -85,7 +85,13 @@ pub fn recordCommandBuffer(
     const regions = [_]vk.BufferCopy{.{
         .src_offset = 0,
         .dst_offset = 0,
-        .size = @intCast(self.buffers.staging_buffer.memory.size),
+        .size = @intCast(
+            @min(
+                self.buffers.staging_buffer.memory.size,
+                self.buffers.vertex_buffer.memory.size,
+                self.grid.data().len * @sizeOf(@import("../../../Grid.zig").Cell),
+            ),
+        ),
     }};
 
     vkd.cmdCopyBuffer(
