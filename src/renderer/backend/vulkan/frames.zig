@@ -82,19 +82,24 @@ pub fn recordCommandBuffer(
         .p_clear_values = &.{clear_color},
     };
 
-    const regions = [_]vk.BufferCopy{.{
-        .src_offset = 0,
-        .dst_offset = 0,
-        .size = @intCast(self.buffers.staging_buffer.memory.size),
-    }};
-
-    vkd.cmdCopyBuffer(
-        command_buffer,
-        self.buffers.staging_buffer.handle,
-        self.buffers.vertex_buffer.handle,
-        regions.len,
-        &regions,
-    );
+    // const regions = [_]vk.BufferCopy{.{
+    //     .src_offset = 0,
+    //     .dst_offset = 0,
+    //     .size = @intCast(
+    //         @min(
+    //             self.buffers.staging_buffer.memory.size,
+    //             self.buffers.vertex_buffer.memory.size,
+    //         ),
+    //     ),
+    // }};
+    //
+    // vkd.cmdCopyBuffer(
+    //     command_buffer,
+    //     self.buffers.staging_buffer.handle,
+    //     self.buffers.vertex_buffer.handle,
+    //     regions.len,
+    //     &regions,
+    // );
 
     vkd.cmdBindVertexBuffers(
         command_buffer,

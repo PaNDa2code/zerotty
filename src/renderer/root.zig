@@ -4,7 +4,6 @@ const Renderer = @This();
 backend: Backend,
 fps: FPS,
 cursor: Cursor,
-grid: Grid,
 
 pub fn init(window: *Window, allocator: Allocator) !Renderer {
     const backend = try Backend.init(window, allocator);
