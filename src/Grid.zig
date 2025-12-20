@@ -2,7 +2,7 @@ const CellProgram = @This();
 
 pub const Cell = packed struct {
     packed_pos: u32,
-    glyph_index: u32,
+    glyph_index: u32 = '█',
     style_index: u32,
 };
 
@@ -11,7 +11,7 @@ pub const CellStyle = extern struct {
     bg_color: ColorRGBAf32,
 };
 
-map: std.AutoArrayHashMap(u32, Cell),
+cells: []Cell,
 rows: u32 = 0,
 cols: u32 = 0,
 
@@ -21,21 +21,21 @@ pub const CellProgramOptions = struct {
 };
 
 pub fn create(allocator: Allocator, options: CellProgramOptions) !CellProgram {
-    const map = std.AutoArrayHashMap(u32, Cell).init(allocator);
+    const cells = try allocator.alloc(Cell, options.rows * options.cols);
 
     return .{
-        .map = map,
+        .cells = cells,
         .rows = @intCast(options.rows),
         .cols = @intCast(options.cols),
     };
 }
 
-pub fn free(self: *CellProgram) void {
-    self.map.deinit();
+pub fn free(self: *CellProgram, allocator: Allocator) void {
+    allocator.free(self.cells);
 }
 
 pub fn data(self: *const CellProgram) []const Cell {
-    return self.map.values();
+    return self.cells;
 }
 
 pub fn resize(self: *CellProgram, allocator: Allocator, options: CellProgramOptions) !void {
@@ -44,8 +44,18 @@ pub fn resize(self: *CellProgram, allocator: Allocator, options: CellProgramOpti
     _ = options; // autofix
 }
 
-pub fn set(self: *CellProgram, cell: Cell) !void {
-    try self.map.put(cell.packed_pos, cell);
+pub fn set(
+    self: *CellProgram,
+    row: u32,
+    col: u32,
+    glyph_index: u32,
+    style_index: u32,
+) !void {
+    self.cells[row * col + col] = .{
+        .packed_pos = (col << 16) | row,
+        .glyph_index = glyph_index,
+        .style_index = style_index,
+    };
 }
 
 const std = @import("std");

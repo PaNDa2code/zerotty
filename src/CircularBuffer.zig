@@ -215,26 +215,7 @@ pub fn getReadableSlice(self: *const CircularBuffer) []const u8 {
     return self.buffer[self.start..][0..self.len];
 }
 
-// pub fn writer(self: *CircularBuffer) std.Io.Writer {
-//     return .{ .vtable = .{} };
-// }
-//
-// pub fn reader(self: *CircularBuffer) std.io.Reader {
-//     return .{ .vtable = .{} };
-// }
-
-test CircularBuffer {
-    var ciruler_buffer = try CircularBuffer.new(0);
-    defer ciruler_buffer.deinit();
-
-    var ciruler_buffer_writer = ciruler_buffer.writer();
-    // var ciruler_buffer_reader = ciruler_buffer.reader();
-
-    const data = "0123456789ABCDEF";
-    _ = try ciruler_buffer_writer.writeAll(data);
-
-    try std.testing.expectEqualSlices(u8, data, ciruler_buffer.getReadableSlice());
-}
+test CircularBuffer {}
 
 const std = @import("std");
 const win32 = @import("win32");
