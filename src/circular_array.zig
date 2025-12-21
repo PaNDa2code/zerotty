@@ -69,6 +69,5 @@ test CircularArray {
 
     for (0.., array.slice()) |i, n| {
         try std.testing.expectEqual(i, n);
-        std.log.err("i = {}, n = {}", .{ i, n });
     }
 }
