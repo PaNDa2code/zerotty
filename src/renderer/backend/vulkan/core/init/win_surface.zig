@@ -6,7 +6,7 @@ const vk = @import("vulkan");
 
 const build_options = @import("build_options");
 
-const Window = @import("../../../../window/root.zig").Window;
+const Window = @import("../../../../../window/root.zig").Window;
 
 pub fn createWindowSurface(
     vki: *const vk.InstanceWrapper,
