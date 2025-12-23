@@ -1,6 +1,6 @@
 const Headless = @This();
 
-pub fn create(allocator: std.mem.Allocator) !*Headless {
+pub fn create(allocator: std.mem.Allocator, _: *anyopaque, _: *anyopaque) !*Headless {
     const self = try allocator.create(Headless);
 
     return self;

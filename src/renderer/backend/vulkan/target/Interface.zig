@@ -5,7 +5,7 @@ const std = @import("std");
 const vk = @import("vulkan");
 
 pub const VTable = struct {
-    create: *const fn (std.mem.Allocator, *const Context) anyerror!*anyopaque,
+    create: *const fn (std.mem.Allocator, *const Context, ?*anyopaque) anyerror!*anyopaque,
     destroy: *const fn (*anyopaque, std.mem.Allocator) void,
 
     acquire: *const fn (*anyopaque) anyerror!FrameImage,
@@ -33,13 +33,13 @@ pub const FrameImage = struct {
 ptr: *anyopaque,
 vtable: VTable,
 
-pub fn initWindowed(
+pub fn createWsiSurface(
     allocator: std.mem.Allocator,
     context: *const Context,
-    // window: anytype,
+    window: anytype,
 ) !PresentTarget {
     const vtable = swapchain_vtable;
-    const ptr = try vtable.create(allocator, context);
+    const ptr = try vtable.create(allocator, context, window);
     return .{
         .ptr = ptr,
         .vtable = vtable,
@@ -51,7 +51,7 @@ pub fn initHeadless(
     context: *const Context,
 ) !PresentTarget {
     const vtable = headless_vtable;
-    const ptr = try vtable.create(allocator, context);
+    const ptr = try vtable.create(allocator, context, null);
     return .{
         .ptr = ptr,
         .vtable = vtable,

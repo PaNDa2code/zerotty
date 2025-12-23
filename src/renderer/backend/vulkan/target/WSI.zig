@@ -19,11 +19,20 @@ image_avilable_sems: []vk.Semaphore,
 pub fn create(
     allocator: std.mem.Allocator,
     context: *const Context,
+    window: *const Window,
 ) !*WSI {
     const self = try allocator.create(WSI);
     errdefer allocator.destroy(self);
 
+    self.surface = try createWindowSurface(
+        &context.vki,
+        context.instance,
+        window,
+        &context.vk_allocator,
+    );
+
     self.context = context;
+
     return self;
 }
 
@@ -38,5 +47,9 @@ pub const vtable = Interface.VTable{
 
 const std = @import("std");
 const vk = @import("vulkan");
+
 const Interface = @import("Interface.zig");
 const Context = @import("../core/Context.zig");
+const Window = @import("../../../../window/root.zig").Window;
+
+const createWindowSurface = @import("win_surface.zig").createWindowSurface;
