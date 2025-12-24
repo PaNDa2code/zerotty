@@ -27,7 +27,14 @@ pub const PresentMode = enum {
 pub const FrameImage = struct {
     image: vk.Image,
     view: vk.ImageView,
+    sync: FrameSync,
     index: u32,
+};
+
+pub const FrameSync = struct {
+    in_flight: vk.Fence,
+    image_available: vk.Semaphore,
+    render_finished: vk.Semaphore,
 };
 
 ptr: *anyopaque,
@@ -37,8 +44,9 @@ pub fn createWsiSurface(
     allocator: std.mem.Allocator,
     context: *const Context,
     window: anytype,
+    present_mode: ?PresentMode,
 ) !PresentTarget {
-    const vtable = swapchain_vtable;
+    const vtable = wsi_vtable;
     const ptr = try vtable.create(allocator, context, window);
     return .{
         .ptr = ptr,
@@ -81,5 +89,5 @@ pub fn getExtent(self: *const PresentTarget) vk.Extent2D {
 }
 
 const Context = @import("../core/Context.zig");
-const swapchain_vtable = @import("Swapchain.zig").vtable;
+const wsi_vtable = @import("wsi/WSI.zig").vtable;
 const headless_vtable = @import("Headless.zig").vtable;
