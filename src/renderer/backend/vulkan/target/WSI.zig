@@ -19,22 +19,14 @@ image_avilable_sems: []vk.Semaphore,
 pub fn create(
     allocator: std.mem.Allocator,
     context: *const Context,
-    window: *const Window,
+    surface: *const Interface.WsiSurface,
 ) !*WSI {
     const self = try allocator.create(WSI);
     errdefer allocator.destroy(self);
 
-    var extent: vk.Extent2D = undefined;
-    var format: vk.Format = undefined;
-
-    self.surface = try createWindowSurface(
-        &context.vki,
-        context.instance,
-        window,
-        &context.vk_allocator,
-    );
-
     self.context = context;
+    self.surface = surface.handle;
+    self.extent = surface.extent;
 
     return self;
 }

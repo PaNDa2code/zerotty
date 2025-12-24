@@ -11,7 +11,7 @@ gpu: vk.PhysicalDevice,
 gpu_props: vk.PhysicalDeviceProperties,
 gpu_memory_props: vk.PhysicalDeviceMemoryProperties,
 
-queue_families: QueueFamilies,
+// queue_families: QueueFamilies,
 
 // dispatch tables
 vkb: vk.BaseWrapper,
@@ -23,13 +23,31 @@ vk_allocator: ?*const vk.AllocationCallbacks,
 
 debug_messanger: if (builtin.mode == .Debug) vk.DebugUtilsMessengerEXT else void,
 
-pub fn create(
+pub fn init(
     allocator: std.mem.Allocator,
-    vk_allocator: ?*const vk.AllocationCallbacks,
+    instance: Instance,
+    device: Device,
 ) !*const Context {
     const context = try allocator.create(Context);
     errdefer allocator.destroy(context);
-    context.vk_allocator = vk_allocator;
+
+    context.* = .{
+        .instance = instance.handle,
+        .device = device.handle,
+
+        .gpu = device.physical_device,
+        .gpu_props = device.physical_device_props,
+        .gpu_memory_props = device.physical_device_memory_props,
+
+        // TODO: elemnate this table copying
+        .vkb = instance.vkb,
+        .vki = instance.vki,
+        .vkd = device.vkd,
+
+        .vk_allocator = instance.vk_allocator,
+
+        .debug_messanger = instance.debug,
+    };
 
     return context;
 }
@@ -87,3 +105,6 @@ const vk = @import("vulkan");
 const utils = @import("init/root.zig");
 
 const QueueFamilies = opaque {};
+
+pub const Instance = @import("init/Instance.zig");
+pub const Device = @import("init/Device.zig");

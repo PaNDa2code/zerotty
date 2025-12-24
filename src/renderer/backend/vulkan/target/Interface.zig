@@ -5,7 +5,7 @@ const std = @import("std");
 const vk = @import("vulkan");
 
 pub const VTable = struct {
-    create: *const fn (std.mem.Allocator, *const Context, ?*anyopaque) anyerror!*anyopaque,
+    create: *const fn (std.mem.Allocator, *const Context, *const anyopaque) anyerror!*anyopaque,
     destroy: *const fn (*anyopaque, std.mem.Allocator) void,
 
     acquire: *const fn (*anyopaque) anyerror!FrameImage,
@@ -17,37 +17,51 @@ pub const VTable = struct {
     getFormat: *const fn (*anyopaque) vk.Format,
 };
 
-pub const PresentMode = enum {
-    VSync,
-    Immediate,
-    Mailbox,
-    Relaxed,
-};
-
 pub const FrameImage = struct {
     image: vk.Image,
     view: vk.ImageView,
-    sync: FrameSync,
     index: u32,
-};
 
-pub const FrameSync = struct {
     in_flight: vk.Fence,
     image_available: vk.Semaphore,
     render_finished: vk.Semaphore,
 };
 
+pub const WsiSurface = struct {
+    handle: vk.SurfaceKHR,
+    extent: vk.Extent2D,
+
+    pub fn create(
+        instance: Context.Instance,
+        window: anytype,
+    ) !WsiSurface {
+        const handle = try WSI.createWindowSurface(
+            &instance.vki,
+            instance.handle,
+            window,
+            instance.vk_allocator,
+        );
+
+        return .{
+            .handle = handle,
+            .extent = .{
+                .height = window.height,
+                .width = window.width,
+            },
+        };
+    }
+};
+
 ptr: *anyopaque,
 vtable: VTable,
 
-pub fn createWsiSurface(
+pub fn initWsi(
     allocator: std.mem.Allocator,
     context: *const Context,
-    window: anytype,
-    present_mode: ?PresentMode,
-) !PresentTarget {
+    surface: WsiSurface,
+) !WsiSurface {
     const vtable = wsi_vtable;
-    const ptr = try vtable.create(allocator, context, window);
+    const ptr = try vtable.create(allocator, context, &surface);
     return .{
         .ptr = ptr,
         .vtable = vtable,
@@ -89,5 +103,7 @@ pub fn getExtent(self: *const PresentTarget) vk.Extent2D {
 }
 
 const Context = @import("../core/Context.zig");
-const wsi_vtable = @import("wsi/WSI.zig").vtable;
+
+const WSI = @import("WSI.zig");
+const wsi_vtable = WSI.vtable;
 const headless_vtable = @import("Headless.zig").vtable;
