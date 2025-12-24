@@ -1,4 +1,4 @@
-const VkDeviceAlloator = @This();
+const DeviceAlloator = @This();
 
 const std = @import("std");
 const vk = @import("vulkan");
@@ -55,7 +55,7 @@ mem_properties: vk.PhysicalDeviceMemoryProperties,
 pub fn init(
     core: *const Core,
     allocator: Allocator,
-) !VkDeviceAlloator {
+) !DeviceAlloator {
     const mem_properties =
         core.vki().getPhysicalDeviceMemoryProperties(core.physical_device);
 
@@ -66,7 +66,7 @@ pub fn init(
 }
 
 pub fn alloc(
-    self: *VkDeviceAlloator,
+    self: *DeviceAlloator,
     core: *const Core,
     size: usize,
     type_bits: u32,
@@ -103,7 +103,7 @@ pub fn alloc(
 const ResizeResult = enum { inplace, reallocated };
 
 pub fn resize(
-    self: *VkDeviceAlloator,
+    self: *DeviceAlloator,
     core: *const Core,
     allocation: *Allocation,
     new_size: usize,
@@ -131,7 +131,7 @@ pub fn resize(
 }
 
 pub fn free(
-    _: *VkDeviceAlloator,
+    _: *DeviceAlloator,
     core: *const Core,
     allocation: Allocation,
 ) void {

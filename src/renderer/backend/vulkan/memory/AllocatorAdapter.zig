@@ -2,7 +2,7 @@
 //! Avoid stack allocation, use `Allocator.create` instead.
 
 // TODO: store allocation data without extra map
-const VkAllocatorAdapter = @This();
+const AllocatorAdapter = @This();
 
 const Record = struct {
     size: usize,
@@ -15,29 +15,29 @@ record_map: RecordMap = .empty,
 
 alloc_callbacks: vk.AllocationCallbacks,
 
-pub fn init(allocator: Allocator) VkAllocatorAdapter {
-    var self: VkAllocatorAdapter = undefined;
+pub fn init(allocator: Allocator) AllocatorAdapter {
+    var self: AllocatorAdapter = undefined;
     self.initInPlace(allocator);
     return self;
 }
 
-pub fn initInPlace(self: *VkAllocatorAdapter, allocator: Allocator) void {
+pub fn initInPlace(self: *AllocatorAdapter, allocator: Allocator) void {
     self.allocator = allocator;
     self.record_map = .empty;
 
     self.alloc_callbacks = .{
         .p_user_data = self,
-        .pfn_allocation = VkAllocatorAdapter.vkAlloc,
-        .pfn_reallocation = VkAllocatorAdapter.vkRealloc,
-        .pfn_free = VkAllocatorAdapter.vkFree,
+        .pfn_allocation = AllocatorAdapter.vkAlloc,
+        .pfn_reallocation = AllocatorAdapter.vkRealloc,
+        .pfn_free = AllocatorAdapter.vkFree,
     };
 }
 
-pub fn deinit(self: *VkAllocatorAdapter) void {
+pub fn deinit(self: *AllocatorAdapter) void {
     self.record_map.deinit(self.allocator);
 }
 
-pub fn vkAllocatorCallbacks(self: *const VkAllocatorAdapter) vk.AllocationCallbacks {
+pub fn vkAllocatorCallbacks(self: *const AllocatorAdapter) vk.AllocationCallbacks {
     return self.alloc_callbacks;
 }
 
@@ -78,11 +78,11 @@ fn vkAlloc(
     if (p_user_data == null or size == 0)
         return null;
 
-    const vk_allocator: *VkAllocatorAdapter = @ptrCast(@alignCast(p_user_data.?));
+    const vk_allocator: *AllocatorAdapter = @ptrCast(@alignCast(p_user_data.?));
 
     const alignment_enum = std.mem.Alignment.fromByteUnits(alignment);
 
-    return VkAllocatorAdapter.allocAndRecord(vk_allocator.allocator, &vk_allocator.record_map, size, alignment_enum);
+    return AllocatorAdapter.allocAndRecord(vk_allocator.allocator, &vk_allocator.record_map, size, alignment_enum);
 }
 
 fn vkFree(
@@ -92,8 +92,8 @@ fn vkFree(
     if (p_user_data == null or memory == null)
         return;
 
-    const vk_allocator: *VkAllocatorAdapter = @ptrCast(@alignCast(p_user_data));
-    VkAllocatorAdapter.freeRecored(vk_allocator.allocator, &vk_allocator.record_map, memory.?);
+    const vk_allocator: *AllocatorAdapter = @ptrCast(@alignCast(p_user_data));
+    AllocatorAdapter.freeRecored(vk_allocator.allocator, &vk_allocator.record_map, memory.?);
 }
 
 fn vkRealloc(
@@ -106,7 +106,7 @@ fn vkRealloc(
     if (p_user_data == null or p_original == null or size == 0)
         return null;
 
-    const vk_allocator: *VkAllocatorAdapter = @ptrCast(@alignCast(p_user_data));
+    const vk_allocator: *AllocatorAdapter = @ptrCast(@alignCast(p_user_data));
     const allocator = vk_allocator.allocator;
 
     const old_record_ptr = vk_allocator.record_map.getPtr(@intFromPtr(p_original.?)) orelse return null;
@@ -126,12 +126,12 @@ fn vkRealloc(
         return old_block.ptr;
     }
 
-    const new = VkAllocatorAdapter.allocAndRecord(allocator, &vk_allocator.record_map, size, new_alignment) orelse return null;
+    const new = AllocatorAdapter.allocAndRecord(allocator, &vk_allocator.record_map, size, new_alignment) orelse return null;
 
     const bytes_to_copy = @min(size, old_block.len);
     @memcpy(new[0..bytes_to_copy], old_block[0..bytes_to_copy]);
 
-    VkAllocatorAdapter.freeRecored(allocator, &vk_allocator.record_map, p_original.?);
+    AllocatorAdapter.freeRecored(allocator, &vk_allocator.record_map, p_original.?);
 
     return new;
 }
@@ -140,8 +140,8 @@ const std = @import("std");
 const vk = @import("vulkan");
 const Allocator = std.mem.Allocator;
 
-test VkAllocatorAdapter {
-    var vk_allocator: VkAllocatorAdapter = undefined;
+test AllocatorAdapter {
+    var vk_allocator: AllocatorAdapter = undefined;
     vk_allocator.initInPlace(std.testing.allocator);
 
     defer vk_allocator.deinit();
