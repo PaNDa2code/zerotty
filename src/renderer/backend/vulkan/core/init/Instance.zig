@@ -21,7 +21,7 @@ pub fn init(
     vk_allocator: *const vk.AllocationCallbacks,
     required_extensions: []const [*:0]const u8,
 ) InitError!Instance {
-    const vkb = try vk.BaseWrapper.load(struct {
+    const vkb = vk.BaseWrapper.load(struct {
         const vk_lib_path: [*:0]const u8 = switch (builtin.os.tag) {
             .windows => "C:\\Windows\\System32\\vulkan-1.dll",
             .linux => "libvulkan.so.1",
@@ -29,7 +29,7 @@ pub fn init(
         };
 
         pub fn load(_: vk.Instance, procname: [*:0]const u8) vk.PfnVoidFunction {
-            const lib = std.DynLib.openZ(vk_lib_path) catch unreachable;
+            var lib = std.DynLib.openZ(vk_lib_path) catch unreachable;
             const symbol = lib.lookup(*anyopaque, std.mem.span(procname));
             return @ptrCast(symbol);
         }
@@ -45,9 +45,9 @@ pub fn init(
 
     const slices = [_][]const [*:0]const u8{
         required_extensions,
-    } ++ if (builtin.mode == .Debug) debug_extentions else &.{};
+    } ++ if (builtin.mode == .Debug) [_][]const [*:0]const u8{&debug_extentions} else &.{};
 
-    const extensions = try std.mem.concatWithSentinel(allocator, [*:0]const u8, &slices, 0);
+    const extensions = try std.mem.concatMaybeSentinel(allocator, [*:0]const u8, &slices, null);
     defer allocator.free(extensions);
 
     const validation_layers_supported = try utils.debug.checkValidationLayerSupport(&vkb, allocator);

@@ -3,8 +3,6 @@ const vk = @import("vulkan");
 
 const log = std.log.scoped(.VulkanDebugUtils);
 
-const Core = @import("../Core.zig");
-
 pub const DebugMessagerError = vk.InstanceWrapper.CreateDebugUtilsMessengerEXTError;
 
 pub fn debugMessenger(

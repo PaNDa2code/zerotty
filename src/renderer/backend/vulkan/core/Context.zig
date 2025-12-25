@@ -11,8 +11,6 @@ gpu: vk.PhysicalDevice,
 gpu_props: vk.PhysicalDeviceProperties,
 gpu_memory_props: vk.PhysicalDeviceMemoryProperties,
 
-// queue_families: QueueFamilies,
-
 // dispatch tables
 vkb: vk.BaseWrapper,
 vki: vk.InstanceWrapper,
@@ -35,7 +33,7 @@ pub fn init(
         .instance = instance.handle,
         .device = device.handle,
 
-        .gpu = device.physical_device,
+        .gpu = device.physical_device.handle,
         .gpu_props = device.physical_device.properties,
         .gpu_memory_props = device.physical_device.memory_properties,
 
@@ -52,7 +50,7 @@ pub fn init(
     return context;
 }
 
-pub fn deinit(self: *Context, allocator: std.mem.Allocator) void {
+pub fn deinit(self: *const Context, allocator: std.mem.Allocator) void {
     allocator.destroy(self);
 }
 
@@ -60,8 +58,6 @@ const std = @import("std");
 const builtin = @import("builtin");
 const vk = @import("vulkan");
 const utils = @import("init/root.zig");
-
-const QueueFamilies = opaque {};
 
 pub const Instance = @import("init/Instance.zig");
 pub const Device = @import("init/Device.zig");

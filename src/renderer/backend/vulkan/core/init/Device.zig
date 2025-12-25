@@ -81,7 +81,7 @@ fn createDevice(
         .queue_create_info_count = 1,
         .p_queue_create_infos = @ptrCast(&queue_create_info),
 
-        .enabled_extension_count = required_extensions.len,
+        .enabled_extension_count = @intCast(required_extensions.len),
         .pp_enabled_extension_names = required_extensions.ptr,
 
         .enabled_layer_count = layers.len,
@@ -113,7 +113,7 @@ inline fn getPhysicalDevices(
         physical_devices[i].support_present = false;
 
         queryPhysicalDeviceInfo(instance, handle, &physical_devices[i]);
-        selectQueueFamilies(allocator, instance, handle, surface, &physical_devices[i]);
+        try selectQueueFamilies(allocator, instance, handle, surface, &physical_devices[i]);
     }
 
     return physical_devices;
@@ -128,8 +128,8 @@ fn queryPhysicalDeviceInfo(
 
     out.properties =
         instance.vki.getPhysicalDeviceProperties(handle);
-    out.features =
-        instance.vki.getPhysicalDeviceFeatures(handle);
+    // out.features =
+    //     instance.vki.getPhysicalDeviceFeatures(handle);
     out.memory_properties =
         instance.vki.getPhysicalDeviceMemoryProperties(handle);
 }
@@ -154,7 +154,7 @@ fn selectQueueFamilies(
 
         const graphics_support = props.queue_flags.graphics_bit;
 
-        const present_support =
+        const present_support = surface != .null_handle and
             try instance.vki.getPhysicalDeviceSurfaceSupportKHR(
                 handle,
                 idx,
@@ -167,15 +167,15 @@ fn selectQueueFamilies(
         if (present_support and present == null)
             present = idx;
 
-        if (graphics and present) {
+        if (graphics_support and present_support) {
             graphics_present = idx;
             break;
         }
     }
 
-    if (graphics_present) {
-        out.graphic_family_index = graphics_present;
-        out.present_family_index = graphics_present;
+    if (graphics_present) |i| {
+        out.graphic_family_index = i;
+        out.present_family_index = i;
         out.support_present = true;
         return;
     }
