@@ -5,6 +5,8 @@ const log = std.log.scoped(.VulkanDebugUtils);
 
 const Core = @import("../Core.zig");
 
+pub const DebugMessagerError = vk.InstanceWrapper.CreateDebugUtilsMessengerEXTError;
+
 pub fn debugMessenger(
     vki: *const vk.InstanceWrapper,
     instance: vk.Instance,
@@ -88,6 +90,9 @@ const Types = enum {
     performance,
     device_address_binding,
 };
+
+pub const CheckValidationLayerSupportError =
+    vk.BaseWrapper.EnumerateInstanceLayerPropertiesAllocError;
 
 pub fn checkValidationLayerSupport(vkb: *const vk.BaseWrapper, allocator: std.mem.Allocator) !bool {
     const available_layers = try vkb.enumerateInstanceLayerPropertiesAlloc(allocator);

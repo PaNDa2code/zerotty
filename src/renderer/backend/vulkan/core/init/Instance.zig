@@ -2,6 +2,8 @@ const Instance = @This();
 
 handle: vk.Instance,
 
+version: vk.Version,
+
 vkb: vk.BaseWrapper,
 vki: vk.InstanceWrapper,
 
@@ -9,11 +11,16 @@ vk_allocator: *const vk.AllocationCallbacks,
 
 debug: if (builtin.mode == .Debug) vk.DebugUtilsMessengerEXT else void,
 
+pub const InitError = std.mem.Allocator.Error ||
+    vk.BaseWrapper.CreateInstanceError ||
+    utils.debug.DebugMessagerError ||
+    utils.debug.CheckValidationLayerSupportError;
+
 pub fn init(
     allocator: std.mem.Allocator,
     vk_allocator: *const vk.AllocationCallbacks,
     required_extensions: []const [*:0]const u8,
-) !Instance {
+) InitError!Instance {
     const vkb = try vk.BaseWrapper.load(struct {
         const vk_lib_path: [*:0]const u8 = switch (builtin.os.tag) {
             .windows => "C:\\Windows\\System32\\vulkan-1.dll",
@@ -87,6 +94,7 @@ pub fn init(
 
     return .{
         .handle = handle,
+        .version = vk.API_VERSION_1_4,
         .vkb = vkb,
         .vki = vki,
         .vk_allocator = vk_allocator,
