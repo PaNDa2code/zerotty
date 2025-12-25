@@ -9,12 +9,12 @@ vki: vk.InstanceWrapper,
 
 vk_allocator: *const vk.AllocationCallbacks,
 
-debug: if (builtin.mode == .Debug) vk.DebugUtilsMessengerEXT else void,
+debug_messenger: if (builtin.mode == .Debug) vk.DebugUtilsMessengerEXT else void,
 
 pub const InitError = std.mem.Allocator.Error ||
     vk.BaseWrapper.CreateInstanceError ||
-    utils.debug.DebugMessagerError ||
-    utils.debug.CheckValidationLayerSupportError;
+    debug.DebugMessagerError ||
+    debug.CheckValidationLayerSupportError;
 
 pub fn init(
     allocator: std.mem.Allocator,
@@ -50,7 +50,7 @@ pub fn init(
     const extensions = try std.mem.concatMaybeSentinel(allocator, [*:0]const u8, &slices, null);
     defer allocator.free(extensions);
 
-    const validation_layers_supported = try utils.debug.checkValidationLayerSupport(&vkb, allocator);
+    const validation_layers_supported = try debug.checkValidationLayerSupport(&vkb, allocator);
 
     if (!validation_layers_supported) {
         std.log.err("validation layers is not supported", .{});
@@ -84,8 +84,8 @@ pub fn init(
         vkb.dispatch.vkGetInstanceProcAddr.?,
     );
 
-    const debug = if (builtin.mode == .Debug)
-        try utils.debug.debugMessenger(
+    const debug_messenger = if (builtin.mode == .Debug)
+        try debug.debugMessenger(
             &vki,
             handle,
             vk_allocator,
@@ -98,7 +98,7 @@ pub fn init(
         .vkb = vkb,
         .vki = vki,
         .vk_allocator = vk_allocator,
-        .debug = debug,
+        .debug_messenger = debug_messenger,
     };
 }
 
@@ -106,4 +106,4 @@ const std = @import("std");
 const vk = @import("vulkan");
 const builtin = @import("builtin");
 
-const utils = @import("root.zig");
+const debug = @import("debug.zig");

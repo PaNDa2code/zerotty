@@ -44,7 +44,7 @@ pub fn init(
 
         .vk_allocator = instance.vk_allocator,
 
-        .debug_messanger = instance.debug,
+        .debug_messanger = instance.debug_messenger,
     };
 
     return context;
@@ -57,7 +57,6 @@ pub fn deinit(self: *const Context, allocator: std.mem.Allocator) void {
 const std = @import("std");
 const builtin = @import("builtin");
 const vk = @import("vulkan");
-const utils = @import("init/root.zig");
 
 pub const Instance = @import("init/Instance.zig");
 pub const Device = @import("init/Device.zig");
