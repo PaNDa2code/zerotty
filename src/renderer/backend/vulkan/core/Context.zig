@@ -36,10 +36,10 @@ pub fn init(
         .device = device.handle,
 
         .gpu = device.physical_device,
-        .gpu_props = device.physical_device_props,
-        .gpu_memory_props = device.physical_device_memory_props,
+        .gpu_props = device.physical_device.properties,
+        .gpu_memory_props = device.physical_device.memory_properties,
 
-        // TODO: elemnate this table copying
+        // TODO: eliminate this table copying
         .vkb = instance.vkb,
         .vki = instance.vki,
         .vkd = device.vkd,
@@ -50,49 +50,6 @@ pub fn init(
     };
 
     return context;
-}
-
-pub fn createInstance(self: *const Context) !void {
-    self.vkb = vk.BaseWrapper.load(struct {
-        pub fn load(
-            _: vk.Instance,
-            procname: [*:0]const u8,
-        ) vk.PfnVoidFunction {
-            const vk_lib_path: [*:0]const u8 = switch (builtin.os.tag) {
-                .windows => "C:\\Windows\\System32\\vulkan-1.dll",
-                .linux => "libvulkan.so.1",
-                else => {},
-            };
-            const lib = std.DynLib.openZ(vk_lib_path) catch unreachable;
-            const symbol = lib.lookup(*anyopaque, std.mem.span(procname));
-
-            return @ptrCast(symbol);
-        }
-    });
-
-    self.instance = utils.instance.createInstance(
-        &self.vkb,
-        // allocator,
-        self.vk_allocator,
-    );
-
-    self.vki = vk.InstanceWrapper.load(
-        self.instance,
-        self.vkb.dispatch.vkGetInstanceProcAddr.?,
-    );
-
-    errdefer self.vki.destroyInstance(self.instance);
-
-    if (builtin.mode == .Debug) {
-        self.debug_messanger =
-            try utils.debug.debugMessenger(
-                &self.vki,
-                self.instance,
-                self.vk_allocator,
-            );
-    }
-
-    return self;
 }
 
 pub fn deinit(self: *Context, allocator: std.mem.Allocator) void {
