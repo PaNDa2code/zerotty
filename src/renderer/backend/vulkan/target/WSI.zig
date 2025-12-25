@@ -88,6 +88,26 @@ pub fn createWindowSurface(
     }
 }
 
+pub fn instanceExtensions() []const [*:0]const u8 {
+    return &.{
+        "VK_KHR_surface",
+        "VK_LAYER_KHRONOS_validation",
+    } ++ switch (build_options.@"window-system") {
+        .win32 => &.{"VK_KHR_win32_surface"},
+        .xcb => &.{"VK_KHR_xcb_surface"},
+        .xlib => &.{"VK_KHR_xlib_surface"},
+        .win32 => &.{"VK_KHR_win32_surface"},
+        .glfw => &.{},
+    };
+}
+
+pub fn deviceExtensions() []const [*:0]const u8 {
+    return &.{
+        "VK_KHR_swapchain",
+        "VK_LAYER_KHRONOS_validation",
+    };
+}
+
 const c = @cImport({
     @cDefine("GLFW_INCLUDE_VULKAN", "");
     @cInclude("GLFW/glfw3.h");
@@ -96,10 +116,14 @@ const c = @cImport({
 pub const vtable = Interface.VTable{
     .create = create,
     .destroy = destroy,
+
+    .instanceExtensions = instanceExtensions,
+    .deviceExtensions = deviceExtensions,
 };
 
 const std = @import("std");
 const vk = @import("vulkan");
+const builtin = @import("builtin");
 const build_options = @import("build_options");
 
 const Interface = @import("Interface.zig");

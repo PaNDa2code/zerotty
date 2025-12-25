@@ -15,6 +15,9 @@ pub const VTable = struct {
 
     getExtent: *const fn (*anyopaque) vk.Extent2D,
     getFormat: *const fn (*anyopaque) vk.Format,
+
+    instanceExtensions: *const fn () []const [*:0]const u8,
+    deviceExtensions: *const fn () []const [*:0]const u8,
 };
 
 pub const FrameImage = struct {
