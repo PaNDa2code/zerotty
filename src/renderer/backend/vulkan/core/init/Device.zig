@@ -73,9 +73,9 @@ fn createDevice(
     const queue_infos_len: usize =
         if (physical_device.graphic_family_index ==
         physical_device.present_family_index)
-            2
+            1
         else
-            1;
+            2;
 
     const queue_create_infos = queue_infos[0..queue_infos_len];
 

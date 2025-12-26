@@ -74,13 +74,7 @@ pub fn createWindowSurface(
             );
 
             if (res != 0) {
-                std.debug.panic("glfwCreateWindowSurface({},{},{},{}) returns {}", .{
-                    @intFromEnum(instance),
-                    window.window,
-                    vk_mem_cb,
-                    surface,
-                    res,
-                });
+                return error.GLFWSurfaceCreationFailed;
             }
 
             return surface;
@@ -95,7 +89,13 @@ pub fn instanceExtensions() []const [*:0]const u8 {
         .win32 => [_][*:0]const u8{"VK_KHR_win32_surface"},
         .xcb => [_][*:0]const u8{"VK_KHR_xcb_surface"},
         .xlib => [_][*:0]const u8{"VK_KHR_xlib_surface"},
-        .glfw => [_][*:0]const u8{},
+        .glfw => {
+            var count: u32 = 0;
+            const extentions: [*]const [*:0]const u8 =
+                @ptrCast(c.glfwGetRequiredInstanceExtensions(&count));
+
+            return extentions[0..count];
+        },
     };
 }
 
