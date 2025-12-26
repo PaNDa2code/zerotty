@@ -89,22 +89,19 @@ pub fn createWindowSurface(
 }
 
 pub fn instanceExtensions() []const [*:0]const u8 {
-    return &.{
+    return &[_][*:0]const u8{
         "VK_KHR_surface",
-        "VK_LAYER_KHRONOS_validation",
     } ++ switch (build_options.@"window-system") {
-        .win32 => &.{"VK_KHR_win32_surface"},
-        .xcb => &.{"VK_KHR_xcb_surface"},
-        .xlib => &.{"VK_KHR_xlib_surface"},
-        .win32 => &.{"VK_KHR_win32_surface"},
-        .glfw => &.{},
+        .win32 => [_][*:0]const u8{"VK_KHR_win32_surface"},
+        .xcb => [_][*:0]const u8{"VK_KHR_xcb_surface"},
+        .xlib => [_][*:0]const u8{"VK_KHR_xlib_surface"},
+        .glfw => [_][*:0]const u8{},
     };
 }
 
 pub fn deviceExtensions() []const [*:0]const u8 {
     return &.{
         "VK_KHR_swapchain",
-        "VK_LAYER_KHRONOS_validation",
     };
 }
 

@@ -26,7 +26,7 @@ pub fn init(
     allocator: std.mem.Allocator,
     instance: *const Instance,
     surface: vk.SurfaceKHR, // optional
-    required_extensions: [][*:0]const u8,
+    required_extensions: []const [*:0]const u8,
 ) InitError!Device {
     const physical_devices = try getPhysicalDevices(allocator, instance, surface);
     defer allocator.free(physical_devices);
@@ -55,13 +55,29 @@ pub fn init(
 fn createDevice(
     instance: *const Instance,
     physical_device: PhysicalDevice,
-    required_extensions: [][*:0]const u8,
+    required_extensions: []const [*:0]const u8,
 ) !vk.Device {
-    const queue_create_info = vk.DeviceQueueCreateInfo{
-        .queue_family_index = physical_device.graphic_family_index,
-        .queue_count = 1,
-        .p_queue_priorities = &.{1},
+    const queue_infos = [_]vk.DeviceQueueCreateInfo{
+        .{
+            .queue_family_index = physical_device.graphic_family_index,
+            .queue_count = 1,
+            .p_queue_priorities = &.{1},
+        },
+        .{
+            .queue_family_index = physical_device.present_family_index,
+            .queue_count = 1,
+            .p_queue_priorities = &.{1},
+        },
     };
+
+    const queue_infos_len: usize =
+        if (physical_device.graphic_family_index ==
+        physical_device.present_family_index)
+            2
+        else
+            1;
+
+    const queue_create_infos = queue_infos[0..queue_infos_len];
 
     const layers =
         if (builtin.mode == .Debug)
@@ -78,8 +94,8 @@ fn createDevice(
     const device_create_info = vk.DeviceCreateInfo{
         .p_next = @ptrCast(&sync2_features),
 
-        .queue_create_info_count = 1,
-        .p_queue_create_infos = @ptrCast(&queue_create_info),
+        .queue_create_info_count = @intCast(queue_create_infos.len),
+        .p_queue_create_infos = queue_create_infos.ptr,
 
         .enabled_extension_count = @intCast(required_extensions.len),
         .pp_enabled_extension_names = required_extensions.ptr,

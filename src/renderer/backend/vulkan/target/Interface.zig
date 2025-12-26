@@ -105,6 +105,25 @@ pub fn getExtent(self: *const PresentTarget) vk.Extent2D {
     return self.vtable.getExtent(self.ptr);
 }
 
+pub const Mode = enum {
+    windowed,
+    headless,
+};
+
+pub fn instanceExtensions(mode: Mode) []const [*:0]const u8 {
+    return switch (mode) {
+        .windowed => WSI.instanceExtensions(),
+        .headless => &.{},
+    };
+}
+
+pub fn deviceExtensions(mode: Mode) []const [*:0]const u8 {
+    return switch (mode) {
+        .windowed => WSI.deviceExtensions(),
+        .headless => &.{},
+    };
+}
+
 const Context = @import("../core/Context.zig");
 
 const WSI = @import("WSI.zig");

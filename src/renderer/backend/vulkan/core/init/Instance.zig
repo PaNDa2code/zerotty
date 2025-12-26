@@ -45,7 +45,7 @@ pub fn init(
 
     const slices = [_][]const [*:0]const u8{
         required_extensions,
-    } ++ if (builtin.mode == .Debug) [_][]const [*:0]const u8{&debug_extentions} else &.{};
+    } ++ if (builtin.mode == .Debug) [_][]const [*:0]const u8{&debug_extentions} else .{};
 
     const extensions = try std.mem.concatMaybeSentinel(allocator, [*:0]const u8, &slices, null);
     defer allocator.free(extensions);

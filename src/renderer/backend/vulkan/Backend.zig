@@ -19,11 +19,25 @@ pub fn init(window: *Window, allocator: Allocator) !Backend {
 }
 
 pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
-
     self.allocator_adapter.initInPlace(allocator);
 
-    const instance = try Context.Instance.init(allocator, &self.allocator_adapter.alloc_callbacks, &.{});
-    const device = try Context.Device.init(allocator, &instance, .null_handle, &.{});
+    const instance_extensions = Target.instanceExtensions(.windowed);
+    const device_extensions = Target.deviceExtensions(.windowed);
+
+    const instance = try Context.Instance.init(
+        allocator,
+        &self.allocator_adapter.alloc_callbacks,
+        instance_extensions,
+    );
+
+    const wsi_surface = try Target.WsiSurface.create(instance, window);
+
+    const device = try Context.Device.init(
+        allocator,
+        &instance,
+        wsi_surface.handle,
+        device_extensions,
+    );
 
     self.context = try Context.init(allocator, instance, device);
 
