@@ -57,27 +57,29 @@ fn createDevice(
     physical_device: PhysicalDevice,
     required_extensions: []const [*:0]const u8,
 ) !vk.Device {
-    const queue_infos = [_]vk.DeviceQueueCreateInfo{
-        .{
-            .queue_family_index = physical_device.graphic_family_index,
-            .queue_count = 1,
-            .p_queue_priorities = &.{1},
-        },
-        .{
-            .queue_family_index = physical_device.present_family_index,
-            .queue_count = 1,
-            .p_queue_priorities = &.{1},
-        },
+    const graphic_family_index = physical_device.graphic_family_index;
+    const present_family_index = physical_device.present_family_index;
+
+    var queue_infos: [2]vk.DeviceQueueCreateInfo = undefined;
+    var queue_count: usize = 0;
+
+    queue_infos[queue_count] = .{
+        .queue_family_index = graphic_family_index,
+        .queue_count = 1,
+        .p_queue_priorities = &.{1.0},
     };
+    queue_count += 1;
 
-    const queue_infos_len: usize =
-        if (physical_device.graphic_family_index ==
-        physical_device.present_family_index)
-            1
-        else
-            2;
-
-    const queue_create_infos = queue_infos[0..queue_infos_len];
+    if (physical_device.support_present and
+        present_family_index != graphic_family_index)
+    {
+        queue_infos[queue_count] = .{
+            .queue_family_index = present_family_index,
+            .queue_count = 1,
+            .p_queue_priorities = &.{1.0},
+        };
+        queue_count += 1;
+    }
 
     const layers =
         if (builtin.mode == .Debug)
@@ -94,8 +96,8 @@ fn createDevice(
     const device_create_info = vk.DeviceCreateInfo{
         .p_next = @ptrCast(&sync2_features),
 
-        .queue_create_info_count = @intCast(queue_create_infos.len),
-        .p_queue_create_infos = queue_create_infos.ptr,
+        .queue_create_info_count = @intCast(queue_count),
+        .p_queue_create_infos = &queue_infos,
 
         .enabled_extension_count = @intCast(required_extensions.len),
         .pp_enabled_extension_names = required_extensions.ptr,
