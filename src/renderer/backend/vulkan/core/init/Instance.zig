@@ -1,3 +1,4 @@
+//! Temporary Vulkan instance used during setup.
 const Instance = @This();
 
 handle: vk.Instance,
@@ -52,14 +53,11 @@ pub fn init(
 
     const validation_layers_supported = try debug.checkValidationLayerSupport(&vkb, allocator);
 
-    if (!validation_layers_supported) {
-        std.log.err("validation layers is not supported", .{});
-    }
-
-    const layers: []const [*:0]const u8 = if (builtin.mode == .Debug and validation_layers_supported)
-        validation_layers[0..]
-    else
-        &.{};
+    const layers: []const [*:0]const u8 =
+        if (builtin.mode == .Debug and validation_layers_supported)
+            validation_layers[0..]
+        else
+            &.{};
 
     const instance_info = vk.InstanceCreateInfo{
         .p_application_info = &.{

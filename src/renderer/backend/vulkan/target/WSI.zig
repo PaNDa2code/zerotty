@@ -32,6 +32,11 @@ pub fn create(
 }
 
 pub fn destroy(self: *WSI, allocator: std.mem.Allocator) void {
+    self.context.vki.destroySurfaceKHR(
+        self.context.instance,
+        self.surface,
+        self.context.vk_allocator,
+    );
     allocator.destroy(self);
 }
 
@@ -111,8 +116,15 @@ const c = @cImport({
 });
 
 pub const vtable = Interface.VTable{
-    .create = create,
-    .destroy = destroy,
+    .create = @ptrCast(&create),
+    .destroy = @ptrCast(&destroy),
+
+    .acquire = undefined,
+    .present = undefined,
+    .resize = undefined,
+
+    .getExtent = undefined,
+    .getFormat = undefined,
 
     .instanceExtensions = instanceExtensions,
     .deviceExtensions = deviceExtensions,

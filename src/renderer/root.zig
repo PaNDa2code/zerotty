@@ -16,6 +16,10 @@ pub fn init(window: *Window, allocator: Allocator) !Renderer {
     };
 }
 
+pub fn setup(self: *Renderer, window: *Window, allocator: Allocator) !void {
+    try self.setup(window, allocator);
+}
+
 pub fn deinit(self: *Renderer) void {
     self.backend.deinit();
 }

@@ -62,7 +62,7 @@ pub fn initWsi(
     allocator: std.mem.Allocator,
     context: *const Context,
     surface: WsiSurface,
-) !WsiSurface {
+) !PresentTarget {
     const vtable = wsi_vtable;
     const ptr = try vtable.create(allocator, context, &surface);
     return .{
@@ -81,6 +81,10 @@ pub fn initHeadless(
         .ptr = ptr,
         .vtable = vtable,
     };
+}
+
+pub fn deinit(self: *PresentTarget, allocator: std.mem.Allocator) void {
+    self.vtable.destroy(self.ptr, allocator);
 }
 
 pub fn acquire(self: *const PresentTarget) !FrameImage {

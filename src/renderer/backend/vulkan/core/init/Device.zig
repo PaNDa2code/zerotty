@@ -35,8 +35,11 @@ pub fn init(
         if (surface != .null_handle and !physical_device.support_present)
             continue;
 
-        const device =
-            createDevice(instance, physical_device, required_extensions) catch continue;
+        const device = createDevice(instance, physical_device, required_extensions) catch |err|
+            switch (err) {
+                error.OutOfHostMemory, error.ExtensionNotPresent => continue,
+                else => return err,
+            };
 
         const vkGetDeviceProcAddr = instance.vki.dispatch.vkGetDeviceProcAddr.?;
         const vkd = vk.DeviceWrapper.load(device, vkGetDeviceProcAddr);

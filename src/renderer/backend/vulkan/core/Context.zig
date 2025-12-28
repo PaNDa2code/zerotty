@@ -21,6 +21,8 @@ vk_allocator: ?*const vk.AllocationCallbacks,
 
 debug_messanger: if (builtin.mode == .Debug) vk.DebugUtilsMessengerEXT else void,
 
+/// Takes ownership of `Instance` and `Device`.
+/// Calling `deinit()` destroys both resources.
 pub fn init(
     allocator: std.mem.Allocator,
     instance: Instance,
@@ -51,6 +53,13 @@ pub fn init(
 }
 
 pub fn deinit(self: *const Context, allocator: std.mem.Allocator) void {
+    self.vkd.destroyDevice(self.device, self.vk_allocator);
+
+    if (builtin.mode == .Debug)
+        self.vki.destroyDebugUtilsMessengerEXT(self.instance, self.debug_messanger, self.vk_allocator);
+
+    self.vki.destroyInstance(self.instance, self.vk_allocator);
+
     allocator.destroy(self);
 }
 

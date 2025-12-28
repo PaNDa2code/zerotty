@@ -1,6 +1,7 @@
 const Backend = @This();
 
 context: *const Context,
+target: Target,
 
 window_height: u32,
 window_width: u32,
@@ -8,7 +9,7 @@ window_width: u32,
 atlas: Atlas,
 grid: Grid,
 
-allocator_adapter: AllocatorAdapter,
+allocator_adapter: *AllocatorAdapter,
 
 pub const log = std.log.scoped(.Renderer);
 
@@ -19,27 +20,37 @@ pub fn init(window: *Window, allocator: Allocator) !Backend {
 }
 
 pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
+    self.allocator_adapter = try allocator.create(AllocatorAdapter);
+
     self.allocator_adapter.initInPlace(allocator);
 
-    const instance_extensions = Target.instanceExtensions(.headless);
-    const device_extensions = Target.deviceExtensions(.headless);
+    const instance_extensions = Target.instanceExtensions(.windowed);
+    const device_extensions = Target.deviceExtensions(.windowed);
 
+    // Instance and Device are temporary.
+    // They are created only to initialize Context.
+    // Context takes ownership and cleans them up.
     const instance = try Context.Instance.init(
         allocator,
         &self.allocator_adapter.alloc_callbacks,
         instance_extensions,
     );
+    // errdefer instance.deinit();
 
-    // const wsi_surface = try Target.WsiSurface.create(instance, window);
+    const wsi_surface = try Target.WsiSurface.create(instance, window);
+    // errdefer wsi_surface.destroy();
 
     const device = try Context.Device.init(
         allocator,
         &instance,
-        .null_handle,
+        wsi_surface.handle,
         device_extensions,
     );
+    // errdefer device.deinit();
 
     self.context = try Context.init(allocator, instance, device);
+
+    self.target = try Target.initWsi(allocator, self.context, wsi_surface);
 
     self.atlas = try Atlas.loadAll(allocator, 22, 15, 2000);
 
@@ -53,10 +64,16 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
 }
 
 pub fn deinit(self: *Backend) void {
-    self.grid.free(self.allocator_adapter.allocator);
-    self.atlas.deinit(self.allocator_adapter.allocator);
+    const allocator = self.allocator_adapter.allocator;
+    self.grid.free(allocator);
+    self.atlas.deinit(allocator);
 
-    self.context.deinit(self.allocator_adapter.allocator);
+    self.target.deinit(allocator);
+
+    self.context.deinit(allocator);
+    self.allocator_adapter.deinit();
+
+    allocator.destroy(self.allocator_adapter);
 }
 
 pub fn clearBuffer(self: *Backend, color: ColorRGBAf32) void {
