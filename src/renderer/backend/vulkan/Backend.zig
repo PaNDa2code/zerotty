@@ -1,7 +1,6 @@
 const Backend = @This();
 
 context: *const Context,
-target: Target,
 
 window_height: u32,
 window_width: u32,
@@ -24,35 +23,26 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
 
     self.allocator_adapter.initInPlace(allocator);
 
-    const instance_extensions = Target.instanceExtensions(.windowed);
-    const device_extensions = Target.deviceExtensions(.windowed);
-
     // Instance and Device are temporary.
     // They are created only to initialize Context.
     // Context takes ownership and cleans them up.
     const instance = try Context.Instance.init(
         allocator,
         &self.allocator_adapter.alloc_callbacks,
-        instance_extensions,
+        &.{},
     );
     errdefer instance.deinit();
-
-    const wsi_surface = try Target.WsiSurface.create(&instance, window);
-    errdefer wsi_surface.destroy(&instance);
 
     const device = try Context.Device.init(
         allocator,
         &instance,
-        wsi_surface.handle,
-        device_extensions,
+        .null_handle,
+        &.{},
     );
     errdefer device.deinit(&instance);
 
     self.context = try Context.init(allocator, instance, device);
     errdefer self.context.deinit(allocator);
-
-    self.target = try Target.initWsi(allocator, self.context, wsi_surface);
-    errdefer self.target.deinit(allocator);
 
     self.atlas = try Atlas.loadAll(allocator, 22, 15, 2000);
     errdefer self.atlas.deinit(allocator);
@@ -71,8 +61,6 @@ pub fn deinit(self: *Backend) void {
     const allocator = self.allocator_adapter.allocator;
     self.grid.free(allocator);
     self.atlas.deinit(allocator);
-
-    self.target.deinit(allocator);
 
     self.context.deinit(allocator);
     self.allocator_adapter.deinit();
@@ -131,7 +119,6 @@ const os_tag = builtin.os.tag;
 const vk = @import("vulkan");
 
 const Context = @import("core/Context.zig");
-const Target = @import("target/Interface.zig");
 
 const Window = @import("../../../window/root.zig").Window;
 const Allocator = std.mem.Allocator;
@@ -143,6 +130,5 @@ const Grid = @import("../../../Grid.zig");
 const Atlas = @import("../../../font/Atlas.zig");
 
 const helpers = @import("helpers/root.zig");
-const setupDebugMessenger = helpers.debug.setupDebugMessenger;
 
 const drawFrame = @import("frames.zig").drawFrame;

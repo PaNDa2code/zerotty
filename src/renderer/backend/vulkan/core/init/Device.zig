@@ -220,4 +220,3 @@ const builtin = @import("builtin");
 const vk = @import("vulkan");
 
 const Instance = @import("Instance.zig");
-const WsiSurface = @import("../../target/Interface.zig").WsiSurface;
