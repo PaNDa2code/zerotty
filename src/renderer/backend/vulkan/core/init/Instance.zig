@@ -59,12 +59,19 @@ pub fn init(
         else
             &.{};
 
+    const api_version: u32 = blk: {
+        if (vkb.dispatch.vkEnumerateInstanceVersion == null)
+            break :blk @bitCast(vk.API_VERSION_1_0);
+
+        break :blk vkb.enumerateInstanceVersion() catch @bitCast(vk.API_VERSION_1_0);
+    };
+
     const instance_info = vk.InstanceCreateInfo{
         .p_application_info = &.{
             .p_application_name = "zerotty",
 
-            .application_version = @bitCast(vk.makeApiVersion(0, 0, 0, 0)),
-            .api_version = @bitCast(vk.API_VERSION_1_4),
+            .application_version = 0,
+            .api_version = api_version,
 
             .engine_version = 0,
         },
@@ -92,7 +99,7 @@ pub fn init(
 
     return .{
         .handle = handle,
-        .version = vk.API_VERSION_1_4,
+        .version = @bitCast(api_version),
         .vkb = vkb,
         .vki = vki,
         .vk_allocator = vk_allocator,
