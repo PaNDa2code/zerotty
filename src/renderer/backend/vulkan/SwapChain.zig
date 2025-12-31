@@ -1,281 +1,201 @@
 const SwapChain = @This();
-const std = @import("std");
-const vk = @import("vulkan");
-const helpers = @import("helpers/root.zig");
 
-const Allocator = std.mem.Allocator;
-const QueueFamilyIndices = helpers.physical_device.QueueFamilyIndices;
-const Core = @import("Core.zig");
+context: *const Context,
 
 handle: vk.SwapchainKHR,
+surface: vk.SurfaceKHR,
 
 images: []vk.Image,
-image_views: []vk.ImageView,
+surface_format: vk.SurfaceFormatKHR,
 
-format: vk.Format,
 extent: vk.Extent2D,
+present_mode: vk.PresentModeKHR,
 
-pub fn init(core: *const Core, height: u32, width: u32) !SwapChain {
-    const alloc_callbacks = core.vk_mem.vkAllocatorCallbacks();
+pub const SwapchainOptions = struct {
+    extent: vk.Extent2D,
+    presnt_mode: vk.PresentModeKHR = .fifo_khr,
+    old_swapchain: vk.SwapchainKHR = .null_handle,
 
-    var extent: vk.Extent2D = undefined;
-    var format: vk.Format = undefined;
+    image_count: u32 = 3,
+    surface_format: vk.SurfaceFormatKHR = .{
+        .format = .r8g8b8a8_uint,
+        .color_space = .srgb_nonlinear_khr,
+    },
+};
 
-    const swap_chain =
-        try createSwapChain(
-            &core.dispatch.vki,
-            &core.dispatch.vkd,
-            core.physical_device,
-            core.device,
-            core.surface,
-            .{
-                .graphics_family = core.graphics_family_index,
-                .present_family = core.present_family_index,
-            },
-            height,
-            width,
-            &extent,
-            &format,
-            core.vk_mem.allocator,
-            .null_handle,
-            &alloc_callbacks,
-        );
+pub const InitError = std.mem.Allocator.Error ||
+    vk.InstanceWrapper.GetPhysicalDeviceSurfacePresentModesKHRError ||
+    vk.InstanceWrapper.GetPhysicalDeviceSurfaceFormatsKHRError ||
+    vk.InstanceWrapper.GetPhysicalDeviceSurfaceCapabilitiesKHRError ||
+    vk.DeviceWrapper.CreateSwapchainKHRError;
 
-    const images = try getSwapChainImages(
-        &core.dispatch.vkd,
-        swap_chain,
-        core.device,
-        core.vk_mem.allocator,
-    );
-
-    const image_views = try createImageViews(
-        &core.dispatch.vkd,
-        images,
-        format,
-        core.device,
-        core.vk_mem.allocator,
-        &alloc_callbacks,
-    );
-
-    return .{
-        .handle = swap_chain,
-        .format = format,
-        .extent = extent,
-        .images = images,
-        .image_views = image_views,
-    };
-}
-
-pub fn deinit(self: *const SwapChain, core: *const Core) void {
-    const vkd = &core.dispatch.vkd;
-    const alloc_callbacks = core.vk_mem.vkAllocatorCallbacks();
-
-    for (self.image_views) |view| {
-        vkd.destroyImageView(core.device, view, &alloc_callbacks);
-    }
-    vkd.destroySwapchainKHR(core.device, self.handle, &alloc_callbacks);
-
-    core.vk_mem.allocator.free(self.images);
-    core.vk_mem.allocator.free(self.image_views);
-}
-
-pub fn recreate(
-    self: *SwapChain,
-    core: *const Core,
-    height: u32,
-    width: u32,
-) !void {
-    const vkd = &core.dispatch.vkd;
-    const alloc_callbacks = core.vk_mem.vkAllocatorCallbacks();
-
-    var extent: vk.Extent2D = undefined;
-    var format: vk.Format = undefined;
-
-    const swap_chain =
-        try createSwapChain(
-            &core.dispatch.vki,
-            &core.dispatch.vkd,
-            core.physical_device,
-            core.device,
-            core.surface,
-            .{
-                .graphics_family = core.graphics_family_index,
-                .present_family = core.present_family_index,
-            },
-            height,
-            width,
-            &extent,
-            &format,
-            core.vk_mem.allocator,
-            self.handle,
-            &alloc_callbacks,
-        );
-
-    const images = try getSwapChainImages(
-        &core.dispatch.vkd,
-        swap_chain,
-        core.device,
-        core.vk_mem.allocator,
-    );
-
-    const image_views = try createImageViews(
-        &core.dispatch.vkd,
-        images,
-        format,
-        core.device,
-        core.vk_mem.allocator,
-        &alloc_callbacks,
-    );
-
-    core.dispatch.vkd.destroySwapchainKHR(core.device, self.handle, &alloc_callbacks);
-    for (self.image_views) |view| {
-        vkd.destroyImageView(core.device, view, &alloc_callbacks);
-    }
-    core.vk_mem.allocator.free(self.image_views);
-    core.vk_mem.allocator.free(self.images);
-
-    self.handle = swap_chain;
-    self.format = format;
-    self.extent = extent;
-    self.images = images;
-    self.image_views = image_views;
-}
-
-fn createSwapChain(
-    vki: *const vk.InstanceWrapper,
-    vkd: *const vk.DeviceWrapper,
-    physical_device: vk.PhysicalDevice,
-    device: vk.Device,
+pub fn init(
+    context: *const Context,
+    allocator: std.mem.Allocator,
     surface: vk.SurfaceKHR,
-    queue_family_indices: QueueFamilyIndices,
-    height: u32,
-    width: u32,
-    swap_chain_extent: *vk.Extent2D,
-    swap_chain_format: *vk.Format,
-    allocator: Allocator,
-    old_swapchain: vk.SwapchainKHR,
-    vk_mem_cb: *const vk.AllocationCallbacks,
-) !vk.SwapchainKHR {
-    const caps: vk.SurfaceCapabilitiesKHR =
-        try vki.getPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface);
-
+    options: SwapchainOptions,
+) InitError!SwapChain {
     const present_modes =
-        try vki.getPhysicalDeviceSurfacePresentModesAllocKHR(
-            physical_device,
+        try context.vki.getPhysicalDeviceSurfacePresentModesAllocKHR(
+            context.gpu,
             surface,
             allocator,
         );
     defer allocator.free(present_modes);
 
-    const formats = try vki.getPhysicalDeviceSurfaceFormatsAllocKHR(physical_device, surface, allocator);
-    defer allocator.free(formats);
+    const surface_formats =
+        try context.vki.getPhysicalDeviceSurfaceFormatsAllocKHR(
+            context.gpu,
+            surface,
+            allocator,
+        );
+    defer allocator.free(surface_formats);
 
-    const format = chooseSwapSurfaceFormat(formats);
-    const present_mode = chooseSwapPresentMode(present_modes);
+    const surface_format = chooseSurfaceFormat(options.surface_format, surface_formats);
+    const present_mode = choosePresentMode(options.presnt_mode, present_modes);
 
-    var image_count = caps.min_image_count + 1;
+    const surface_caps =
+        try context.vki.getPhysicalDeviceSurfaceCapabilitiesKHR(
+            context.gpu,
+            surface,
+        );
 
-    if (caps.max_image_count != 0 and image_count > caps.max_image_count)
-        image_count = caps.max_image_count;
+    const extent = chooseExtent(
+        &options.extent,
+        &surface_caps.min_image_extent,
+        &surface_caps.max_image_extent,
+        &surface_caps.current_extent,
+    );
 
-    const extent: vk.Extent2D =
-        if (caps.current_extent.width == std.math.maxInt(u32) or
-        caps.current_extent.height == std.math.maxInt(u32))
-            .{
-                .height = height,
-                .width = width,
-            }
-        else
-            caps.current_extent;
+    const image_count = chooseImageCount(
+        options.image_count,
+        surface_caps.min_image_count,
+        surface_caps.max_image_count,
+    );
 
-    const same_queue =
-        queue_family_indices.present_family == queue_family_indices.graphics_family;
+    const composite_alpha = chooseCompositeAlpha(surface_caps.supported_composite_alpha);
 
-    const p_queue_family_indices = &[_]u32{
-        queue_family_indices.graphics_family,
-        queue_family_indices.present_family,
-    };
-
-    const swap_chain_create_info: vk.SwapchainCreateInfoKHR = .{
+    const swapchain_info = vk.SwapchainCreateInfoKHR{
         .surface = surface,
         .min_image_count = image_count,
-        .image_format = format.format,
-        .image_color_space = format.color_space,
+        .image_format = surface_format.format,
+        .image_color_space = surface_format.color_space,
         .image_extent = extent,
         .image_array_layers = 1,
         .image_usage = .{ .color_attachment_bit = true },
-        .image_sharing_mode = if (same_queue) .exclusive else .concurrent,
-        .queue_family_index_count = if (same_queue) 0 else 2,
-        .p_queue_family_indices = if (same_queue) null else p_queue_family_indices,
-        .pre_transform = caps.current_transform,
-        .composite_alpha = pickCompositeAlpha(caps.supported_composite_alpha),
+        .image_sharing_mode = .exclusive,
+        .queue_family_index_count = 0,
+        .p_queue_family_indices = null,
+        .pre_transform = surface_caps.current_transform,
+        .composite_alpha = composite_alpha,
         .present_mode = present_mode,
         .clipped = .true,
 
-        .old_swapchain = old_swapchain,
+        .old_swapchain = options.old_swapchain,
     };
 
-    const swap_chain = try vkd.createSwapchainKHR(device, &swap_chain_create_info, vk_mem_cb);
+    const handle = try context.vkd.createSwapchainKHR(
+        context.device,
+        &swapchain_info,
+        context.vk_allocator,
+    );
 
-    swap_chain_extent.* = extent;
-    swap_chain_format.* = format.format;
+    const images = try context.vkd.getSwapchainImagesAllocKHR(
+        context.device,
+        handle,
+        context.vk_allocator,
+    );
 
-    return swap_chain;
+    return .{
+        .context = context,
+
+        .handle = handle,
+        .surface = surface,
+
+        .images = images,
+        .surface_format = surface_format,
+
+        .extent = extent,
+        .present_mode = present_mode,
+    };
 }
 
-fn createImageViews(
-    vkd: *const vk.DeviceWrapper,
-    images: []const vk.Image,
-    swap_chain_format: vk.Format,
-    device: vk.Device,
-    allocator: Allocator,
-    vk_mem_cb: *const vk.AllocationCallbacks,
-) ![]vk.ImageView {
-    const image_views = try allocator.alloc(vk.ImageView, images.len);
-    errdefer allocator.free(image_views);
+pub const RecreateError = InitError || error{};
 
-    for (images, 0..) |image, i| {
-        const image_view_create_info: vk.ImageViewCreateInfo = .{
-            .image = image,
-            .view_type = .@"2d",
-            .format = swap_chain_format,
-            .components = .{
-                .r = .identity,
-                .g = .identity,
-                .b = .identity,
-                .a = .identity,
-            },
-            .subresource_range = .{
-                .base_mip_level = 0,
-                .level_count = 1,
-                .base_array_layer = 0,
-                .layer_count = 1,
-                .aspect_mask = .{ .color_bit = true },
-            },
-        };
+pub fn recreate(
+    self: *SwapChain,
+    extent: vk.Extent2D,
+) RecreateError!void {
+    const new = init(self.context, .{
+        .extent = extent,
+        .presnt_mode = self.presnt_mode,
+        .old_swapchain = self.handle,
 
-        image_views[i] = try vkd.createImageView(device, &image_view_create_info, vk_mem_cb);
+        .image_format = self.image_format,
+        .colorspace = self.colorspace,
+    });
+    self.deinit();
+
+    self.* = new;
+}
+
+pub fn deinit(self: *const SwapChain) void {
+    self.context.vkd.destroySwapchainKHR(
+        self.context.device,
+        self.handle,
+        self.context.vk_allocator,
+    );
+}
+
+fn chooseExtent(
+    requested: *const vk.Extent2D,
+    min: *const vk.Extent2D,
+    max: *const vk.Extent2D,
+    current: *const vk.Extent2D,
+) vk.Extent2D {
+    if (current.width == std.math.maxInt(u32))
+        return requested;
+
+    if (requested.width == 0 or requested.height == 0)
+        return current;
+
+    return .{
+        .width = std.math.clamp(requested.width, min.width, max.width),
+        .height = std.math.clamp(requested.height, min.height, max.height),
+    };
+}
+
+fn chooseImageCount(requested: u32, min: u32, max: u32) u32 {
+    const upper = if (max != 0) max else requested;
+    return std.math.clamp(requested, min, upper);
+}
+
+fn chooseSurfaceFormat(
+    requested: vk.SurfaceFormatKHR,
+    available: []vk.SurfaceFormatKHR,
+) vk.SurfaceFormatKHR {
+    for (available) |format| {
+        if (format.format == requested.image_format and
+            format.color_space == requested.image_colorspace)
+        {
+            return format;
+        }
     }
-
-    return image_views;
 }
 
-fn chooseSwapSurfaceFormat(formats: []const vk.SurfaceFormatKHR) vk.SurfaceFormatKHR {
-    for (formats) |*format| {
-        if (format.format == .b8g8r8_srgb and format.color_space == .srgb_nonlinear_khr)
-            return format.*;
-    }
-    return formats[0];
-}
-
-fn chooseSwapPresentMode(modes: []const vk.PresentModeKHR) vk.PresentModeKHR {
-    for (modes) |mode| {
-        if (mode == .mailbox_khr) return .mailbox_khr;
+fn choosePresentMode(
+    requested: vk.PresentModeKHR,
+    available: []vk.PresentModeKHR,
+) vk.PresentModeKHR {
+    for (available) |mode| {
+        if (mode == requested) {
+            return mode;
+        }
     }
     return .fifo_khr;
 }
 
-fn pickCompositeAlpha(supported: vk.CompositeAlphaFlagsKHR) vk.CompositeAlphaFlagsKHR {
+fn chooseCompositeAlpha(supported: vk.CompositeAlphaFlagsKHR) vk.CompositeAlphaFlagsKHR {
     const preferred = [_]vk.CompositeAlphaFlagsKHR{
         .{ .inherit_bit_khr = true },
         .{ .opaque_bit_khr = true },
@@ -291,20 +211,6 @@ fn pickCompositeAlpha(supported: vk.CompositeAlphaFlagsKHR) vk.CompositeAlphaFla
     return .{};
 }
 
-fn getSwapChainImages(
-    vkd: *const vk.DeviceWrapper,
-    swap_chain: vk.SwapchainKHR,
-    device: vk.Device,
-    allocator: Allocator,
-) ![]vk.Image {
-    return try vkd.getSwapchainImagesAllocKHR(device, swap_chain, allocator);
-}
-
-fn getSwapChainImagesBuf(
-    vkd: *const vk.DeviceWrapper,
-    swap_chain: vk.SwapchainKHR,
-    device: vk.Device,
-    allocator: Allocator,
-) !void {
-    return try vkd.getSwapchainImagesAllocKHR(device, swap_chain, allocator);
-}
+const std = @import("std");
+const vk = @import("vulkan");
+const Context = @import("core/Context.zig");
