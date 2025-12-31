@@ -35,7 +35,7 @@ pub const WsiSurface = struct {
     extent: vk.Extent2D,
 
     pub fn create(
-        instance: Context.Instance,
+        instance: *const Context.Instance,
         window: anytype,
     ) !WsiSurface {
         const handle = try WSI.createWindowSurface(
@@ -52,6 +52,14 @@ pub const WsiSurface = struct {
                 .width = window.width,
             },
         };
+    }
+
+    pub fn destroy(self: *const WsiSurface, instance: *const Context.Instance) void {
+        instance.vki.destroySurfaceKHR(
+            instance.handle,
+            self.handle,
+            instance.vk_allocator,
+        );
     }
 };
 

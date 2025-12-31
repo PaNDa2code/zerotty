@@ -35,10 +35,10 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
         &self.allocator_adapter.alloc_callbacks,
         instance_extensions,
     );
-    // errdefer instance.deinit();
+    errdefer instance.deinit();
 
-    const wsi_surface = try Target.WsiSurface.create(instance, window);
-    // errdefer wsi_surface.destroy();
+    const wsi_surface = try Target.WsiSurface.create(&instance, window);
+    errdefer wsi_surface.destroy(&instance);
 
     const device = try Context.Device.init(
         allocator,
@@ -46,13 +46,16 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
         wsi_surface.handle,
         device_extensions,
     );
-    // errdefer device.deinit();
+    errdefer device.deinit(&instance);
 
     self.context = try Context.init(allocator, instance, device);
+    errdefer self.context.deinit(allocator);
 
     self.target = try Target.initWsi(allocator, self.context, wsi_surface);
+    errdefer self.target.deinit(allocator);
 
     self.atlas = try Atlas.loadAll(allocator, 22, 15, 2000);
+    errdefer self.atlas.deinit(allocator);
 
     const grid_rows = window.height / self.atlas.cell_height;
     const grid_cols = window.width / self.atlas.cell_width;
@@ -61,6 +64,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
         .rows = grid_rows,
         .cols = grid_cols,
     });
+    errdefer self.grid.free(allocator);
 }
 
 pub fn deinit(self: *Backend) void {

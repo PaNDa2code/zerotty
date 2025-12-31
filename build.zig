@@ -25,7 +25,7 @@ pub fn build(b: *Build) !void {
     const default_window_system: WindowSystem = switch (target.result.os.tag) {
         .windows => .win32,
         .linux => if (DEFAULT_RENDER_BACKEND == .vulkan) .xcb else .xlib,
-        else => .xlib,
+        else => .glfw,
     };
 
     const window_system = b.option(WindowSystem, "window-system", "") orelse default_window_system;
@@ -271,7 +271,14 @@ fn linkSystemLibraries(
                 .target = target,
                 .optimize = module.optimize.?,
             })) |dep| module.linkLibrary(dep.artifact("glfw"));
-            module.linkSystemLibrary("xkbcommon", .{});
+            if (b.lazyDependency("xkbcommon", .{
+                .target = target,
+                .optimize = module.optimize.?,
+                .@"xkb-config-root" = "/usr/share/X11/xkb",
+            })) |dep| {
+                const libxkbcommon = dep.artifact("xkbcommon");
+                module.linkLibrary(libxkbcommon);
+            }
         },
     }
 }

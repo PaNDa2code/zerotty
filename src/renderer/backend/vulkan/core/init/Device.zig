@@ -55,6 +55,10 @@ pub fn init(
     return error.NoSupportedGPU;
 }
 
+pub fn deinit(self: *const Device, instance: *const Instance) void {
+    self.vkd.destroyDevice(self.handle, instance.vk_allocator);
+}
+
 fn createDevice(
     instance: *const Instance,
     physical_device: PhysicalDevice,

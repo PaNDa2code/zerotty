@@ -100,6 +100,17 @@ pub fn init(
     };
 }
 
+pub fn deinit(self: *const Instance) void {
+    if (builtin.mode == .Debug)
+        self.vki.destroyDebugUtilsMessengerEXT(
+            self.handle,
+            self.debug_messenger,
+            self.vk_allocator,
+        );
+
+    self.vki.destroyInstance(self.handle, self.vk_allocator);
+}
+
 const std = @import("std");
 const vk = @import("vulkan");
 const builtin = @import("builtin");

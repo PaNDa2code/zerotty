@@ -56,6 +56,8 @@ pub fn open(self: *Window, allocator: Allocator) !void {
     _ = c.glfwSetWindowCloseCallback(self.window, callbacks.windowClose);
     _ = c.glfwSetKeyCallback(self.window, callbacks.key);
     _ = c.glfwSetCharCallback(self.window, callbacks.char);
+
+    c.glfwShowWindow(self.window);
 }
 
 pub fn setTitle(self: *Window, title: []const u8) !void {
@@ -113,6 +115,7 @@ const callbacks = struct {
 const std = @import("std");
 
 const c = @cImport({
+    @cDefine("GLFW_INCLUDE_NONE", "");
     @cInclude("GLFW/glfw3.h");
 });
 const Renderer = @import("../renderer/root.zig");
