@@ -153,7 +153,8 @@ fn chooseExtent(
     max: *const vk.Extent2D,
     current: *const vk.Extent2D,
 ) vk.Extent2D {
-    if (current.width == std.math.maxInt(u32))
+    if (current.width == std.math.maxInt(u32) or
+        current.height == std.math.maxInt(u32))
         return requested;
 
     if (requested.width == 0 or requested.height == 0)
@@ -213,4 +214,4 @@ fn chooseCompositeAlpha(supported: vk.CompositeAlphaFlagsKHR) vk.CompositeAlphaF
 
 const std = @import("std");
 const vk = @import("vulkan");
-const Context = @import("core/Context.zig");
+const Context = @import("Context.zig");
