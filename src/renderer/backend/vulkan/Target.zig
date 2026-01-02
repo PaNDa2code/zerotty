@@ -1,20 +1,84 @@
 const Target = @This();
 
-context: *const Context,
-
-images: []vk.Image,
 image_views: []vk.ImageView,
+images_format: vk.Format,
 
-image_format: vk.Format,
 extent: vk.Extent2D,
 
-const InitError = error{};
+pub const InitError = std.mem.Allocator.Error ||
+    vk.DeviceWrapper.CreateImageViewError;
 
 pub fn init(
     context: *const Context,
+    allocator: std.mem.Allocator,
     images: []vk.Image,
-) InitError!Target {}
+    format: vk.Format,
+    extent: vk.Extent2D,
+) InitError!Target {
+    const image_views = try allocator.alloc(vk.ImageView, images.len);
+    errdefer allocator.free(image_views);
+
+    var image_view_info: vk.ImageViewCreateInfo = .{
+        .image = .null_handle,
+        .view_type = .@"2d",
+        .format = format,
+        .components = .{
+            .r = .identity,
+            .g = .identity,
+            .b = .identity,
+            .a = .identity,
+        },
+        .subresource_range = .{
+            .base_mip_level = 0,
+            .level_count = 1,
+            .base_array_layer = 0,
+            .layer_count = 1,
+            .aspect_mask = .{ .color_bit = true },
+        },
+    };
+
+    for (0..images.len) |i| {
+        image_view_info.image = images[i];
+
+        image_views[i] = context.vkd.createImageView(
+            context.device,
+            &image_view_info,
+            context.vk_allocator,
+        );
+    }
+
+    return .{
+        .swapchain = null,
+        .image_views = image_views,
+        .images_format = format,
+        .extent = extent,
+    };
+}
+
+pub fn initFromSwapchain(
+    swapchain: *const Swapchain,
+    allocator: std.mem.Allocator,
+) InitError!Target {
+    return init(
+        swapchain.context,
+        allocator,
+        swapchain.images,
+        swapchain.surface_format.format,
+        swapchain.extent,
+    );
+}
+
+pub fn deinit(self: *const Target, context: *const Context) void {
+    for (self.image_views) |image_view| {
+        context.vkd.destroyImageView(
+            context.device,
+            image_view,
+            context.vk_allocator,
+        );
+    }
+}
 
 const std = @import("std");
 const vk = @import("vulkan");
 const Context = @import("core/Context.zig");
+const Swapchain = @import("core/Swapchain.zig");
