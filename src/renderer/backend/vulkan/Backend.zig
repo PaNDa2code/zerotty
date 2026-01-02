@@ -23,21 +23,25 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
 
     self.allocator_adapter.initInPlace(allocator);
 
+    const surface_creation_info = SurfaceCreationInfo.fromWindow(window);
+
     // Instance and Device are temporary.
     // They are created only to initialize Context.
     // Context takes ownership and cleans them up.
     const instance = try Context.Instance.init(
         allocator,
         &self.allocator_adapter.alloc_callbacks,
-        &.{},
+        SurfaceCreationInfo.instanceExtensions(),
     );
     errdefer instance.deinit();
+
+    const surface = try createWindowSurface(&instance, surface_creation_info);
 
     const device = try Context.Device.init(
         allocator,
         &instance,
-        .null_handle,
-        &.{},
+        surface,
+        SurfaceCreationInfo.deviceExtensions(),
     );
     errdefer device.deinit(&instance);
 
@@ -119,6 +123,9 @@ const os_tag = builtin.os.tag;
 const vk = @import("vulkan");
 
 const Context = @import("core/Context.zig");
+const window_surface = @import("window_surface.zig");
+const SurfaceCreationInfo = window_surface.SurfaceCreationInfo;
+const createWindowSurface = window_surface.createWindowSurface;
 
 const Window = @import("../../../window/root.zig").Window;
 const Allocator = std.mem.Allocator;
