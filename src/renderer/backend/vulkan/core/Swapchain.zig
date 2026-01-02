@@ -103,7 +103,7 @@ pub fn init(
     const images = try context.vkd.getSwapchainImagesAllocKHR(
         context.device,
         handle,
-        context.vk_allocator,
+        allocator,
     );
 
     return .{
@@ -139,12 +139,20 @@ pub fn recreate(
     self.* = new;
 }
 
-pub fn deinit(self: *const SwapChain) void {
+pub fn deinit(self: *const SwapChain, allocator: std.mem.Allocator) void {
     self.context.vkd.destroySwapchainKHR(
         self.context.device,
         self.handle,
         self.context.vk_allocator,
     );
+
+    self.context.vki.destroySurfaceKHR(
+        self.context.instance,
+        self.surface,
+        self.context.vk_allocator,
+    );
+
+    allocator.free(self.images);
 }
 
 fn chooseExtent(
@@ -155,10 +163,10 @@ fn chooseExtent(
 ) vk.Extent2D {
     if (current.width == std.math.maxInt(u32) or
         current.height == std.math.maxInt(u32))
-        return requested;
+        return requested.*;
 
     if (requested.width == 0 or requested.height == 0)
-        return current;
+        return current.*;
 
     return .{
         .width = std.math.clamp(requested.width, min.width, max.width),
@@ -176,12 +184,13 @@ fn chooseSurfaceFormat(
     available: []vk.SurfaceFormatKHR,
 ) vk.SurfaceFormatKHR {
     for (available) |format| {
-        if (format.format == requested.image_format and
-            format.color_space == requested.image_colorspace)
+        if (format.format == requested.format and
+            format.color_space == requested.color_space)
         {
             return format;
         }
     }
+    return available[0];
 }
 
 fn choosePresentMode(

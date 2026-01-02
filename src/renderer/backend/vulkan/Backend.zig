@@ -2,6 +2,8 @@ const Backend = @This();
 
 context: *const Context,
 
+swapchain: Swapchain,
+
 window_height: u32,
 window_width: u32,
 
@@ -48,6 +50,14 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
     self.context = try Context.init(allocator, instance, device);
     errdefer self.context.deinit(allocator);
 
+    self.swapchain =
+        try Swapchain.init(self.context, allocator, surface, .{
+            .extent = .{
+                .height = window.height,
+                .width = window.width,
+            },
+        });
+
     self.atlas = try Atlas.loadAll(allocator, 22, 15, 2000);
     errdefer self.atlas.deinit(allocator);
 
@@ -65,6 +75,8 @@ pub fn deinit(self: *Backend) void {
     const allocator = self.allocator_adapter.allocator;
     self.grid.free(allocator);
     self.atlas.deinit(allocator);
+
+    self.swapchain.deinit(allocator);
 
     self.context.deinit(allocator);
     self.allocator_adapter.deinit();
@@ -123,6 +135,7 @@ const os_tag = builtin.os.tag;
 const vk = @import("vulkan");
 
 const Context = @import("core/Context.zig");
+const Swapchain = @import("core/Swapchain.zig");
 const window_surface = @import("window_surface.zig");
 const SurfaceCreationInfo = window_surface.SurfaceCreationInfo;
 const createWindowSurface = window_surface.createWindowSurface;
