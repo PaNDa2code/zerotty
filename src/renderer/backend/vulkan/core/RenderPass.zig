@@ -73,4 +73,4 @@ pub fn deinit(self: *RenderPass, context: *Context) void {
 
 const std = @import("std");
 const vk = @import("vulkan");
-const Context = @import("core/Context.zig");
+const Context = @import("Context.zig");
