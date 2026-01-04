@@ -206,7 +206,3 @@ const DynamicLibrary = @import("../../../DynamicLibrary.zig");
 const AllocatorAdapter = @import("memory/AllocatorAdapter.zig");
 const Grid = @import("../../../Grid.zig");
 const Atlas = @import("../../../font/Atlas.zig");
-
-const helpers = @import("helpers/root.zig");
-
-const drawFrame = @import("frames.zig").drawFrame;
