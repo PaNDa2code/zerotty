@@ -62,7 +62,30 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
 
     self.target = try Target.initFromSwapchain(&self.swapchain, allocator);
 
-    self.render_pass = try RenderPass.create(self.context, self.swapchain.surface_format.format);
+    self.render_pass = try RenderPass.create(
+        self.context,
+        self.swapchain.surface_format.format,
+    );
+
+    const descriptor_pool = try DescriptorPool.Builder
+        .addPoolSize(.storage_buffer, 2)
+        .addPoolSize(.combined_image_sampler, 1)
+        .addPoolSize(.uniform_buffer, 1)
+        .build(self.context);
+
+    defer descriptor_pool.deinit();
+
+    const descriptor_set_layout = try DescriptorSetLayout.Builder
+        .addBinding(0, .uniform_buffer, 1, .{ .vertex_bit = true })
+        .addBinding(1, .combined_image_sampler, 1, .{ .fragment_bit = true })
+        .addBinding(2, .storage_buffer, 1, .{ .vertex_bit = true })
+        .addBinding(3, .storage_buffer, 1, .{ .vertex_bit = true })
+        .build(self.context);
+
+    const descriptor_set = try descriptor_pool.allocDescriptorSets(&descriptor_set_layout);
+    try descriptor_pool.freeDescriptorSet(descriptor_set);
+
+    defer descriptor_set_layout.deinit(self.context);
 
     self.atlas = try Atlas.loadAll(allocator, 22, 15, 2000);
     errdefer self.atlas.deinit(allocator);
@@ -167,6 +190,9 @@ const vk = @import("vulkan");
 const Context = @import("core/Context.zig");
 const Swapchain = @import("core/Swapchain.zig");
 const RenderPass = @import("core/RenderPass.zig");
+const descriptor = @import("core/descriptor.zig");
+const DescriptorPool = descriptor.DescriptorPool;
+const DescriptorSetLayout = descriptor.DescriptorSetLayout;
 const Target = @import("Target.zig");
 const window_surface = @import("window_surface.zig");
 const SurfaceCreationInfo = window_surface.SurfaceCreationInfo;
