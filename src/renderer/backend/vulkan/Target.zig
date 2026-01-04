@@ -40,7 +40,7 @@ pub fn init(
     for (0..images.len) |i| {
         image_view_info.image = images[i];
 
-        image_views[i] = context.vkd.createImageView(
+        image_views[i] = try context.vkd.createImageView(
             context.device,
             &image_view_info,
             context.vk_allocator,
@@ -48,7 +48,6 @@ pub fn init(
     }
 
     return .{
-        .swapchain = null,
         .image_views = image_views,
         .images_format = format,
         .extent = extent,
@@ -68,7 +67,11 @@ pub fn initFromSwapchain(
     );
 }
 
-pub fn deinit(self: *const Target, context: *const Context) void {
+pub fn deinit(
+    self: *const Target,
+    context: *const Context,
+    allocator: std.mem.Allocator,
+) void {
     for (self.image_views) |image_view| {
         context.vkd.destroyImageView(
             context.device,
@@ -76,6 +79,8 @@ pub fn deinit(self: *const Target, context: *const Context) void {
             context.vk_allocator,
         );
     }
+
+    allocator.free(self.image_views);
 }
 
 const std = @import("std");

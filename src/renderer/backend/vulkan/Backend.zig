@@ -3,6 +3,8 @@ const Backend = @This();
 context: *const Context,
 
 swapchain: Swapchain,
+render_pass: RenderPass,
+target: Target,
 
 window_height: u32,
 window_width: u32,
@@ -12,7 +14,7 @@ grid: Grid,
 
 allocator_adapter: *AllocatorAdapter,
 
-pub const log = std.log.scoped(.Renderer);
+pub const log = std.log.scoped(.renderer);
 
 pub fn init(window: *Window, allocator: Allocator) !Backend {
     var self: Backend = undefined;
@@ -58,6 +60,10 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
             },
         });
 
+    self.target = try Target.initFromSwapchain(&self.swapchain, allocator);
+
+    self.render_pass = try RenderPass.create(self.context, self.swapchain.surface_format.format);
+
     self.atlas = try Atlas.loadAll(allocator, 22, 15, 2000);
     errdefer self.atlas.deinit(allocator);
 
@@ -76,7 +82,16 @@ pub fn deinit(self: *Backend) void {
     self.grid.free(allocator);
     self.atlas.deinit(allocator);
 
+    self.context.vki.destroySurfaceKHR(
+        self.context.instance,
+        self.swapchain.surface,
+        self.context.vk_allocator,
+    );
+
     self.swapchain.deinit(allocator);
+    self.render_pass.deinit(self.context);
+
+    self.target.deinit(self.context, allocator);
 
     self.context.deinit(allocator);
     self.allocator_adapter.deinit();
@@ -97,10 +112,25 @@ pub fn resize(self: *Backend, width: u32, height: u32) !void {
         .rows = grid_rows,
         .cols = grid_cols,
     });
+
+    try self.swapchain.recreate(
+        self.allocator_adapter.allocator,
+        .{ .width = width, .height = height },
+    );
+
+    self.target.deinit(
+        self.context,
+        self.allocator_adapter.allocator,
+    );
+
+    self.target = try Target.initFromSwapchain(
+        &self.swapchain,
+        self.allocator_adapter.allocator,
+    );
 }
 
 pub fn presentBuffer(self: *Backend) void {
-    _ = self; // autofix
+    _ = self;
 }
 
 pub fn renaderGrid(self: *Backend) void {
@@ -136,6 +166,8 @@ const vk = @import("vulkan");
 
 const Context = @import("core/Context.zig");
 const Swapchain = @import("core/Swapchain.zig");
+const RenderPass = @import("core/RenderPass.zig");
+const Target = @import("Target.zig");
 const window_surface = @import("window_surface.zig");
 const SurfaceCreationInfo = window_surface.SurfaceCreationInfo;
 const createWindowSurface = window_surface.createWindowSurface;

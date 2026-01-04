@@ -124,17 +124,22 @@ pub const RecreateError = InitError || error{};
 
 pub fn recreate(
     self: *SwapChain,
+    allocator: std.mem.Allocator,
     extent: vk.Extent2D,
 ) RecreateError!void {
-    const new = init(self.context, .{
-        .extent = extent,
-        .presnt_mode = self.presnt_mode,
-        .old_swapchain = self.handle,
+    const new = try init(
+        self.context,
+        allocator,
+        self.surface,
+        .{
+            .extent = extent,
+            .presnt_mode = self.present_mode,
+            .old_swapchain = self.handle,
 
-        .image_format = self.image_format,
-        .colorspace = self.colorspace,
-    });
-    self.deinit();
+            .surface_format = self.surface_format,
+        },
+    );
+    self.deinit(allocator);
 
     self.* = new;
 }
@@ -143,12 +148,6 @@ pub fn deinit(self: *const SwapChain, allocator: std.mem.Allocator) void {
     self.context.vkd.destroySwapchainKHR(
         self.context.device,
         self.handle,
-        self.context.vk_allocator,
-    );
-
-    self.context.vki.destroySurfaceKHR(
-        self.context.instance,
-        self.surface,
         self.context.vk_allocator,
     );
 

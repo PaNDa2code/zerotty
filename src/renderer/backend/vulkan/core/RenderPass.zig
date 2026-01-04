@@ -58,12 +58,13 @@ pub fn create(
     );
 
     return .{
+        .context = context,
         .handle = render_pass,
         .color_format = color_format,
     };
 }
 
-pub fn deinit(self: *RenderPass, context: *Context) void {
+pub fn deinit(self: *RenderPass, context: *const Context) void {
     context.vkd.destroyRenderPass(
         context.device,
         self.handle,
