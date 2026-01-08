@@ -62,10 +62,37 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
 
     self.target = try Target.initFromSwapchain(&self.swapchain, allocator);
 
-    self.render_pass = try RenderPass.create(
-        self.context,
-        self.swapchain.surface_format.format,
-    );
+    var render_pass_builder = RenderPass.Builder.init(allocator);
+    defer render_pass_builder.deinit();
+
+    try render_pass_builder.addAttachment(.{
+        .format = self.swapchain.surface_format.format,
+        .samples = .{ .@"1_bit" = true },
+        .load_op = .clear,
+        .store_op = .store,
+        .stencil_load_op = .dont_care,
+        .stencil_store_op = .dont_care,
+        .initial_layout = .undefined,
+        .final_layout = .present_src_khr,
+    });
+
+    try render_pass_builder.addSubpass(.{
+        .pipeline_bind_point = .graphics,
+        .color_attachments = &.{
+            .{ .attachment = 0, .layout = .color_attachment_optimal },
+        },
+    });
+
+    try render_pass_builder.addDependency(.{
+        .src_subpass = 0,
+        .dst_subpass = 0,
+        .src_stage_mask = .{ .color_attachment_output_bit = true },
+        .src_access_mask = .{},
+        .dst_stage_mask = .{ .color_attachment_output_bit = true },
+        .dst_access_mask = .{ .color_attachment_write_bit = true },
+    });
+
+    self.render_pass = try render_pass_builder.build(self.context);
 
     const descriptor_pool = try DescriptorPool.Builder
         .addPoolSize(.storage_buffer, 2)
@@ -112,7 +139,7 @@ pub fn deinit(self: *Backend) void {
     );
 
     self.swapchain.deinit(allocator);
-    self.render_pass.deinit(self.context);
+    self.render_pass.deinit();
 
     self.target.deinit(self.context, allocator);
 

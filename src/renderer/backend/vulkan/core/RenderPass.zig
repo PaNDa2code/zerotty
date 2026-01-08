@@ -1,77 +1,127 @@
+const std = @import("std");
+const vk = @import("vulkan");
+const Context = @import("Context.zig");
+
 const RenderPass = @This();
 
 context: *const Context,
-
 handle: vk.RenderPass,
-color_format: vk.Format,
 
 pub const InitError = vk.DeviceWrapper.CreateRenderPassError;
 
-pub fn create(
+pub fn init(
     context: *const Context,
-    color_format: vk.Format,
+    attachments: []vk.AttachmentDescription,
+    subpasses: []vk.SubpassDescription,
+    dependencies: []vk.SubpassDependency,
 ) InitError!RenderPass {
-    const color_attachment = vk.AttachmentDescription{
-        .format = color_format,
-        .samples = .{ .@"1_bit" = true },
-        .load_op = .clear,
-        .store_op = .store,
-        .stencil_load_op = .dont_care,
-        .stencil_store_op = .dont_care,
-        .initial_layout = .undefined,
-        .final_layout = .present_src_khr,
+    const create_info = vk.RenderPassCreateInfo{
+        .flags = .{},
+        .attachment_count = @intCast(attachments.len),
+        .p_attachments = attachments.ptr,
+        .subpass_count = @intCast(subpasses.len),
+        .p_subpasses = subpasses.ptr,
+        .dependency_count = @intCast(dependencies.len),
+        .p_dependencies = dependencies.ptr,
     };
 
-    const color_attachment_ref = vk.AttachmentReference{
-        .attachment = 0,
-        .layout = .color_attachment_optimal,
-    };
-
-    const subpass_description = vk.SubpassDescription{
-        .color_attachment_count = 1,
-        .p_color_attachments = &.{color_attachment_ref},
-        .pipeline_bind_point = .graphics,
-    };
-
-    const dependency = vk.SubpassDependency{
-        .src_subpass = vk.SUBPASS_EXTERNAL,
-        .dst_subpass = 0,
-        .src_stage_mask = .{ .color_attachment_output_bit = true },
-        .src_access_mask = .{},
-        .dst_stage_mask = .{ .color_attachment_output_bit = true },
-        .dst_access_mask = .{ .color_attachment_write_bit = true },
-    };
-
-    const render_pass_create_info = vk.RenderPassCreateInfo{
-        .attachment_count = 1,
-        .p_attachments = &.{color_attachment},
-        .subpass_count = 1,
-        .p_subpasses = &.{subpass_description},
-        .dependency_count = 1,
-        .p_dependencies = &.{dependency},
-    };
-
-    const render_pass = try context.vkd.createRenderPass(
+    const handle = try context.vkd.createRenderPass(
         context.device,
-        &render_pass_create_info,
+        &create_info,
         context.vk_allocator,
     );
 
     return .{
         .context = context,
-        .handle = render_pass,
-        .color_format = color_format,
+        .handle = handle,
     };
 }
 
-pub fn deinit(self: *RenderPass, context: *const Context) void {
-    context.vkd.destroyRenderPass(
-        context.device,
+pub fn deinit(self: *const RenderPass) void {
+    self.context.vkd.destroyRenderPass(
+        self.context.device,
         self.handle,
-        context.vk_allocator,
+        self.context.vk_allocator,
     );
 }
 
-const std = @import("std");
-const vk = @import("vulkan");
-const Context = @import("Context.zig");
+pub const Builder = struct {
+    arena: std.heap.ArenaAllocator,
+
+    attachments: std.ArrayList(vk.AttachmentDescription),
+    subpasses: std.ArrayList(vk.SubpassDescription),
+    dependencies: std.ArrayList(vk.SubpassDependency),
+
+    pub fn init(allocator: std.mem.Allocator) Builder {
+        return .{
+            .arena = std.heap.ArenaAllocator.init(allocator),
+            .attachments = .empty,
+            .subpasses = .empty,
+            .dependencies = .empty,
+        };
+    }
+
+    pub fn deinit(self: *Builder) void {
+        self.arena.deinit();
+    }
+
+    pub fn addAttachment(self: *Builder, attachment: vk.AttachmentDescription) !void {
+        try self.attachments.append(self.arena.allocator(), attachment);
+    }
+
+    pub const Subpass = struct {
+        pipeline_bind_point: vk.PipelineBindPoint = .graphics,
+        input_attachments: []const vk.AttachmentReference = &.{},
+        color_attachments: []const vk.AttachmentReference = &.{},
+        resolve_attachments: []const vk.AttachmentReference = &.{},
+        depth_stencil_attachment: ?vk.AttachmentReference = null,
+        preserve_attachments: []const u32 = &.{},
+    };
+
+    pub fn addSubpass(self: *Builder, subpass: Subpass) !void {
+        const allocator = self.arena.allocator();
+
+        const input_refs = try allocator.dupe(vk.AttachmentReference, subpass.input_attachments);
+        const color_refs = try allocator.dupe(vk.AttachmentReference, subpass.color_attachments);
+        const resolve_refs = if (subpass.resolve_attachments.len > 0)
+            try allocator.dupe(vk.AttachmentReference, subpass.resolve_attachments)
+        else
+            null;
+        const preserve_refs = try allocator.dupe(u32, subpass.preserve_attachments);
+
+        const depth_ref = if (subpass.depth_stencil_attachment) |d| blk: {
+            const ptr = try allocator.create(vk.AttachmentReference);
+            ptr.* = d;
+            break :blk ptr;
+        } else null;
+
+        const description = vk.SubpassDescription{
+            .flags = .{},
+            .pipeline_bind_point = subpass.pipeline_bind_point,
+            .input_attachment_count = @intCast(input_refs.len),
+            .p_input_attachments = input_refs.ptr,
+            .color_attachment_count = @intCast(color_refs.len),
+            .p_color_attachments = color_refs.ptr,
+            .p_resolve_attachments = if (resolve_refs) |r| r.ptr else null,
+            .p_depth_stencil_attachment = depth_ref,
+            .preserve_attachment_count = @intCast(preserve_refs.len),
+            .p_preserve_attachments = preserve_refs.ptr,
+        };
+
+        try self.subpasses.append(allocator, description);
+    }
+
+    pub fn addDependency(self: *Builder, dependency: vk.SubpassDependency) !void {
+        try self.dependencies.append(self.arena.allocator(), dependency);
+    }
+
+    pub fn build(self: *Builder, context: *const Context) InitError!RenderPass {
+        return RenderPass.init(
+            context,
+            self.attachments.items,
+            self.subpasses.items,
+            self.dependencies.items,
+        );
+    }
+};
+
