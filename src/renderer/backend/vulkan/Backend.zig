@@ -9,9 +9,6 @@ target: Target,
 window_height: u32,
 window_width: u32,
 
-atlas: Atlas,
-grid: Grid,
-
 allocator_adapter: *AllocatorAdapter,
 
 pub const log = std.log.scoped(.renderer);
@@ -84,7 +81,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
     });
 
     try render_pass_builder.addDependency(.{
-        .src_subpass = 0,
+        .src_subpass = vk.SUBPASS_EXTERNAL,
         .dst_subpass = 0,
         .src_stage_mask = .{ .color_attachment_output_bit = true },
         .src_access_mask = .{},
@@ -110,24 +107,11 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
         .build(self.context);
 
     const descriptor_set = try DescriptorSet.init(&descriptor_pool, &descriptor_set_layout, allocator, &.{}, &.{});
-
-    self.atlas = try Atlas.loadAll(allocator, 22, 15, 2000);
-    errdefer self.atlas.deinit(allocator);
-
-    const grid_rows = window.height / self.atlas.cell_height;
-    const grid_cols = window.width / self.atlas.cell_width;
-
-    self.grid = try Grid.create(allocator, .{
-        .rows = grid_rows,
-        .cols = grid_cols,
-    });
-    errdefer self.grid.free(allocator);
+    _ = descriptor_set;
 }
 
 pub fn deinit(self: *Backend) void {
     const allocator = self.allocator_adapter.allocator;
-    self.grid.free(allocator);
-    self.atlas.deinit(allocator);
 
     self.context.vki.destroySurfaceKHR(
         self.context.instance,
@@ -152,14 +136,6 @@ pub fn clearBuffer(self: *Backend, color: ColorRGBAf32) void {
 }
 
 pub fn resize(self: *Backend, width: u32, height: u32) !void {
-    const grid_rows = height / self.atlas.cell_height;
-    const grid_cols = width / self.atlas.cell_width;
-
-    try self.grid.resize(self.allocator_adapter.allocator, .{
-        .rows = grid_rows,
-        .cols = grid_cols,
-    });
-
     try self.swapchain.recreate(
         self.allocator_adapter.allocator,
         .{ .width = width, .height = height },
@@ -230,3 +206,4 @@ const DynamicLibrary = @import("../../../DynamicLibrary.zig");
 const AllocatorAdapter = @import("memory/AllocatorAdapter.zig");
 const Grid = @import("../../../Grid.zig");
 const Atlas = @import("../../../font/Atlas.zig");
+
