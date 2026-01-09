@@ -1,16 +1,16 @@
 const std = @import("std");
 const vk = @import("vulkan");
-const Context = @import("Context.zig");
+const Device = @import("Device.zig");
 
 const RenderPass = @This();
 
-context: *const Context,
+device: *const Device,
 handle: vk.RenderPass,
 
 pub const InitError = vk.DeviceWrapper.CreateRenderPassError;
 
 pub fn init(
-    context: *const Context,
+    device: *const Device,
     attachments: []const vk.AttachmentDescription,
     subpasses: []const vk.SubpassDescription,
     dependencies: []const vk.SubpassDependency,
@@ -25,23 +25,23 @@ pub fn init(
         .p_dependencies = dependencies.ptr,
     };
 
-    const handle = try context.vkd.createRenderPass(
-        context.device,
+    const handle = try device.vkd.createRenderPass(
+        device.handle,
         &create_info,
-        context.vk_allocator,
+        device.vk_allocator,
     );
 
     return .{
-        .context = context,
+        .device = device,
         .handle = handle,
     };
 }
 
 pub fn deinit(self: *const RenderPass) void {
-    self.context.vkd.destroyRenderPass(
-        self.context.device,
+    self.device.vkd.destroyRenderPass(
+        self.device.handle,
         self.handle,
-        self.context.vk_allocator,
+        self.device.vk_allocator,
     );
 }
 
@@ -115,9 +115,12 @@ pub const Builder = struct {
         try self.dependencies.append(self.arena.allocator(), dependency);
     }
 
-    pub fn build(self: *Builder, context: *const Context) InitError!RenderPass {
+    pub fn build(
+        self: *Builder,
+        device: *const Device,
+    ) InitError!RenderPass {
         return RenderPass.init(
-            context,
+            device,
             self.attachments.items,
             self.subpasses.items,
             self.dependencies.items,

@@ -15,6 +15,7 @@ handle: vk.Device,
 physical_device: PhysicalDevice,
 
 vkd: vk.DeviceWrapper,
+vk_allocator: ?*const vk.AllocationCallbacks,
 
 pub const InitError = std.mem.Allocator.Error ||
     vk.InstanceWrapper.CreateDeviceError ||
@@ -49,14 +50,15 @@ pub fn init(
             .physical_device = physical_device,
 
             .vkd = vkd,
+            .vk_allocator = instance.vk_allocator,
         };
     }
 
     return error.NoSupportedGPU;
 }
 
-pub fn deinit(self: *const Device, instance: *const Instance) void {
-    self.vkd.destroyDevice(self.handle, instance.vk_allocator);
+pub fn deinit(self: *const Device) void {
+    self.vkd.destroyDevice(self.handle, self.vk_allocator);
 }
 
 fn createDevice(

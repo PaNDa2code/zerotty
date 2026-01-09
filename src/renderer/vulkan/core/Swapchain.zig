@@ -1,6 +1,7 @@
 const SwapChain = @This();
 
-context: *const Context,
+instance: *const Instance,
+device: *const Device,
 
 handle: vk.SwapchainKHR,
 surface: vk.SurfaceKHR,
@@ -30,22 +31,23 @@ pub const InitError = std.mem.Allocator.Error ||
     vk.DeviceWrapper.CreateSwapchainKHRError;
 
 pub fn init(
-    context: *const Context,
+    instance: *const Instance,
+    device: *const Device,
     allocator: std.mem.Allocator,
     surface: vk.SurfaceKHR,
     options: SwapchainOptions,
 ) InitError!SwapChain {
     const present_modes =
-        try context.vki.getPhysicalDeviceSurfacePresentModesAllocKHR(
-            context.gpu,
+        try instance.vki.getPhysicalDeviceSurfacePresentModesAllocKHR(
+            device.physical_device.handle,
             surface,
             allocator,
         );
     defer allocator.free(present_modes);
 
     const surface_formats =
-        try context.vki.getPhysicalDeviceSurfaceFormatsAllocKHR(
-            context.gpu,
+        try instance.vki.getPhysicalDeviceSurfaceFormatsAllocKHR(
+            device.physical_device.handle,
             surface,
             allocator,
         );
@@ -55,8 +57,8 @@ pub fn init(
     const present_mode = choosePresentMode(options.presnt_mode, present_modes);
 
     const surface_caps =
-        try context.vki.getPhysicalDeviceSurfaceCapabilitiesKHR(
-            context.gpu,
+        try instance.vki.getPhysicalDeviceSurfaceCapabilitiesKHR(
+            device.physical_device.handle,
             surface,
         );
 
@@ -94,20 +96,21 @@ pub fn init(
         .old_swapchain = options.old_swapchain,
     };
 
-    const handle = try context.vkd.createSwapchainKHR(
-        context.device,
+    const handle = try device.vkd.createSwapchainKHR(
+        device.handle,
         &swapchain_info,
-        context.vk_allocator,
+        instance.vk_allocator,
     );
 
-    const images = try context.vkd.getSwapchainImagesAllocKHR(
-        context.device,
+    const images = try device.vkd.getSwapchainImagesAllocKHR(
+        device.handle,
         handle,
         allocator,
     );
 
     return .{
-        .context = context,
+        .instance = instance,
+        .device = device,
 
         .handle = handle,
         .surface = surface,
@@ -128,7 +131,8 @@ pub fn recreate(
     extent: vk.Extent2D,
 ) RecreateError!void {
     const new = try init(
-        self.context,
+        self.instance,
+        self.device,
         allocator,
         self.surface,
         .{
@@ -145,10 +149,10 @@ pub fn recreate(
 }
 
 pub fn deinit(self: *const SwapChain, allocator: std.mem.Allocator) void {
-    self.context.vkd.destroySwapchainKHR(
-        self.context.device,
+    self.device.vkd.destroySwapchainKHR(
+        self.device.handle,
         self.handle,
-        self.context.vk_allocator,
+        self.instance.vk_allocator,
     );
 
     allocator.free(self.images);
@@ -222,4 +226,5 @@ fn chooseCompositeAlpha(supported: vk.CompositeAlphaFlagsKHR) vk.CompositeAlphaF
 
 const std = @import("std");
 const vk = @import("vulkan");
-const Context = @import("Context.zig");
+const Instance = @import("Instance.zig");
+const Device = @import("Device.zig");

@@ -23,8 +23,10 @@ fn DescriptorSetLayoutBuilder(
             }});
         }
 
-        pub fn build(context: *const Context) InitError!DescriptorSetLayout {
-            return DescriptorSetLayout.init(context, Bindings);
+        pub fn build(
+            device: *const Device,
+        ) InitError!DescriptorSetLayout {
+            return DescriptorSetLayout.init(device, Bindings);
         }
     };
 }
@@ -32,7 +34,7 @@ fn DescriptorSetLayoutBuilder(
 pub const InitError = vk.DeviceWrapper.CreateDescriptorSetLayoutError;
 
 pub fn init(
-    context: *const Context,
+    device: *const Device,
     bindings: []const vk.DescriptorSetLayoutBinding,
 ) InitError!DescriptorSetLayout {
     const descriptor_set_layout_info = vk.DescriptorSetLayoutCreateInfo{
@@ -41,10 +43,10 @@ pub fn init(
     };
 
     const descriptor_set_layout =
-        try context.vkd.createDescriptorSetLayout(
-            context.device,
+        try device.vkd.createDescriptorSetLayout(
+            device.handle,
             &descriptor_set_layout_info,
-            context.vk_allocator,
+            device.vk_allocator,
         );
 
     return .{
@@ -53,14 +55,17 @@ pub fn init(
     };
 }
 
-pub fn deinit(self: *const DescriptorSetLayout, context: *const Context) void {
-    context.vkd.destroyDescriptorSetLayout(
-        context.device,
+pub fn deinit(
+    self: *const DescriptorSetLayout,
+    device: *const Device,
+) void {
+    device.vkd.destroyDescriptorSetLayout(
+        device.handle,
         self.handle,
-        context.vk_allocator,
+        device.vk_allocator,
     );
 }
 
 const std = @import("std");
 const vk = @import("vulkan");
-const Context = @import("Context.zig");
+const Device = @import("Device.zig");

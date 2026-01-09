@@ -58,7 +58,7 @@ pub fn reset(
 }
 
 pub fn prepare(self: *DescriptorSet) std.mem.Allocator.Error!void {
-    const limits = self.pool.context.gpu_props.limits;
+    const limits = self.pool.device.physical_device.properties.limits;
 
     for (self.buffer_infos, 0..) |binding_buffers, binding_index| {
         const layout_binding = self.layout.bindings[binding_index];
@@ -109,8 +109,8 @@ pub fn prepare(self: *DescriptorSet) std.mem.Allocator.Error!void {
 }
 
 pub fn update(self: *DescriptorSet) void {
-    self.pool.context.vkd.updateDescriptorSets(
-        self.pool.context.device,
+    self.pool.device.vkd.updateDescriptorSets(
+        self.pool.device.handle,
         @intCast(self.write_descriptor_sets.items.len),
         self.write_descriptor_sets.items.ptr,
         0,

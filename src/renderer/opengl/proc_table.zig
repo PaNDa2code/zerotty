@@ -1,7 +1,7 @@
 const std = @import("std");
 const ProcTable = @import("gl").ProcTable;
 
-const DynamicLibrary = @import("../../../DynamicLibrary.zig");
+const DynamicLibrary = @import("../../DynamicLibrary.zig");
 
 const os = @import("builtin").os.tag;
 

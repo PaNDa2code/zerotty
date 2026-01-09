@@ -30,25 +30,25 @@ pub const CompileError = vk.DeviceWrapper.CreateShaderModuleError;
 
 pub fn compile(
     self: *Shader,
-    context: *const Context,
+    device: *const Device,
 ) CompileError!void {
     const shader_mod_info = vk.ShaderModuleCreateInfo{
         .code_size = self.spirv.len,
         .p_code = @ptrCast(self.spirv.ptr),
     };
-    self.module = try context.vkd.createShaderModule(
-        context.device,
+    self.module = try device.vkd.createShaderModule(
+        device.handle,
         &shader_mod_info,
-        context.vk_allocator,
+        device.vk_allocator,
     );
 }
 
 pub fn pipelineStageInfo(
     self: *Shader,
-    context: *const Context,
+    device: *const Device,
 ) CompileError!vk.PipelineShaderStageCreateInfo {
     if (self.module == .null_handle) {
-        try self.compile(context);
+        try self.compile(device);
     }
 
     return .{
@@ -61,12 +61,15 @@ pub fn pipelineStageInfo(
     };
 }
 
-pub fn deinit(self: *Shader, context: *const Context) void {
+pub fn deinit(
+    self: *Shader,
+    device: *const Device,
+) void {
     if (self.module != .null_handle) {
-        context.vkd.destroyShaderModule(
-            context.device,
+        device.vkd.destroyShaderModule(
+            device.handle,
             self.module,
-            context.vk_allocator,
+            device.vk_allocator,
         );
         self.module = .null_handle;
     }
@@ -75,4 +78,4 @@ pub fn deinit(self: *Shader, context: *const Context) void {
 
 const vk = @import("vulkan");
 
-const Context = @import("core/Context.zig");
+const Device = @import("core/Device.zig");

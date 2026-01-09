@@ -1,6 +1,7 @@
 const Backend = @This();
 
-context: *const Context,
+instance: Instance,
+device: Device,
 
 swapchain: Swapchain,
 render_pass: RenderPass,
@@ -26,10 +27,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
 
     const surface_creation_info = SurfaceCreationInfo.fromWindow(window);
 
-    // Instance and Device are temporary.
-    // They are created only to initialize Context.
-    // Context takes ownership and cleans them up.
-    const instance = try Context.Instance.init(
+    const instance = try Instance.init(
         allocator,
         &self.allocator_adapter.alloc_callbacks,
         SurfaceCreationInfo.instanceExtensions(),
@@ -38,19 +36,19 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
 
     const surface = try createWindowSurface(&instance, surface_creation_info);
 
-    const device = try Context.Device.init(
+    const device = try Device.init(
         allocator,
         &instance,
         surface,
         SurfaceCreationInfo.deviceExtensions(),
     );
-    errdefer device.deinit(&instance);
+    errdefer device.deinit();
 
-    self.context = try Context.init(allocator, instance, device);
-    errdefer self.context.deinit(allocator);
+    self.instance = instance;
+    self.device = device;
 
     self.swapchain =
-        try Swapchain.init(self.context, allocator, surface, .{
+        try Swapchain.init(&self.instance, &self.device, allocator, surface, .{
             .extent = .{
                 .height = window.height,
                 .width = window.width,
@@ -89,13 +87,13 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
         .dst_access_mask = .{ .color_attachment_write_bit = true },
     });
 
-    self.render_pass = try render_pass_builder.build(self.context);
+    self.render_pass = try render_pass_builder.build(&self.device);
 
     const descriptor_pool = try DescriptorPool.Builder
         .addPoolSize(.storage_buffer, 2)
         .addPoolSize(.combined_image_sampler, 1)
         .addPoolSize(.uniform_buffer, 1)
-        .build(self.context);
+        .build(&self.device);
 
     defer descriptor_pool.deinit();
 
@@ -104,7 +102,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
         .addBinding(1, .combined_image_sampler, 1, .{ .fragment_bit = true })
         .addBinding(2, .storage_buffer, 1, .{ .vertex_bit = true })
         .addBinding(3, .storage_buffer, 1, .{ .vertex_bit = true })
-        .build(self.context);
+        .build(&self.device);
 
     const descriptor_set = try DescriptorSet.init(&descriptor_pool, &descriptor_set_layout, allocator, &.{}, &.{});
     _ = descriptor_set;
@@ -113,18 +111,20 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
 pub fn deinit(self: *Backend) void {
     const allocator = self.allocator_adapter.allocator;
 
-    self.context.vki.destroySurfaceKHR(
-        self.context.instance,
+    self.instance.vki.destroySurfaceKHR(
+        self.instance.handle,
         self.swapchain.surface,
-        self.context.vk_allocator,
+        self.instance.vk_allocator,
     );
 
     self.swapchain.deinit(allocator);
     self.render_pass.deinit();
 
-    self.target.deinit(self.context, allocator);
+    self.target.deinit(&self.device, allocator);
 
-    self.context.deinit(allocator);
+    self.device.deinit();
+    self.instance.deinit();
+
     self.allocator_adapter.deinit();
 
     allocator.destroy(self.allocator_adapter);
@@ -142,7 +142,7 @@ pub fn resize(self: *Backend, width: u32, height: u32) !void {
     );
 
     self.target.deinit(
-        self.context,
+        &self.device,
         self.allocator_adapter.allocator,
     );
 
@@ -168,16 +168,13 @@ pub fn setCell(
     fg_color: ?ColorRGBAu8,
     bg_color: ?ColorRGBAu8,
 ) !void {
-    _ = bg_color;
-    _ = fg_color;
+    _ = bg_color; // autofix
+    _ = fg_color; // autofix
+    _ = char_code; // autofix
+    _ = col; // autofix
+    _ = row; // autofix
+    _ = self; // autofix
 
-    const glyph_index = self.atlas.glyph_lookup_map.getIndex(char_code) orelse 0;
-
-    try self.grid.set(.{
-        .packed_pos = (col << 16) | row,
-        .glyph_index = @intCast(glyph_index),
-        .style_index = 0,
-    });
 }
 
 const std = @import("std");
@@ -187,7 +184,8 @@ const build_options = @import("build_options");
 const os_tag = builtin.os.tag;
 const vk = @import("vulkan");
 
-const Context = @import("core/Context.zig");
+const Instance = @import("core/Instance.zig");
+const Device = @import("core/Device.zig");
 const Swapchain = @import("core/Swapchain.zig");
 const RenderPass = @import("core/RenderPass.zig");
 const DescriptorPool = @import("core/DescriptorPool.zig");
@@ -198,12 +196,12 @@ const window_surface = @import("window_surface.zig");
 const SurfaceCreationInfo = window_surface.SurfaceCreationInfo;
 const createWindowSurface = window_surface.createWindowSurface;
 
-const Window = @import("../../../window/root.zig").Window;
+const Window = @import("../../window/root.zig").Window;
 const Allocator = std.mem.Allocator;
-const ColorRGBAu8 = @import("../../common/color.zig").ColorRGBAu8;
-const ColorRGBAf32 = @import("../../common/color.zig").ColorRGBAf32;
-const DynamicLibrary = @import("../../../DynamicLibrary.zig");
+const ColorRGBAu8 = @import("../common/color.zig").ColorRGBAu8;
+const ColorRGBAf32 = @import("../common/color.zig").ColorRGBAf32;
+const DynamicLibrary = @import("../../DynamicLibrary.zig");
 const AllocatorAdapter = @import("memory/AllocatorAdapter.zig");
-const Grid = @import("../../../Grid.zig");
-const Atlas = @import("../../../font/Atlas.zig");
+const Grid = @import("../../Grid.zig");
+const Atlas = @import("../../font/Atlas.zig");
 

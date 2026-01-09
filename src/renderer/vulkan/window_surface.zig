@@ -3,7 +3,7 @@ const vk = @import("vulkan");
 
 const build_options = @import("build_options");
 
-const Context = @import("core/Context.zig");
+const Instance = @import("core/Instance.zig");
 
 pub const SurfaceCreationInfo = union {
     win32: struct {
@@ -67,7 +67,7 @@ pub const SurfaceCreationInfo = union {
 };
 
 pub fn createWindowSurface(
-    instance: *const Context.Instance,
+    instance: *const Instance,
     surface_creation_info: SurfaceCreationInfo,
 ) !vk.SurfaceKHR {
     switch (build_options.@"window-system") {

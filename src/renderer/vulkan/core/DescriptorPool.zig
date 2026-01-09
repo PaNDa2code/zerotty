@@ -1,6 +1,6 @@
 const DescriptorPool = @This();
 
-context: *const Context,
+device: *const Device,
 
 handle: vk.DescriptorPool,
 
@@ -15,8 +15,10 @@ fn DescriptorPoolBuilder(comptime Sizes: []const vk.DescriptorPoolSize) type {
             return DescriptorPoolBuilder(Sizes ++ &[_]vk.DescriptorPoolSize{.{ .type = d_type, .descriptor_count = d_count }});
         }
 
-        pub fn build(context: *const Context) InitError!DescriptorPool {
-            return init(context, Sizes);
+        pub fn build(
+            device: *const Device,
+        ) InitError!DescriptorPool {
+            return init(device, Sizes);
         }
     };
 }
@@ -24,7 +26,7 @@ fn DescriptorPoolBuilder(comptime Sizes: []const vk.DescriptorPoolSize) type {
 pub const InitError = vk.DeviceWrapper.CreateDescriptorPoolError;
 
 pub fn init(
-    context: *const Context,
+    device: *const Device,
     pool_sizes: []const vk.DescriptorPoolSize,
 ) InitError!DescriptorPool {
     const descript_pool_info = vk.DescriptorPoolCreateInfo{
@@ -33,23 +35,24 @@ pub fn init(
         .p_pool_sizes = pool_sizes.ptr,
     };
 
-    const pool = try context.vkd.createDescriptorPool(
-        context.device,
+    const pool = try device.vkd.createDescriptorPool(
+        device.handle,
         &descript_pool_info,
-        context.vk_allocator,
+        device.vk_allocator,
     );
 
     return .{
-        .context = context,
+        .device = device,
+
         .handle = pool,
     };
 }
 
 pub fn deinit(self: *const DescriptorPool) void {
-    self.context.vkd.destroyDescriptorPool(
-        self.context.device,
+    self.device.vkd.destroyDescriptorPool(
+        self.device.handle,
         self.handle,
-        self.context.vk_allocator,
+        self.device.vk_allocator,
     );
 }
 
@@ -67,8 +70,8 @@ pub fn allocDescriptorSets(
 
     var descriptor_set = vk.DescriptorSet.null_handle;
 
-    try self.context.vkd.allocateDescriptorSets(
-        self.context.device,
+    try self.device.vkd.allocateDescriptorSets(
+        self.device.handle,
         &descriptor_set_alloc_info,
         @ptrCast(&descriptor_set),
     );
@@ -79,8 +82,8 @@ pub fn allocDescriptorSets(
 pub const FreeDescriptorSetError = vk.DeviceWrapper.FreeDescriptorSetsError;
 
 pub fn freeDescriptorSet(self: *const DescriptorPool, descriptor_set: vk.DescriptorSet) FreeDescriptorSetError!void {
-    try self.context.vkd.freeDescriptorSets(
-        self.context.device,
+    try self.device.vkd.freeDescriptorSets(
+        self.device.handle,
         self.handle,
         1,
         @ptrCast(&descriptor_set),
@@ -89,5 +92,5 @@ pub fn freeDescriptorSet(self: *const DescriptorPool, descriptor_set: vk.Descrip
 
 const std = @import("std");
 const vk = @import("vulkan");
-const Context = @import("Context.zig");
+const Device = @import("Device.zig");
 const DescriptorSetLayout = @import("DescriptorSetLayout.zig");

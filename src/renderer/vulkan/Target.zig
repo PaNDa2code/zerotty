@@ -9,7 +9,7 @@ pub const InitError = std.mem.Allocator.Error ||
     vk.DeviceWrapper.CreateImageViewError;
 
 pub fn init(
-    context: *const Context,
+    device: *const Device,
     allocator: std.mem.Allocator,
     images: []vk.Image,
     format: vk.Format,
@@ -40,10 +40,10 @@ pub fn init(
     for (0..images.len) |i| {
         image_view_info.image = images[i];
 
-        image_views[i] = try context.vkd.createImageView(
-            context.device,
+        image_views[i] = try device.vkd.createImageView(
+            device.handle,
             &image_view_info,
-            context.vk_allocator,
+            device.vk_allocator,
         );
     }
 
@@ -59,7 +59,7 @@ pub fn initFromSwapchain(
     allocator: std.mem.Allocator,
 ) InitError!Target {
     return init(
-        swapchain.context,
+        swapchain.device,
         allocator,
         swapchain.images,
         swapchain.surface_format.format,
@@ -69,14 +69,14 @@ pub fn initFromSwapchain(
 
 pub fn deinit(
     self: *const Target,
-    context: *const Context,
+    device: *const Device,
     allocator: std.mem.Allocator,
 ) void {
     for (self.image_views) |image_view| {
-        context.vkd.destroyImageView(
-            context.device,
+        device.vkd.destroyImageView(
+            device.handle,
             image_view,
-            context.vk_allocator,
+            device.vk_allocator,
         );
     }
 
@@ -85,5 +85,5 @@ pub fn deinit(
 
 const std = @import("std");
 const vk = @import("vulkan");
-const Context = @import("core/Context.zig");
+const Device = @import("core/Device.zig");
 const Swapchain = @import("core/Swapchain.zig");
