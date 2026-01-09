@@ -11,9 +11,9 @@ pub const InitError = vk.DeviceWrapper.CreateRenderPassError;
 
 pub fn init(
     context: *const Context,
-    attachments: []vk.AttachmentDescription,
-    subpasses: []vk.SubpassDescription,
-    dependencies: []vk.SubpassDependency,
+    attachments: []const vk.AttachmentDescription,
+    subpasses: []const vk.SubpassDescription,
+    dependencies: []const vk.SubpassDependency,
 ) InitError!RenderPass {
     const create_info = vk.RenderPassCreateInfo{
         .flags = .{},

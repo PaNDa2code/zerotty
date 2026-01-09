@@ -109,10 +109,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
         .addBinding(3, .storage_buffer, 1, .{ .vertex_bit = true })
         .build(self.context);
 
-    const descriptor_set = try descriptor_pool.allocDescriptorSets(&descriptor_set_layout);
-    try descriptor_pool.freeDescriptorSet(descriptor_set);
-
-    defer descriptor_set_layout.deinit(self.context);
+    const descriptor_set = try DescriptorSet.init(&descriptor_pool, &descriptor_set_layout, allocator, &.{}, &.{});
 
     self.atlas = try Atlas.loadAll(allocator, 22, 15, 2000);
     errdefer self.atlas.deinit(allocator);
@@ -217,9 +214,9 @@ const vk = @import("vulkan");
 const Context = @import("core/Context.zig");
 const Swapchain = @import("core/Swapchain.zig");
 const RenderPass = @import("core/RenderPass.zig");
-const descriptor = @import("core/descriptor.zig");
-const DescriptorPool = descriptor.DescriptorPool;
-const DescriptorSetLayout = descriptor.DescriptorSetLayout;
+const DescriptorPool = @import("core/DescriptorPool.zig");
+const DescriptorSetLayout = @import("core/DescriptorSetLayout.zig");
+const DescriptorSet = @import("core/DescriptorSet.zig");
 const Target = @import("Target.zig");
 const window_surface = @import("window_surface.zig");
 const SurfaceCreationInfo = window_surface.SurfaceCreationInfo;
