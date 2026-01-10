@@ -1,7 +1,7 @@
 const Backend = @This();
 
-instance: Instance,
-device: Device,
+instance: *const Instance,
+device: *const Device,
 
 swapchain: Swapchain,
 render_pass: RenderPass,
@@ -21,24 +21,25 @@ pub fn init(window: *Window, allocator: Allocator) !Backend {
 }
 
 pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
-    self.allocator_adapter = try allocator.create(AllocatorAdapter);
-
-    self.allocator_adapter.initInPlace(allocator);
+    self.allocator_adapter = try AllocatorAdapter.init(allocator);
 
     const surface_creation_info = SurfaceCreationInfo.fromWindow(window);
 
-    const instance = try Instance.init(
+    const instance = try allocator.create(Instance);
+
+    instance.* = try Instance.init(
         allocator,
         &self.allocator_adapter.alloc_callbacks,
         SurfaceCreationInfo.instanceExtensions(),
     );
     errdefer instance.deinit();
 
-    const surface = try createWindowSurface(&instance, surface_creation_info);
+    const surface = try createWindowSurface(instance, surface_creation_info);
 
-    const device = try Device.init(
+    const device = try allocator.create(Device);
+    device.* = try Device.init(
         allocator,
-        &instance,
+        instance,
         surface,
         SurfaceCreationInfo.deviceExtensions(),
     );
@@ -48,7 +49,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
     self.device = device;
 
     self.swapchain =
-        try Swapchain.init(&self.instance, &self.device, allocator, surface, .{
+        try Swapchain.init(self.instance, self.device, allocator, surface, .{
             .extent = .{
                 .height = window.height,
                 .width = window.width,
@@ -87,13 +88,13 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
         .dst_access_mask = .{ .color_attachment_write_bit = true },
     });
 
-    self.render_pass = try render_pass_builder.build(&self.device);
+    self.render_pass = try render_pass_builder.build(self.device);
 
     const descriptor_pool = try DescriptorPool.Builder
         .addPoolSize(.storage_buffer, 2)
         .addPoolSize(.combined_image_sampler, 1)
         .addPoolSize(.uniform_buffer, 1)
-        .build(&self.device);
+        .build(self.device);
 
     defer descriptor_pool.deinit();
 
@@ -102,14 +103,17 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
         .addBinding(1, .combined_image_sampler, 1, .{ .fragment_bit = true })
         .addBinding(2, .storage_buffer, 1, .{ .vertex_bit = true })
         .addBinding(3, .storage_buffer, 1, .{ .vertex_bit = true })
-        .build(&self.device);
+        .build(self.device);
 
-    const descriptor_set = try DescriptorSet.init(&descriptor_pool, &descriptor_set_layout, allocator, &.{}, &.{});
-    _ = descriptor_set;
+    defer descriptor_set_layout.deinit(self.device);
+
+    _ = try DescriptorSet.init(&descriptor_pool, &descriptor_set_layout, allocator, &.{}, &.{});
 }
 
 pub fn deinit(self: *Backend) void {
     const allocator = self.allocator_adapter.allocator;
+
+    self.swapchain.deinit(allocator);
 
     self.instance.vki.destroySurfaceKHR(
         self.instance.handle,
@@ -117,17 +121,17 @@ pub fn deinit(self: *Backend) void {
         self.instance.vk_allocator,
     );
 
-    self.swapchain.deinit(allocator);
     self.render_pass.deinit();
 
-    self.target.deinit(&self.device, allocator);
+    self.target.deinit(self.device, allocator);
 
     self.device.deinit();
     self.instance.deinit();
 
     self.allocator_adapter.deinit();
 
-    allocator.destroy(self.allocator_adapter);
+    allocator.destroy(self.instance);
+    allocator.destroy(self.device);
 }
 
 pub fn clearBuffer(self: *Backend, color: ColorRGBAf32) void {
@@ -142,7 +146,7 @@ pub fn resize(self: *Backend, width: u32, height: u32) !void {
     );
 
     self.target.deinit(
-        &self.device,
+        self.device,
         self.allocator_adapter.allocator,
     );
 
@@ -204,4 +208,3 @@ const DynamicLibrary = @import("../../DynamicLibrary.zig");
 const AllocatorAdapter = @import("memory/AllocatorAdapter.zig");
 const Grid = @import("../../Grid.zig");
 const Atlas = @import("../../font/Atlas.zig");
-

@@ -23,8 +23,8 @@
             .lazy = true,
         },
         .zig_openpty = .{
-            .url = "git+https://github.com/PaNDa2code/zig_openpty#a5b065dbdce02ea86c0c45cf1c9f5c64b1d6f5b2",
-            .hash = "zig_openpty-0.0.0-5hNBidlCAADYN3UF-wcdUvn0KO7tv00K3wLBkuNtXSQ0",
+            .url = "https://github.com/PaNDa2code/zig_openpty/archive/refs/tags/v1.0.0.tar.gz",
+            .hash = "zig_openpty-1.0.0-5hNBiThEAABnlrgllPW3fzgqjkgdiklYIirKvGV154pL",
             .lazy = true,
         },
         .zigglgen = .{
@@ -33,8 +33,8 @@
             .lazy = true,
         },
         .vulkan_headers = .{
-            .url = "git+https://github.com/KhronosGroup/Vulkan-Headers#b11eecd68fb4b770f30fe2c9da522ff966f95b1e",
-            .hash = "N-V-__8AAKlk1QE99WUgLIRDlCtxMrEeHIC2b1BhY1S-X0Xp",
+            .url = "https://github.com/KhronosGroup/Vulkan-Headers/archive/refs/tags/v1.4.338.tar.gz",
+            .hash = "N-V-__8AAMZuLQIcPe--JSv0kn_Ga8tsjgbkaojW0OHW2Rfd",
             .lazy = true,
         },
         .vulkan = .{

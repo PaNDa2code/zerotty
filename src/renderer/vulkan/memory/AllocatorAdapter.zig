@@ -1,5 +1,4 @@
 //! Provides a `VkAllocationCallbacks` using Zig's `Allocator`.
-//! Avoid stack allocation, use `Allocator.create` instead.
 
 // TODO: store allocation data without extra map
 const AllocatorAdapter = @This();
@@ -15,13 +14,9 @@ record_map: RecordMap = .empty,
 
 alloc_callbacks: vk.AllocationCallbacks,
 
-pub fn init(allocator: Allocator) AllocatorAdapter {
-    var self: AllocatorAdapter = undefined;
-    self.initInPlace(allocator);
-    return self;
-}
+pub fn init(allocator: Allocator) !*AllocatorAdapter {
+    const self = try allocator.create(AllocatorAdapter);
 
-pub fn initInPlace(self: *AllocatorAdapter, allocator: Allocator) void {
     self.allocator = allocator;
     self.record_map = .empty;
 
@@ -31,10 +26,13 @@ pub fn initInPlace(self: *AllocatorAdapter, allocator: Allocator) void {
         .pfn_reallocation = AllocatorAdapter.vkRealloc,
         .pfn_free = AllocatorAdapter.vkFree,
     };
+
+    return self;
 }
 
 pub fn deinit(self: *AllocatorAdapter) void {
     self.record_map.deinit(self.allocator);
+    self.allocator.destroy(self);
 }
 
 pub fn vkAllocatorCallbacks(self: *const AllocatorAdapter) vk.AllocationCallbacks {

@@ -178,14 +178,17 @@ fn chooseExtent(
 }
 
 fn chooseImageCount(requested: u32, min: u32, max: u32) u32 {
-    const upper = if (max != 0) max else requested;
-    return std.math.clamp(requested, min, upper);
+    if (max != 0)
+        return std.math.clamp(requested, min, max);
+    return @max(min, requested);
 }
 
 fn chooseSurfaceFormat(
     requested: vk.SurfaceFormatKHR,
     available: []vk.SurfaceFormatKHR,
 ) vk.SurfaceFormatKHR {
+    if (available.len == 0)
+        unreachable;
     for (available) |format| {
         if (format.format == requested.format and
             format.color_space == requested.color_space)
