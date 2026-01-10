@@ -86,7 +86,7 @@ pub fn init(
         .image_array_layers = 1,
         .image_usage = .{ .color_attachment_bit = true },
         .image_sharing_mode = .exclusive,
-        .queue_family_index_count = 0,
+        .queue_family_index_count = device.physical_device.present_family_index,
         .p_queue_family_indices = null,
         .pre_transform = surface_caps.current_transform,
         .composite_alpha = composite_alpha,

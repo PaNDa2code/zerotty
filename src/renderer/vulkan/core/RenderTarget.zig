@@ -1,6 +1,5 @@
 const RenderTarget = @This();
 
-images: []vk.Image,
 image_views: []vk.ImageView,
 images_format: vk.Format,
 
@@ -86,5 +85,5 @@ pub fn deinit(
 
 const std = @import("std");
 const vk = @import("vulkan");
-const Device = @import("core/Device.zig");
-const Swapchain = @import("core/Swapchain.zig");
+const Device = @import("Device.zig");
+const Swapchain = @import("Swapchain.zig");

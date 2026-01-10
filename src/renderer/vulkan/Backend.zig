@@ -56,7 +56,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
             },
         });
 
-    self.target = try RenderTarget.initFromSwapchain(&self.swapchain, allocator);
+    self.render_target = try RenderTarget.initFromSwapchain(&self.swapchain, allocator);
 
     var render_pass_builder = RenderPass.Builder.init(allocator);
     defer render_pass_builder.deinit();
@@ -108,6 +108,15 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
     defer descriptor_set_layout.deinit(self.device);
 
     _ = try DescriptorSet.init(&descriptor_pool, &descriptor_set_layout, allocator, &.{}, &.{});
+
+    const cmd_pool = try CommandPool.init(
+        device,
+        device.physical_device.graphic_family_index,
+    );
+    defer cmd_pool.deinit();
+
+    const cmd_buffer = try cmd_pool.allocBuffer(.primary);
+    _ = cmd_buffer;
 }
 
 pub fn deinit(self: *Backend) void {
@@ -123,7 +132,7 @@ pub fn deinit(self: *Backend) void {
 
     self.render_pass.deinit();
 
-    self.target.deinit(self.device, allocator);
+    self.render_target.deinit(self.device, allocator);
 
     self.device.deinit();
     self.instance.deinit();
@@ -145,12 +154,12 @@ pub fn resize(self: *Backend, width: u32, height: u32) !void {
         .{ .width = width, .height = height },
     );
 
-    self.target.deinit(
+    self.render_target.deinit(
         self.device,
         self.allocator_adapter.allocator,
     );
 
-    self.target = try RenderTarget.initFromSwapchain(
+    self.render_target = try RenderTarget.initFromSwapchain(
         &self.swapchain,
         self.allocator_adapter.allocator,
     );
@@ -196,6 +205,8 @@ const DescriptorPool = @import("core/DescriptorPool.zig");
 const DescriptorSetLayout = @import("core/DescriptorSetLayout.zig");
 const DescriptorSet = @import("core/DescriptorSet.zig");
 const RenderTarget = @import("core/RenderTarget.zig");
+const CommandPool = @import("core/CommandPool.zig");
+const CommandBuffer = @import("core/CommandBuffer.zig");
 const window_surface = @import("window_surface.zig");
 const SurfaceCreationInfo = window_surface.SurfaceCreationInfo;
 const createWindowSurface = window_surface.createWindowSurface;
