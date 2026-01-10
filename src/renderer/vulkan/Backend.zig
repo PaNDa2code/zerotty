@@ -5,7 +5,7 @@ device: *const Device,
 
 swapchain: Swapchain,
 render_pass: RenderPass,
-target: Target,
+render_target: RenderTarget,
 
 window_height: u32,
 window_width: u32,
@@ -56,7 +56,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
             },
         });
 
-    self.target = try Target.initFromSwapchain(&self.swapchain, allocator);
+    self.target = try RenderTarget.initFromSwapchain(&self.swapchain, allocator);
 
     var render_pass_builder = RenderPass.Builder.init(allocator);
     defer render_pass_builder.deinit();
@@ -150,7 +150,7 @@ pub fn resize(self: *Backend, width: u32, height: u32) !void {
         self.allocator_adapter.allocator,
     );
 
-    self.target = try Target.initFromSwapchain(
+    self.target = try RenderTarget.initFromSwapchain(
         &self.swapchain,
         self.allocator_adapter.allocator,
     );
@@ -195,7 +195,7 @@ const RenderPass = @import("core/RenderPass.zig");
 const DescriptorPool = @import("core/DescriptorPool.zig");
 const DescriptorSetLayout = @import("core/DescriptorSetLayout.zig");
 const DescriptorSet = @import("core/DescriptorSet.zig");
-const Target = @import("Target.zig");
+const RenderTarget = @import("core/RenderTarget.zig");
 const window_surface = @import("window_surface.zig");
 const SurfaceCreationInfo = window_surface.SurfaceCreationInfo;
 const createWindowSurface = window_surface.createWindowSurface;
