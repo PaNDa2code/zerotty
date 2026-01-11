@@ -117,13 +117,13 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
 
     const pipeline_layout = try PipelineLayout.init(device, &.{descriptor_set_layout}, allocator);
 
-    var vertex_shader = Shader.init(
+    var vertex_shader = ShaderModule.init(
         &assets.shaders.cell_vert,
         "main",
         .vertex,
     );
 
-    var fragment_shader = Shader.init(
+    var fragment_shader = ShaderModule.init(
         &assets.shaders.cell_frag,
         "main",
         .fragment,
@@ -291,7 +291,7 @@ const CommandPool = @import("core/CommandPool.zig");
 const CommandBuffer = @import("core/CommandBuffer.zig");
 const Pipeline = @import("core/Pipeline.zig");
 const PipelineLayout = @import("core/PipelineLayout.zig");
-const Shader = @import("Shader.zig");
+const ShaderModule = @import("core/ShaderModule.zig");
 const window_surface = @import("window_surface.zig");
 const SurfaceCreationInfo = window_surface.SurfaceCreationInfo;
 const createWindowSurface = window_surface.createWindowSurface;

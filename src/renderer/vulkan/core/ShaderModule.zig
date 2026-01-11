@@ -80,4 +80,4 @@ pub fn deinit(
 }
 
 const vk = @import("vulkan");
-const Device = @import("core/Device.zig");
+const Device = @import("Device.zig");

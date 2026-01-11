@@ -4,7 +4,7 @@ const Device = @import("Device.zig");
 const PipelineLayout = @import("PipelineLayout.zig");
 const RenderPass = @import("RenderPass.zig");
 const Framebuffer = @import("Framebuffer.zig");
-const Shader = @import("../Shader.zig");
+const ShaderModule = @import("ShaderModule.zig");
 
 const Pipeline = @This();
 
@@ -118,7 +118,7 @@ pub const Builder = struct {
         self.dynamic_states.deinit(self.allocator);
     }
 
-    pub fn addShader(self: *Builder, shader: *Shader) !void {
+    pub fn addShader(self: *Builder, shader: *ShaderModule) !void {
         try self.shaders.append(self.allocator, try shader.pipelineStageInfo(self.device));
     }
 
