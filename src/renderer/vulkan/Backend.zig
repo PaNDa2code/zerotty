@@ -30,7 +30,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
     instance.* = try Instance.init(
         allocator,
         &self.allocator_adapter.alloc_callbacks,
-        SurfaceCreationInfo.instanceExtensions(),
+        surface_creation_info.instanceExtensions(),
     );
     errdefer instance.deinit();
 
