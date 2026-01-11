@@ -121,8 +121,16 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
     );
     defer cmd_pool.deinit();
 
-    const cmd_buffer = try cmd_pool.allocBuffer(.primary);
-    _ = cmd_buffer;
+    var sec_cmd_buffer = try cmd_pool.allocBuffer(.secondary);
+    try sec_cmd_buffer.reset(false);
+    try sec_cmd_buffer.beginSecondary(null, null, 0, .{});
+    try sec_cmd_buffer.end();
+    var cmd_buffer = try cmd_pool.allocBuffer(.primary);
+    try cmd_buffer.begin(.{});
+    try cmd_buffer.executeCommand(sec_cmd_buffer.handle);
+    try cmd_buffer.beginRenderPass(&self.render_pass, framebuffers[0], null, .secondary_command_buffers);
+    try cmd_buffer.endRenderPass();
+    try cmd_buffer.end();
 }
 
 pub fn deinit(self: *Backend) void {

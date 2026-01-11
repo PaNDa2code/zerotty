@@ -2,6 +2,8 @@ const Framebuffer = @This();
 
 handle: vk.Framebuffer,
 
+extent: vk.Extent2D,
+
 pub const InitError = vk.DeviceWrapper.CreateFramebufferError;
 
 pub fn init(
@@ -24,7 +26,7 @@ pub fn init(
         device.vk_allocator,
     );
 
-    return .{ .handle = handle };
+    return .{ .handle = handle, .extent = render_target.extent };
 }
 
 const std = @import("std");
