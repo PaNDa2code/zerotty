@@ -1,4 +1,4 @@
-const Shader = @This();
+const ShaderModule = @This();
 
 // comptime values
 entry_name: [:0]const u8,
@@ -23,7 +23,7 @@ pub fn init(
     spirv: []align(4) const u8,
     entry_name: [:0]const u8,
     shader_type: ShaderType,
-) Shader {
+) ShaderModule {
     return .{
         .entry_name = entry_name,
         .shader_type = shader_type,
@@ -36,7 +36,7 @@ pub fn init(
 pub const CompileError = vk.DeviceWrapper.CreateShaderModuleError;
 
 pub fn compile(
-    self: *Shader,
+    self: *ShaderModule,
     device: *const Device,
 ) CompileError!void {
     const shader_mod_info = vk.ShaderModuleCreateInfo{
@@ -51,7 +51,7 @@ pub fn compile(
 }
 
 pub fn pipelineStageInfo(
-    self: *Shader,
+    self: *ShaderModule,
     device: *const Device,
 ) CompileError!vk.PipelineShaderStageCreateInfo {
     if (self.module == .null_handle) {
@@ -66,7 +66,7 @@ pub fn pipelineStageInfo(
 }
 
 pub fn deinit(
-    self: *Shader,
+    self: *ShaderModule,
     device: *const Device,
 ) void {
     if (self.module != .null_handle) {
