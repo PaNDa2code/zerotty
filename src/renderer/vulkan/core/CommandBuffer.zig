@@ -212,6 +212,27 @@ pub fn executeCommand(self: *const CommandBuffer, cmd: vk.CommandBuffer) Execute
     self.pool.device.vkd.cmdExecuteCommands(self.handle, 1, @ptrCast(&cmd));
 }
 
+pub const DrawError = StateError;
+
+pub fn draw(
+    self: *const CommandBuffer,
+    vertex_count: u32,
+    instance_count: u32,
+    first_vertex: u32,
+    first_instance: u32,
+) DrawError!void {
+    if (!self.recording)
+        return error.NotRecording;
+
+    self.pool.device.vkd.cmdDraw(
+        self.handle,
+        vertex_count,
+        instance_count,
+        first_vertex,
+        first_instance,
+    );
+}
+
 const std = @import("std");
 const vk = @import("vulkan");
 const Device = @import("Device.zig");
