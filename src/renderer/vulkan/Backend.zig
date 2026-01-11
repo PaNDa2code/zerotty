@@ -59,7 +59,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
     self.render_targets = try RenderTarget.initFromSwapchain(&self.swapchain, allocator);
 
     var render_pass_builder = RenderPass.Builder.init(allocator);
-    defer render_pass_builder.deinit();
+    errdefer render_pass_builder.deinit();
 
     try render_pass_builder.addAttachment(.{
         .format = self.swapchain.surface_format.format,
@@ -115,21 +115,70 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
 
     _ = try DescriptorSet.init(&descriptor_pool, &descriptor_set_layout, allocator, &.{}, &.{});
 
-    const vertex_shader = Shader.init(
-        assets.shaders.cell_vert,
+    const pipeline_layout = try PipelineLayout.init(device, &.{descriptor_set_layout}, allocator);
+
+    var vertex_shader = Shader.init(
+        &assets.shaders.cell_vert,
         "main",
         .vertex,
-        vertex_resources,
     );
 
-    const fragment_shader = Shader.init(
-        assets.shaders.cell_frag,
+    var fragment_shader = Shader.init(
+        &assets.shaders.cell_frag,
         "main",
         .fragment,
-        fragment_resources,
     );
 
-    const shaders: [2]Shader = .{ vertex_shader, fragment_shader };
+    var pipeline_builder = Pipeline.Builder.init(device, allocator);
+    defer pipeline_builder.deinit();
+
+    pipeline_builder.setLayout(&pipeline_layout);
+    pipeline_builder.setRenderPass(&self.render_pass);
+
+    try pipeline_builder.setVertexInput(vertex_input.bindings, vertex_input.attributes);
+
+    try pipeline_builder.addShader(&vertex_shader);
+    try pipeline_builder.addShader(&fragment_shader);
+
+    const viewport: vk.Viewport = .{
+        .x = 0,
+        .y = 0,
+        .width = @floatFromInt(framebuffers[0].extent.width),
+        .height = @floatFromInt(framebuffers[0].extent.height),
+        .min_depth = 0,
+        .max_depth = 1,
+    };
+
+    const scissor: vk.Rect2D = .{
+        .offset = .{ .x = 0, .y = 0 },
+        .extent = framebuffers[0].extent,
+    };
+
+    pipeline_builder.setViewport(viewport);
+    pipeline_builder.setScissor(scissor);
+
+    try pipeline_builder.addDynamicState(.viewport);
+    try pipeline_builder.addDynamicState(.scissor);
+
+    try pipeline_builder.addColorBlendAttachment(.{
+        .blend_enable = .false,
+        .src_color_blend_factor = .one,
+        .dst_color_blend_factor = .zero,
+        .color_blend_op = .add,
+        .src_alpha_blend_factor = .one,
+        .dst_alpha_blend_factor = .zero,
+        .alpha_blend_op = .add,
+        .color_write_mask = .{
+            .r_bit = true,
+            .g_bit = true,
+            .b_bit = true,
+            .a_bit = true,
+        },
+    });
+
+    const pipeline = try pipeline_builder.build();
+
+    _ = pipeline;
 
     const cmd_pool = try CommandPool.init(
         device,
@@ -240,6 +289,8 @@ const RenderTarget = @import("core/RenderTarget.zig");
 const Framebuffer = @import("core/Framebuffer.zig");
 const CommandPool = @import("core/CommandPool.zig");
 const CommandBuffer = @import("core/CommandBuffer.zig");
+const Pipeline = @import("core/Pipeline.zig");
+const PipelineLayout = @import("core/PipelineLayout.zig");
 const Shader = @import("Shader.zig");
 const window_surface = @import("window_surface.zig");
 const SurfaceCreationInfo = window_surface.SurfaceCreationInfo;
@@ -254,97 +305,9 @@ const AllocatorAdapter = @import("memory/AllocatorAdapter.zig");
 const Grid = @import("../../Grid.zig");
 const Atlas = @import("../../font/Atlas.zig");
 
-const vertex_resources = Shader.Resource.Builder
-    // Vertex inputs
-    .add(.{
-        .type = .input,
-        .location = 0,
-        .vec_size = 4,
-        .stages = .{ .vertex_bit = true },
-    })
-    .add(.{
-        .type = .input,
-        .location = 1,
-        .vec_size = 1,
-        .stages = .{ .vertex_bit = true },
-    })
-    .add(.{
-        .type = .input,
-        .location = 2,
-        .vec_size = 1,
-        .stages = .{ .vertex_bit = true },
-    })
-    .add(.{
-        .type = .input,
-        .location = 3,
-        .vec_size = 1,
-        .stages = .{ .vertex_bit = true },
-    })
-
-    // Uniform buffer
-    .add(.{
-        .type = .buffer_uniform,
-        .mode = .dynamic,
-        .set = 0,
-        .binding = 0,
-        .stages = .{ .vertex_bit = true },
-        .size = 9 * 4, // 9 floats
-    })
-
-    // SSBO: GlyphMetricsBuffer
-    .add(.{
-        .type = .buffer_storage,
-        .mode = .dynamic,
-        .set = 0,
-        .binding = 2,
-        .stages = .{ .vertex_bit = true },
-    })
-
-    // SSBO: GlyphStylesBuffer
-    .add(.{
-        .type = .buffer_storage,
-        .mode = .dynamic,
-        .set = 0,
-        .binding = 3,
-        .stages = .{ .vertex_bit = true },
-    })
-    .collect();
-
-const fragment_resources = Shader.Resource.Builder
-    // Fragment inputs
-    .add(.{
-        .type = .input,
-        .location = 0,
-        .vec_size = 2,
-        .stages = .{ .fragment_bit = true },
-    })
-    .add(.{
-        .type = .input,
-        .location = 1,
-        .vec_size = 4,
-        .stages = .{ .fragment_bit = true },
-    })
-    .add(.{
-        .type = .input,
-        .location = 2,
-        .vec_size = 4,
-        .stages = .{ .fragment_bit = true },
-    })
-
-    // Fragment output
-    .add(.{
-        .type = .output,
-        .location = 0,
-        .vec_size = 4,
-        .stages = .{ .fragment_bit = true },
-    })
-
-    // Combined image sampler
-    .add(.{
-        .type = .image_sampler,
-        .mode = .static,
-        .set = 0,
-        .binding = 1,
-        .stages = .{ .fragment_bit = true },
-    })
+const vertex_input = Pipeline.VertexInputDescriptionBuilder
+    .addBinding(.{ .binding = 0, .stride = 0, .input_rate = .instance })
+    .addAttribute(.{ .location = 1, .binding = 0, .format = .r32_uint, .offset = 0 })
+    .addAttribute(.{ .location = 2, .binding = 0, .format = .r32_uint, .offset = 0 })
+    .addAttribute(.{ .location = 3, .binding = 0, .format = .r32_uint, .offset = 0 })
     .collect();

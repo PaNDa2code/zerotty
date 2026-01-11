@@ -7,6 +7,10 @@ const RenderPass = @This();
 device: *const Device,
 handle: vk.RenderPass,
 
+attachments: []const vk.AttachmentDescription,
+subpasses: []const vk.SubpassDescription,
+dependencies: []const vk.SubpassDependency,
+
 pub const InitError = vk.DeviceWrapper.CreateRenderPassError;
 
 pub fn init(
@@ -34,6 +38,10 @@ pub fn init(
     return .{
         .device = device,
         .handle = handle,
+
+        .attachments = attachments,
+        .subpasses = subpasses,
+        .dependencies = dependencies,
     };
 }
 
@@ -46,7 +54,7 @@ pub fn deinit(self: *const RenderPass) void {
 }
 
 pub const Builder = struct {
-    arena: std.heap.ArenaAllocator,
+    allocator: std.mem.Allocator,
 
     attachments: std.ArrayList(vk.AttachmentDescription),
     subpasses: std.ArrayList(vk.SubpassDescription),
@@ -54,7 +62,7 @@ pub const Builder = struct {
 
     pub fn init(allocator: std.mem.Allocator) Builder {
         return .{
-            .arena = std.heap.ArenaAllocator.init(allocator),
+            .allocator = allocator,
             .attachments = .empty,
             .subpasses = .empty,
             .dependencies = .empty,
@@ -62,11 +70,13 @@ pub const Builder = struct {
     }
 
     pub fn deinit(self: *Builder) void {
-        self.arena.deinit();
+        self.attachments.deinit(self.allocator);
+        self.subpasses.deinit(self.allocator);
+        self.dependencies.deinit(self.allocator);
     }
 
     pub fn addAttachment(self: *Builder, attachment: vk.AttachmentDescription) !void {
-        try self.attachments.append(self.arena.allocator(), attachment);
+        try self.attachments.append(self.allocator, attachment);
     }
 
     pub const Subpass = struct {
@@ -79,7 +89,7 @@ pub const Builder = struct {
     };
 
     pub fn addSubpass(self: *Builder, subpass: Subpass) !void {
-        const allocator = self.arena.allocator();
+        const allocator = self.allocator;
 
         const input_refs = try allocator.dupe(vk.AttachmentReference, subpass.input_attachments);
         const color_refs = try allocator.dupe(vk.AttachmentReference, subpass.color_attachments);
@@ -112,19 +122,19 @@ pub const Builder = struct {
     }
 
     pub fn addDependency(self: *Builder, dependency: vk.SubpassDependency) !void {
-        try self.dependencies.append(self.arena.allocator(), dependency);
+        try self.dependencies.append(self.allocator, dependency);
     }
 
+    pub const BuildError = std.mem.Allocator.Error || InitError;
     pub fn build(
         self: *Builder,
         device: *const Device,
-    ) InitError!RenderPass {
+    ) BuildError!RenderPass {
         return RenderPass.init(
             device,
-            self.attachments.items,
-            self.subpasses.items,
-            self.dependencies.items,
+            try self.attachments.toOwnedSlice(self.allocator),
+            try self.subpasses.toOwnedSlice(self.allocator),
+            try self.dependencies.toOwnedSlice(self.allocator),
         );
     }
 };
-
