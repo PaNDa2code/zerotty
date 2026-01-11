@@ -115,6 +115,22 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
 
     _ = try DescriptorSet.init(&descriptor_pool, &descriptor_set_layout, allocator, &.{}, &.{});
 
+    const vertex_shader = Shader.init(
+        assets.shaders.cell_vert,
+        "main",
+        .vertex,
+        vertex_resources,
+    );
+
+    const fragment_shader = Shader.init(
+        assets.shaders.cell_frag,
+        "main",
+        .fragment,
+        fragment_resources,
+    );
+
+    const shaders: [2]Shader = .{ vertex_shader, fragment_shader };
+
     const cmd_pool = try CommandPool.init(
         device,
         device.physical_device.graphic_family_index,
@@ -207,6 +223,7 @@ pub fn setCell(
 
 const std = @import("std");
 const builtin = @import("builtin");
+const assets = @import("assets");
 const build_options = @import("build_options");
 
 const os_tag = builtin.os.tag;
@@ -223,6 +240,7 @@ const RenderTarget = @import("core/RenderTarget.zig");
 const Framebuffer = @import("core/Framebuffer.zig");
 const CommandPool = @import("core/CommandPool.zig");
 const CommandBuffer = @import("core/CommandBuffer.zig");
+const Shader = @import("Shader.zig");
 const window_surface = @import("window_surface.zig");
 const SurfaceCreationInfo = window_surface.SurfaceCreationInfo;
 const createWindowSurface = window_surface.createWindowSurface;
@@ -235,3 +253,98 @@ const DynamicLibrary = @import("../../DynamicLibrary.zig");
 const AllocatorAdapter = @import("memory/AllocatorAdapter.zig");
 const Grid = @import("../../Grid.zig");
 const Atlas = @import("../../font/Atlas.zig");
+
+const vertex_resources = Shader.Resource.Builder
+    // Vertex inputs
+    .add(.{
+        .type = .input,
+        .location = 0,
+        .vec_size = 4,
+        .stages = .{ .vertex_bit = true },
+    })
+    .add(.{
+        .type = .input,
+        .location = 1,
+        .vec_size = 1,
+        .stages = .{ .vertex_bit = true },
+    })
+    .add(.{
+        .type = .input,
+        .location = 2,
+        .vec_size = 1,
+        .stages = .{ .vertex_bit = true },
+    })
+    .add(.{
+        .type = .input,
+        .location = 3,
+        .vec_size = 1,
+        .stages = .{ .vertex_bit = true },
+    })
+
+    // Uniform buffer
+    .add(.{
+        .type = .buffer_uniform,
+        .mode = .dynamic,
+        .set = 0,
+        .binding = 0,
+        .stages = .{ .vertex_bit = true },
+        .size = 9 * 4, // 9 floats
+    })
+
+    // SSBO: GlyphMetricsBuffer
+    .add(.{
+        .type = .buffer_storage,
+        .mode = .dynamic,
+        .set = 0,
+        .binding = 2,
+        .stages = .{ .vertex_bit = true },
+    })
+
+    // SSBO: GlyphStylesBuffer
+    .add(.{
+        .type = .buffer_storage,
+        .mode = .dynamic,
+        .set = 0,
+        .binding = 3,
+        .stages = .{ .vertex_bit = true },
+    })
+    .collect();
+
+const fragment_resources = Shader.Resource.Builder
+    // Fragment inputs
+    .add(.{
+        .type = .input,
+        .location = 0,
+        .vec_size = 2,
+        .stages = .{ .fragment_bit = true },
+    })
+    .add(.{
+        .type = .input,
+        .location = 1,
+        .vec_size = 4,
+        .stages = .{ .fragment_bit = true },
+    })
+    .add(.{
+        .type = .input,
+        .location = 2,
+        .vec_size = 4,
+        .stages = .{ .fragment_bit = true },
+    })
+
+    // Fragment output
+    .add(.{
+        .type = .output,
+        .location = 0,
+        .vec_size = 4,
+        .stages = .{ .fragment_bit = true },
+    })
+
+    // Combined image sampler
+    .add(.{
+        .type = .image_sampler,
+        .mode = .static,
+        .set = 0,
+        .binding = 1,
+        .stages = .{ .fragment_bit = true },
+    })
+    .collect();
