@@ -1,77 +1,33 @@
-const DeviceAlloator = @This();
-
-const std = @import("std");
-const vk = @import("vulkan");
-
-const Allocator = std.mem.Allocator;
-const Core = @import("Core.zig");
+const DeviceAllocator = @This();
 
 pub const Allocation = struct {
     memory: vk.DeviceMemory,
     size: usize,
     offset: usize,
 
-    property_flags: vk.MemoryPropertyFlags,
-    mem_type_index: u32,
-    host_address: usize = 0,
-
-    pub fn map(self: *Allocation, core: *const Core) !void {
-        if (self.host_address != 0) return;
-        const ptr = try core.vkd().mapMemory(
-            core.device,
-            self.memory,
-            self.offset,
-            self.size,
-            .{},
-        );
-        self.host_address = @intFromPtr(ptr);
-    }
-
-    pub fn unmap(self: *Allocation, core: *const Core) !void {
-        if (self.host_address == 0) return;
-        core.vkd().unmapMemory(
-            core.device,
-            self.memory,
-        );
-        self.host_address = 0;
-    }
-
-    pub fn hostPtr(self: *Allocation, T: type) ?*T {
-        return @ptrFromInt(self.host_address);
-    }
-
-    pub fn hostSlicePtr(self: *Allocation, T: type) ?[*]T {
-        return @ptrFromInt(self.host_address);
-    }
-
-    pub fn hostVisable(self: *Allocation) bool {
-        return self.property_flags.host_visible_bit;
-    }
+    memory_type_index: u32,
+    props: vk.MemoryPropertyFlags,
 };
 
-allocator: Allocator,
-mem_properties: vk.PhysicalDeviceMemoryProperties,
+device: *const Device,
 
-pub fn init(
-    core: *const Core,
-    allocator: Allocator,
-) !DeviceAlloator {
-    const mem_properties =
-        core.vki().getPhysicalDeviceMemoryProperties(core.physical_device);
-
+pub fn init(device: *const Device, allocator: std.mem.Allocator) DeviceAllocator {
     return .{
+        .device = device,
         .allocator = allocator,
-        .mem_properties = mem_properties,
     };
 }
 
+pub const AllocError = error{
+    NoSuitableMemoryType,
+} || vk.DeviceWrapper.AllocateMemoryError;
+
 pub fn alloc(
-    self: *DeviceAlloator,
-    core: *const Core,
+    self: *DeviceAllocator,
     size: usize,
     type_bits: u32,
     flags: vk.MemoryPropertyFlags,
-) !Allocation {
+) AllocError!Allocation {
     const memory_type_index =
         try findMemoryType(&self.mem_properties, type_bits, flags);
 
@@ -80,69 +36,62 @@ pub fn alloc(
         .memory_type_index = memory_type_index,
     };
 
-    const mem =
-        try core.vkd().allocateMemory(
-            core.device,
-            &alloc_info,
-            &core.vk_mem.alloc_callbacks,
-        );
+    const memory = try self.device.vkd.allocateMemory(
+        self.device.handle,
+        &alloc_info,
+        self.device.vk_allocator,
+    );
 
     return .{
-        .memory = mem,
+        .memory = memory,
         .size = size,
         .offset = 0,
-        .property_flags = self
-            .mem_properties
+        .memory_type_index = memory_type_index,
+        .props = self.device.physical_device
+            .memory_properties
             .memory_types[memory_type_index]
             .property_flags,
-
-        .mem_type_index = memory_type_index,
     };
 }
 
-const ResizeResult = enum { inplace, reallocated };
-
-pub fn resize(
-    self: *DeviceAlloator,
-    core: *const Core,
-    allocation: *Allocation,
-    new_size: usize,
-) !ResizeResult {
-    _ = self;
-
-    if (new_size <= allocation.size) return .inplace;
+/// returns `true` if memory resized in place
+pub fn resize(self: *DeviceAllocator, allocation: *Allocation, new_size: usize) bool {
+    if (allocation.size >= new_size)
+        return true;
 
     const alloc_info = vk.MemoryAllocateInfo{
         .allocation_size = new_size,
-        .memory_type_index = allocation.mem_type_index,
+        .memory_type_index = allocation.memory_type_index,
     };
 
-    const mem =
-        try core.vkd().allocateMemory(
-            core.device,
-            &alloc_info,
-            &core.vk_mem.alloc_callbacks,
-        );
+    const memory = try self.device.vkd.allocateMemory(
+        self.device.handle,
+        &alloc_info,
+        self.device.vk_allocator,
+    );
 
+    self.device.vkd.freeMemory(
+        self.device,
+        allocation.memory,
+        self.device.vk_allocator,
+    );
+
+    allocation.memory = memory;
+    allocation.offset = 0;
     allocation.size = new_size;
-    allocation.memory = mem;
 
-    return .reallocated;
+    return false;
 }
 
-pub fn free(
-    _: *DeviceAlloator,
-    core: *const Core,
-    allocation: Allocation,
-) void {
-    core.vkd().freeMemory(
-        core.device,
+pub fn free(self: *DeviceAllocator, allocation: Allocation) void {
+    self.device.vkd.freeMemory(
+        self.device,
         allocation.memory,
-        &core.vk_mem.vkAllocatorCallbacks(),
+        self.device.vk_allocator,
     );
 }
 
-pub fn findMemoryType(
+fn findMemoryType(
     mem_properties: *const vk.PhysicalDeviceMemoryProperties,
     memory_type_bits: u32,
     properties: vk.MemoryPropertyFlags,
@@ -158,3 +107,8 @@ pub fn findMemoryType(
     }
     return error.NoSuitableMemoryType;
 }
+
+const std = @import("std");
+const vk = @import("vulkan");
+const AllocatorAdapter = @import("AllocatorAdapter.zig");
+const Device = @import("../core/Device.zig");
