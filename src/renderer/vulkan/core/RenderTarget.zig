@@ -57,14 +57,20 @@ pub fn init(
 pub fn initFromSwapchain(
     swapchain: *const Swapchain,
     allocator: std.mem.Allocator,
-) InitError!RenderTarget {
-    return init(
-        swapchain.device,
-        allocator,
-        swapchain.images,
-        swapchain.surface_format.format,
-        swapchain.extent,
-    );
+) InitError![]RenderTarget {
+    const targets = try allocator.alloc(RenderTarget, swapchain.images.len);
+
+    for (0..swapchain.images.len) |i| {
+        targets[i] = try init(
+            swapchain.device,
+            allocator,
+            swapchain.images[i .. i + 1],
+            swapchain.surface_format.format,
+            swapchain.extent,
+        );
+    }
+
+    return targets;
 }
 
 pub fn deinit(

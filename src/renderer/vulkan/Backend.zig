@@ -5,7 +5,7 @@ device: *const Device,
 
 swapchain: Swapchain,
 render_pass: RenderPass,
-render_target: RenderTarget,
+render_targets: []RenderTarget,
 
 window_height: u32,
 window_width: u32,
@@ -56,7 +56,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
             },
         });
 
-    self.render_target = try RenderTarget.initFromSwapchain(&self.swapchain, allocator);
+    self.render_targets = try RenderTarget.initFromSwapchain(&self.swapchain, allocator);
 
     var render_pass_builder = RenderPass.Builder.init(allocator);
     defer render_pass_builder.deinit();
@@ -89,6 +89,12 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
     });
 
     self.render_pass = try render_pass_builder.build(self.device);
+
+    const framebuffers = try allocator.alloc(Framebuffer, self.render_targets.len);
+
+    for (0..framebuffers.len) |i| {
+        framebuffers[i] = try Framebuffer.init(self.device, &self.render_pass, &self.render_targets[i]);
+    }
 
     const descriptor_pool = try DescriptorPool.Builder
         .addPoolSize(.storage_buffer, 2)
@@ -132,7 +138,9 @@ pub fn deinit(self: *Backend) void {
 
     self.render_pass.deinit();
 
-    self.render_target.deinit(self.device, allocator);
+    for (self.render_targets) |target| {
+        target.deinit(self.device, self.allocator_adapter.allocator);
+    }
 
     self.device.deinit();
     self.instance.deinit();
@@ -154,12 +162,11 @@ pub fn resize(self: *Backend, width: u32, height: u32) !void {
         .{ .width = width, .height = height },
     );
 
-    self.render_target.deinit(
-        self.device,
-        self.allocator_adapter.allocator,
-    );
+    for (self.render_targets) |target| {
+        target.deinit(self.device, self.allocator_adapter.allocator);
+    }
 
-    self.render_target = try RenderTarget.initFromSwapchain(
+    self.render_targets = try RenderTarget.initFromSwapchain(
         &self.swapchain,
         self.allocator_adapter.allocator,
     );
@@ -205,6 +212,7 @@ const DescriptorPool = @import("core/DescriptorPool.zig");
 const DescriptorSetLayout = @import("core/DescriptorSetLayout.zig");
 const DescriptorSet = @import("core/DescriptorSet.zig");
 const RenderTarget = @import("core/RenderTarget.zig");
+const Framebuffer = @import("core/Framebuffer.zig");
 const CommandPool = @import("core/CommandPool.zig");
 const CommandBuffer = @import("core/CommandBuffer.zig");
 const window_surface = @import("window_surface.zig");
