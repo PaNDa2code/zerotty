@@ -196,6 +196,42 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
     try cmd_buffer.beginRenderPass(&self.render_pass, framebuffers[0], null, .secondary_command_buffers);
     try cmd_buffer.endRenderPass();
     try cmd_buffer.end();
+
+    var vram_allocator = DeviceAllocator.init(device, allocator);
+
+    var vertex_buffer = try Buffer.init(
+        device,
+        1024,
+        .{ .vertex_buffer_bit = true, .transfer_dst_bit = true },
+        .exclusive,
+    );
+
+    const vertex_alloc = try vram_allocator.alloc(
+        vertex_buffer.mem_requirements.size,
+        vertex_buffer.mem_requirements.memory_type_bits,
+        .{ .device_local_bit = true, .host_visible_bit = true },
+    );
+
+    try vertex_buffer.bindMemory(vertex_alloc);
+
+    const vertex_buffer_descriptor_info = vertex_buffer.getDescriptorBufferInfo();
+
+    var descriptor_set = try DescriptorSet.init(
+        &descriptor_pool,
+        &descriptor_set_layout,
+        allocator,
+        &.{},
+        &.{},
+    );
+
+    const buffer_infos = try allocator.alloc([]vk.DescriptorBufferInfo, 1);
+    buffer_infos[0] = try allocator.alloc(vk.DescriptorBufferInfo, 1);
+
+    buffer_infos[0][0] = vertex_buffer_descriptor_info;
+
+    try descriptor_set.reset(buffer_infos, &.{});
+
+    descriptor_set.update();
 }
 
 pub fn deinit(self: *Backend) void {
@@ -292,6 +328,8 @@ const CommandBuffer = @import("core/CommandBuffer.zig");
 const Pipeline = @import("core/Pipeline.zig");
 const PipelineLayout = @import("core/PipelineLayout.zig");
 const ShaderModule = @import("core/ShaderModule.zig");
+const Buffer = @import("core/Buffer.zig");
+const DeviceAllocator = @import("memory/DeviceAllocator.zig");
 const window_surface = @import("window_surface.zig");
 const SurfaceCreationInfo = window_surface.SurfaceCreationInfo;
 const createWindowSurface = window_surface.createWindowSurface;

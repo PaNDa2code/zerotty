@@ -10,11 +10,12 @@ pub const DeviceAllocation = struct {
 };
 
 device: *const Device,
+std_allocator: std.mem.Allocator,
 
-pub fn init(device: *const Device, allocator: std.mem.Allocator) DeviceAllocator {
+pub fn init(device: *const Device, std_allocator: std.mem.Allocator) DeviceAllocator {
     return .{
         .device = device,
-        .allocator = allocator,
+        .std_allocator = std_allocator,
     };
 }
 
@@ -28,8 +29,11 @@ pub fn alloc(
     type_bits: u32,
     flags: vk.MemoryPropertyFlags,
 ) AllocError!DeviceAllocation {
-    const memory_type_index =
-        try findMemoryType(&self.mem_properties, type_bits, flags);
+    const memory_type_index = try findMemoryType(
+        &self.device.physical_device.memory_properties,
+        type_bits,
+        flags,
+    );
 
     const alloc_info = vk.MemoryAllocateInfo{
         .allocation_size = size,

@@ -31,6 +31,7 @@ pub fn init(
     const mem_requirements = device.vkd.getBufferMemoryRequirements(device.handle, handle);
 
     return .{
+        .device = device,
         .handle = handle,
         .usage = usage,
         .mem_requirements = mem_requirements,
@@ -48,7 +49,7 @@ pub fn deinit(self: *const Buffer) void {
 pub const BindMemoryError = vk.DeviceWrapper.BindBufferMemoryError;
 
 pub fn bindMemory(
-    self: *const Buffer,
+    self: *Buffer,
     allocation: DeviceAllocation,
 ) BindMemoryError!void {
     try self.device.vkd.bindBufferMemory(
@@ -59,6 +60,14 @@ pub fn bindMemory(
     );
 
     self.mem_alloc = allocation;
+}
+
+pub fn getDescriptorBufferInfo(self: *const Buffer) vk.DescriptorBufferInfo {
+    return .{
+        .buffer = self.handle,
+        .offset = 0,
+        .range = self.mem_requirements.size,
+    };
 }
 
 const std = @import("std");

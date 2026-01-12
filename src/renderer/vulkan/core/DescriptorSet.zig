@@ -47,14 +47,14 @@ pub fn reset(
     buffer_infos: [][]vk.DescriptorBufferInfo,
     image_infos: [][]vk.DescriptorImageInfo,
 ) !void {
-    if (buffer_infos.len != 0 and image_infos != 0) {
+    if (buffer_infos.len != 0 and image_infos.len != 0) {
         self.image_infos = image_infos;
         self.buffer_infos = buffer_infos;
     }
 
     self.write_descriptor_sets.clearRetainingCapacity();
 
-    self.prepare();
+    try self.prepare();
 }
 
 pub fn prepare(self: *DescriptorSet) std.mem.Allocator.Error!void {
