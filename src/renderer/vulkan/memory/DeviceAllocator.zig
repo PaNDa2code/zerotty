@@ -1,6 +1,6 @@
 const DeviceAllocator = @This();
 
-pub const Allocation = struct {
+pub const DeviceAllocation = struct {
     memory: vk.DeviceMemory,
     size: usize,
     offset: usize,
@@ -27,7 +27,7 @@ pub fn alloc(
     size: usize,
     type_bits: u32,
     flags: vk.MemoryPropertyFlags,
-) AllocError!Allocation {
+) AllocError!DeviceAllocation {
     const memory_type_index =
         try findMemoryType(&self.mem_properties, type_bits, flags);
 
@@ -55,7 +55,7 @@ pub fn alloc(
 }
 
 /// returns `true` if memory resized in place
-pub fn resize(self: *DeviceAllocator, allocation: *Allocation, new_size: usize) bool {
+pub fn resize(self: *DeviceAllocator, allocation: *DeviceAllocation, new_size: usize) bool {
     if (allocation.size >= new_size)
         return true;
 
@@ -83,7 +83,7 @@ pub fn resize(self: *DeviceAllocator, allocation: *Allocation, new_size: usize) 
     return false;
 }
 
-pub fn free(self: *DeviceAllocator, allocation: Allocation) void {
+pub fn free(self: *DeviceAllocator, allocation: DeviceAllocation) void {
     self.device.vkd.freeMemory(
         self.device,
         allocation.memory,
