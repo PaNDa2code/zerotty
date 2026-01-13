@@ -45,7 +45,11 @@ pub fn init(
     };
 }
 
-pub fn deinit(self: *const RenderPass) void {
+pub fn deinit(self: *const RenderPass, allocator: std.mem.Allocator) void {
+    allocator.free(self.attachments);
+    allocator.free(self.subpasses);
+    allocator.free(self.dependencies);
+
     self.device.vkd.destroyRenderPass(
         self.device.handle,
         self.handle,
@@ -54,7 +58,7 @@ pub fn deinit(self: *const RenderPass) void {
 }
 
 pub const Builder = struct {
-    allocator: std.mem.Allocator,
+    arina: std.heap.ArenaAllocator,
 
     attachments: std.ArrayList(vk.AttachmentDescription),
     subpasses: std.ArrayList(vk.SubpassDescription),
@@ -62,7 +66,7 @@ pub const Builder = struct {
 
     pub fn init(allocator: std.mem.Allocator) Builder {
         return .{
-            .allocator = allocator,
+            .arina = .init(allocator),
             .attachments = .empty,
             .subpasses = .empty,
             .dependencies = .empty,
@@ -70,13 +74,11 @@ pub const Builder = struct {
     }
 
     pub fn deinit(self: *Builder) void {
-        self.attachments.deinit(self.allocator);
-        self.subpasses.deinit(self.allocator);
-        self.dependencies.deinit(self.allocator);
+        self.arina.deinit();
     }
 
     pub fn addAttachment(self: *Builder, attachment: vk.AttachmentDescription) !void {
-        try self.attachments.append(self.allocator, attachment);
+        try self.attachments.append(self.arina.allocator(), attachment);
     }
 
     pub const Subpass = struct {
@@ -89,10 +91,11 @@ pub const Builder = struct {
     };
 
     pub fn addSubpass(self: *Builder, subpass: Subpass) !void {
-        const allocator = self.allocator;
+        const allocator = self.arina.allocator();
 
         const input_refs = try allocator.dupe(vk.AttachmentReference, subpass.input_attachments);
         const color_refs = try allocator.dupe(vk.AttachmentReference, subpass.color_attachments);
+
         const resolve_refs = if (subpass.resolve_attachments.len > 0)
             try allocator.dupe(vk.AttachmentReference, subpass.resolve_attachments)
         else
@@ -122,7 +125,7 @@ pub const Builder = struct {
     }
 
     pub fn addDependency(self: *Builder, dependency: vk.SubpassDependency) !void {
-        try self.dependencies.append(self.allocator, dependency);
+        try self.dependencies.append(self.arina.allocator(), dependency);
     }
 
     pub const BuildError = std.mem.Allocator.Error || InitError;
@@ -130,11 +133,13 @@ pub const Builder = struct {
         self: *Builder,
         device: *const Device,
     ) BuildError!RenderPass {
+        const allocator = self.arina.child_allocator;
+
         return RenderPass.init(
             device,
-            try self.attachments.toOwnedSlice(self.allocator),
-            try self.subpasses.toOwnedSlice(self.allocator),
-            try self.dependencies.toOwnedSlice(self.allocator),
+            try allocator.dupe(vk.AttachmentDescription, self.attachments.items),
+            try allocator.dupe(vk.SubpassDescription, self.subpasses.items),
+            try allocator.dupe(vk.SubpassDependency, self.dependencies.items),
         );
     }
 };

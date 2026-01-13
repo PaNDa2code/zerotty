@@ -38,7 +38,36 @@ pub fn init(
     };
 }
 
-pub fn deinit(self: *const Buffer) void {
+pub const InitAllocError = InitError || BindMemoryError ||
+    DeviceAllocator.AllocError;
+
+pub fn initAlloc(
+    device_allocator: *DeviceAllocator,
+    size: usize,
+    usage: vk.BufferUsageFlags,
+    mem_props: vk.MemoryPropertyFlags,
+    sharing: vk.SharingMode,
+) InitAllocError!Buffer {
+    var buffer = try init(device_allocator.device, size, usage, sharing);
+
+    const allocation = try device_allocator.alloc(
+        buffer.mem_requirements.size,
+        buffer.mem_requirements.memory_type_bits,
+        mem_props,
+    );
+
+    try buffer.bindMemory(allocation);
+
+    return buffer;
+}
+
+pub fn deinit(self: *const Buffer, device_allocator: ?*DeviceAllocator) void {
+    if (device_allocator)|allocator| {
+        if (self.mem_alloc) |alloc| {
+            allocator.free(alloc);
+        }
+    }
+
     self.device.vkd.destroyBuffer(
         self.device.handle,
         self.handle,

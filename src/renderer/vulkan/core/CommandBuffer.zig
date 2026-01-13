@@ -1,5 +1,7 @@
 const CommandBuffer = @This();
 
+device: *const Device,
+
 pool: *const CommandPool,
 
 handle: vk.CommandBuffer,
@@ -32,7 +34,7 @@ pub fn begin(self: *CommandBuffer, flags: vk.CommandBufferUsageFlags) BeginError
 
     const begin_info = vk.CommandBufferBeginInfo{ .flags = flags };
 
-    try self.pool.device.vkd.beginCommandBuffer(self.handle, &begin_info);
+    try self.device.vkd.beginCommandBuffer(self.handle, &begin_info);
 
     self.recording = true;
 }
@@ -69,7 +71,7 @@ pub fn beginSecondary(
         .p_inheritance_info = &inheritance_info,
     };
 
-    try self.pool.device.vkd.beginCommandBuffer(self.handle, &begin_info);
+    try self.device.vkd.beginCommandBuffer(self.handle, &begin_info);
 
     self.recording = true;
 }
@@ -81,7 +83,7 @@ pub fn end(self: *CommandBuffer) EndError!void {
     if (!self.recording)
         return error.NotRecording;
 
-    try self.pool.device.vkd.endCommandBuffer(self.handle);
+    try self.device.vkd.endCommandBuffer(self.handle);
 
     self.recording = false;
 }
@@ -89,7 +91,7 @@ pub fn end(self: *CommandBuffer) EndError!void {
 pub const ResetError = vk.DeviceWrapper.ResetCommandBufferError;
 
 pub fn reset(self: *CommandBuffer, release_resources: bool) ResetError!void {
-    try self.pool.device.vkd.resetCommandBuffer(
+    try self.device.vkd.resetCommandBuffer(
         self.handle,
         .{ .release_resources_bit = release_resources },
     );
@@ -136,7 +138,7 @@ pub fn beginRenderPass(
         .p_clear_values = used_clear_values.ptr,
     };
 
-    self.pool.device.vkd.cmdBeginRenderPass(
+    self.device.vkd.cmdBeginRenderPass(
         self.handle,
         &render_pass_begin_info,
         subpass_contents,
@@ -153,7 +155,7 @@ pub fn endRenderPass(self: *CommandBuffer) !void {
     if (!self.in_render_pass)
         return error.NotInRenderPass;
 
-    self.pool.device.vkd.cmdEndRenderPass(self.handle);
+    self.device.vkd.cmdEndRenderPass(self.handle);
 
     self.in_render_pass = false;
 }
@@ -166,7 +168,7 @@ pub fn bindPipeline(self: *CommandBuffer, pipeline: vk.Pipeline, bind_point: vk.
     if (!self.in_render_pass)
         return error.NotInRenderPass;
 
-    self.pool.device.vkd.cmdBindPipeline(self.handle, bind_point, pipeline);
+    self.device.vkd.cmdBindPipeline(self.handle, bind_point, pipeline);
 }
 
 pub const CopyBufferError = StateError;
@@ -177,7 +179,7 @@ pub fn copyBuffer(self: *const CommandBuffer, src: vk.Buffer, dst: vk.Buffer, re
 
     if (regons.len == 0) return;
 
-    self.pool.device.vkd.cmdCopyBuffer(
+    self.device.vkd.cmdCopyBuffer(
         self.handle,
         src,
         dst,
@@ -199,7 +201,7 @@ pub fn executeCommands(self: *const CommandBuffer, cmds: []vk.CommandBuffer) Exe
 
     if (cmds.len == 0) return;
 
-    self.pool.device.vkd.cmdExecuteCommands(self.handle, @intCast(cmds.len), cmds.ptr);
+    self.device.vkd.cmdExecuteCommands(self.handle, @intCast(cmds.len), cmds.ptr);
 }
 
 pub fn executeCommand(self: *const CommandBuffer, cmd: vk.CommandBuffer) ExecuteCommandsError!void {
@@ -209,7 +211,7 @@ pub fn executeCommand(self: *const CommandBuffer, cmd: vk.CommandBuffer) Execute
     if (self.level == .secondary)
         return error.OperationNotAllowedOnSecondary;
 
-    self.pool.device.vkd.cmdExecuteCommands(self.handle, 1, @ptrCast(&cmd));
+    self.device.vkd.cmdExecuteCommands(self.handle, 1, @ptrCast(&cmd));
 }
 
 pub const DrawError = StateError;
@@ -224,13 +226,25 @@ pub fn draw(
     if (!self.recording)
         return error.NotRecording;
 
-    self.pool.device.vkd.cmdDraw(
+    self.device.vkd.cmdDraw(
         self.handle,
         vertex_count,
         instance_count,
         first_vertex,
         first_instance,
     );
+}
+
+pub const SetViewPortError = StateError;
+
+pub fn setViewPort(
+    self: *const CommandBuffer,
+    view_port: *const vk.Viewport,
+) SetViewPortError!void {
+    if (!self.recording)
+        return error.NotRecording;
+
+    self.device.vkd.cmdSetViewport(self.handle, 0, 1, view_port);
 }
 
 const std = @import("std");

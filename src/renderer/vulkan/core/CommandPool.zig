@@ -79,6 +79,7 @@ pub fn allocBuffer(
     );
 
     return .{
+        .device = self.device,
         .pool = self,
         .handle = handle[0],
         .level = level,

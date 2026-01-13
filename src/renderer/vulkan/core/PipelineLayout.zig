@@ -16,7 +16,7 @@ pub fn init(
     );
     defer allocator.free(descriptor_set_layout_handles);
 
-    for(0..descriptor_set_layouts.len) |i| {
+    for (0..descriptor_set_layouts.len) |i| {
         descriptor_set_layout_handles[i] = descriptor_set_layouts[i].handle;
     }
 
@@ -34,6 +34,14 @@ pub fn init(
     );
 
     return .{ .handle = handle };
+}
+
+pub fn deinit(self: *const PipelineLayout, device: *const Device) void {
+    device.vkd.destroyPipelineLayout(
+        device.handle,
+        self.handle,
+        device.vk_allocator,
+    );
 }
 
 const std = @import("std");

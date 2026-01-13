@@ -89,7 +89,7 @@ pub fn resize(self: *DeviceAllocator, allocation: *DeviceAllocation, new_size: u
 
 pub fn free(self: *DeviceAllocator, allocation: DeviceAllocation) void {
     self.device.vkd.freeMemory(
-        self.device,
+        self.device.handle,
         allocation.memory,
         self.device.vk_allocator,
     );
