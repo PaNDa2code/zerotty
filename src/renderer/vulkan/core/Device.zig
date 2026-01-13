@@ -67,6 +67,26 @@ pub fn waitIdle(self: *const Device) WaitIdleError!void {
     try self.vkd.deviceWaitIdle(self.handle);
 }
 
+pub const CreateFenceError = vk.DeviceWrapper.CreateFenceError;
+
+pub fn createFence(self: *const Device) CreateFenceError!vk.Fence {
+    return self.vkd.createFence(
+        self.handle,
+        &.{},
+        self.vk_allocator,
+    );
+}
+
+pub const CreateSemaphoreError = vk.DeviceWrapper.CreateSemaphoreError;
+
+pub fn createSemaphore(self: *const Device) CreateSemaphoreError!vk.Semaphore {
+    return self.vkd.createSemaphore(
+        self.handle,
+        &.{},
+        self.vk_allocator,
+    );
+}
+
 fn createDevice(
     instance: *const Instance,
     physical_device: PhysicalDevice,

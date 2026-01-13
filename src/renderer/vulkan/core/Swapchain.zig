@@ -158,6 +158,38 @@ pub fn deinit(self: *const SwapChain, allocator: std.mem.Allocator) void {
     allocator.free(self.images);
 }
 
+pub const AcquireNextImageError = vk.DeviceWrapper.AcquireNextImageKHRError;
+
+pub const AcquireNextImageResult = union(vk.Result) {
+    success: u32,
+    timeout,
+    not_ready,
+    suboptimal_khr,
+};
+
+pub fn acquireNextImage(
+    self: *const SwapChain,
+    timeout: u64,
+    semaphore: vk.Semaphore,
+    fence: vk.Fence,
+) AcquireNextImageError!AcquireNextImageResult {
+    const res = try self.device.vkd.acquireNextImageKHR(
+        self.device.handle,
+        self.handle,
+        timeout,
+        semaphore,
+        fence,
+    );
+
+    return switch (res) {
+        .success => .{ .success = res.image_index },
+        .timeout => .timeout,
+        .not_ready => .not_ready,
+        .suboptimal_khr => .suboptimal_khr,
+        else => unreachable,
+    };
+}
+
 fn chooseExtent(
     requested: *const vk.Extent2D,
     min: *const vk.Extent2D,
