@@ -61,6 +61,12 @@ pub fn deinit(self: *const Device) void {
     self.vkd.destroyDevice(self.handle, self.vk_allocator);
 }
 
+pub const WaitIdleError = vk.DeviceWrapper.DeviceWaitIdleError;
+
+pub fn waitIdle(self: *const Device) WaitIdleError!void {
+    try self.vkd.deviceWaitIdle(self.handle);
+}
+
 fn createDevice(
     instance: *const Instance,
     physical_device: PhysicalDevice,
