@@ -9,10 +9,10 @@ pub const DeviceAllocation = struct {
     props: vk.MemoryPropertyFlags,
 };
 
-device: *const Device,
+device: *const core.Device,
 std_allocator: std.mem.Allocator,
 
-pub fn init(device: *const Device, std_allocator: std.mem.Allocator) DeviceAllocator {
+pub fn init(device: *const core.Device, std_allocator: std.mem.Allocator) DeviceAllocator {
     return .{
         .device = device,
         .std_allocator = std_allocator,
@@ -115,4 +115,4 @@ fn findMemoryType(
 const std = @import("std");
 const vk = @import("vulkan");
 const AllocatorAdapter = @import("AllocatorAdapter.zig");
-const Device = @import("../core/Device.zig");
+const core = @import("../core/root.zig");

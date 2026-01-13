@@ -1,11 +1,11 @@
 const Backend = @This();
 
-instance: *const Instance,
-device: *const Device,
+instance: *const core.Instance,
+device: *const core.Device,
 
-swapchain: Swapchain,
-render_pass: RenderPass,
-render_targets: []RenderTarget,
+swapchain: core.Swapchain,
+render_pass: core.RenderPass,
+render_targets: []core.RenderTarget,
 
 window_height: u32,
 window_width: u32,
@@ -25,9 +25,9 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
 
     const surface_creation_info = SurfaceCreationInfo.fromWindow(window);
 
-    const instance = try allocator.create(Instance);
+    const instance = try allocator.create(core.Instance);
 
-    instance.* = try Instance.init(
+    instance.* = try core.Instance.init(
         allocator,
         &self.allocator_adapter.alloc_callbacks,
         surface_creation_info.instanceExtensions(),
@@ -36,8 +36,8 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
 
     const surface = try createWindowSurface(instance, surface_creation_info);
 
-    const device = try allocator.create(Device);
-    device.* = try Device.init(
+    const device = try allocator.create(core.Device);
+    device.* = try .init(
         allocator,
         instance,
         surface,
@@ -45,14 +45,14 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
     );
     errdefer device.deinit();
 
-    const present_queue = Queue.init(
+    const present_queue = core.Queue.init(
         device,
         0,
         device.physical_device.present_family_index,
         device.physical_device.support_present,
     );
 
-    const graphics_queue = Queue.init(
+    const graphics_queue = core.Queue.init(
         device,
         0,
         device.physical_device.graphic_family_index,
@@ -66,16 +66,16 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
     self.device = device;
 
     self.swapchain =
-        try Swapchain.init(self.instance, self.device, allocator, surface, .{
+        try core.Swapchain.init(self.instance, self.device, allocator, surface, .{
             .extent = .{
                 .height = window.height,
                 .width = window.width,
             },
         });
 
-    self.render_targets = try RenderTarget.initFromSwapchain(&self.swapchain, allocator);
+    self.render_targets = try core.RenderTarget.initFromSwapchain(&self.swapchain, allocator);
 
-    var render_pass_builder = RenderPass.Builder.init(allocator);
+    var render_pass_builder = core.RenderPass.Builder.init(allocator);
     defer render_pass_builder.deinit();
 
     try render_pass_builder.addAttachment(.{
@@ -107,7 +107,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
 
     self.render_pass = try render_pass_builder.build(self.device);
 
-    const framebuffers = try allocator.alloc(Framebuffer, self.render_targets.len);
+    const framebuffers = try allocator.alloc(core.Framebuffer, self.render_targets.len);
     defer {
         for (framebuffers) |framebuffer| {
             device.vkd.destroyFramebuffer(
@@ -120,10 +120,10 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
     }
 
     for (0..framebuffers.len) |i| {
-        framebuffers[i] = try Framebuffer.init(self.device, &self.render_pass, &self.render_targets[i]);
+        framebuffers[i] = try core.Framebuffer.init(self.device, &self.render_pass, &self.render_targets[i]);
     }
 
-    const descriptor_pool = try DescriptorPool.Builder
+    const descriptor_pool = try core.DescriptorPool.Builder
         .addPoolSize(.storage_buffer, 2)
         .addPoolSize(.combined_image_sampler, 1)
         .addPoolSize(.uniform_buffer, 1)
@@ -131,7 +131,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
 
     defer descriptor_pool.deinit();
 
-    const descriptor_set_layout = try DescriptorSetLayout.Builder
+    const descriptor_set_layout = try core.DescriptorSetLayout.Builder
         .addBinding(0, .uniform_buffer, 1, .{ .vertex_bit = true })
         .addBinding(1, .combined_image_sampler, 1, .{ .fragment_bit = true })
         .addBinding(2, .storage_buffer, 1, .{ .vertex_bit = true })
@@ -140,26 +140,26 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
 
     defer descriptor_set_layout.deinit(self.device);
 
-    _ = try DescriptorSet.init(&descriptor_pool, &descriptor_set_layout, allocator, &.{}, &.{});
+    _ = try core.DescriptorSet.init(&descriptor_pool, &descriptor_set_layout, allocator, &.{}, &.{});
 
-    const pipeline_layout = try PipelineLayout.init(device, &.{descriptor_set_layout}, allocator);
+    const pipeline_layout = try core.PipelineLayout.init(device, &.{descriptor_set_layout}, allocator);
     defer pipeline_layout.deinit(device);
 
-    var vertex_shader = ShaderModule.init(
+    var vertex_shader = core.ShaderModule.init(
         &assets.shaders.cell_vert,
         "main",
         .vertex,
     );
     defer vertex_shader.deinit(device);
 
-    var fragment_shader = ShaderModule.init(
+    var fragment_shader = core.ShaderModule.init(
         &assets.shaders.cell_frag,
         "main",
         .fragment,
     );
     defer fragment_shader.deinit(device);
 
-    var pipeline_builder = Pipeline.Builder.init(device, allocator);
+    var pipeline_builder = core.Pipeline.Builder.init(device, allocator);
     defer pipeline_builder.deinit();
 
     pipeline_builder.setLayout(&pipeline_layout);
@@ -209,7 +209,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
     const pipeline = try pipeline_builder.build();
     defer pipeline.deinit();
 
-    const cmd_pool = try CommandPool.init(
+    const cmd_pool = try core.CommandPool.init(
         device,
         device.physical_device.graphic_family_index,
     );
@@ -228,7 +228,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
 
     var vram_allocator = DeviceAllocator.init(device, allocator);
 
-    var image_builder = Image.Builder.new();
+    var image_builder = core.Image.Builder.new();
 
     const image = try image_builder
         .setFormat(.r8_unorm)
@@ -237,7 +237,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
         .build(&vram_allocator);
     defer image.deinit(&vram_allocator);
 
-    var vertex_buffer = try Buffer.initAlloc(
+    var vertex_buffer = try core.Buffer.initAlloc(
         &vram_allocator,
         1024,
         .{ .vertex_buffer_bit = true, .transfer_dst_bit = true },
@@ -248,7 +248,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
 
     const vertex_buffer_descriptor_info = vertex_buffer.getDescriptorBufferInfo();
 
-    var descriptor_set = try DescriptorSet.init(
+    var descriptor_set = try core.DescriptorSet.init(
         &descriptor_pool,
         &descriptor_set_layout,
         allocator,
@@ -311,7 +311,7 @@ pub fn resize(self: *Backend, width: u32, height: u32) !void {
     }
     self.allocator_adapter.allocator.free(self.render_targets);
 
-    self.render_targets = try RenderTarget.initFromSwapchain(
+    self.render_targets = try core.RenderTarget.initFromSwapchain(
         &self.swapchain,
         self.allocator_adapter.allocator,
     );
@@ -350,23 +350,7 @@ const build_options = @import("build_options");
 const os_tag = builtin.os.tag;
 const vk = @import("vulkan");
 
-const Instance = @import("core/Instance.zig");
-const Device = @import("core/Device.zig");
-const Swapchain = @import("core/Swapchain.zig");
-const RenderPass = @import("core/RenderPass.zig");
-const DescriptorPool = @import("core/DescriptorPool.zig");
-const DescriptorSetLayout = @import("core/DescriptorSetLayout.zig");
-const DescriptorSet = @import("core/DescriptorSet.zig");
-const RenderTarget = @import("core/RenderTarget.zig");
-const Framebuffer = @import("core/Framebuffer.zig");
-const CommandPool = @import("core/CommandPool.zig");
-const CommandBuffer = @import("core/CommandBuffer.zig");
-const Pipeline = @import("core/Pipeline.zig");
-const PipelineLayout = @import("core/PipelineLayout.zig");
-const ShaderModule = @import("core/ShaderModule.zig");
-const Buffer = @import("core/Buffer.zig");
-const Image = @import("core/Image.zig");
-const Queue = @import("core/Queue.zig");
+const core = @import("core/root.zig");
 const DeviceAllocator = @import("memory/DeviceAllocator.zig");
 const window_surface = @import("window_surface.zig");
 const SurfaceCreationInfo = window_surface.SurfaceCreationInfo;
@@ -381,7 +365,7 @@ const AllocatorAdapter = @import("memory/AllocatorAdapter.zig");
 const Grid = @import("../../Grid.zig");
 const Atlas = @import("../../font/Atlas.zig");
 
-const vertex_input = Pipeline.VertexInputDescriptionBuilder
+const vertex_input = core.Pipeline.VertexInputDescriptionBuilder
     .addBinding(.{ .binding = 0, .stride = 0, .input_rate = .instance })
     .addAttribute(.{ .location = 1, .binding = 0, .format = .r32_uint, .offset = 0 })
     .addAttribute(.{ .location = 2, .binding = 0, .format = .r32_uint, .offset = 0 })
