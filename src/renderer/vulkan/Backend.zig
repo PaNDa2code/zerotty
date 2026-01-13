@@ -45,6 +45,23 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
     );
     errdefer device.deinit();
 
+    const present_queue = Queue.init(
+        device,
+        0,
+        device.physical_device.present_family_index,
+        device.physical_device.support_present,
+    );
+
+    const graphics_queue = Queue.init(
+        device,
+        0,
+        device.physical_device.graphic_family_index,
+        false,
+    );
+
+    _ = graphics_queue;
+    _ = present_queue;
+
     self.instance = instance;
     self.device = device;
 
@@ -329,6 +346,7 @@ const Pipeline = @import("core/Pipeline.zig");
 const PipelineLayout = @import("core/PipelineLayout.zig");
 const ShaderModule = @import("core/ShaderModule.zig");
 const Buffer = @import("core/Buffer.zig");
+const Queue = @import("core/Queue.zig");
 const DeviceAllocator = @import("memory/DeviceAllocator.zig");
 const window_surface = @import("window_surface.zig");
 const SurfaceCreationInfo = window_surface.SurfaceCreationInfo;
