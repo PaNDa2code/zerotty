@@ -7,6 +7,29 @@ pub const DeviceAllocation = struct {
 
     memory_type_index: u32,
     props: vk.MemoryPropertyFlags,
+
+    host_address: usize = 0,
+
+    pub fn map(self: *DeviceAllocation, device: *const core.Device) usize {
+        if (!self.props.host_visible_bit)
+            return 0;
+
+        if (self.host_address != 0)
+            return @ptrFromInt(self.host_address);
+
+        self.host_address = @intFromPtr(device.vkd.mapMemory(
+            device.handle,
+            self.memory,
+            self.offset,
+            self.size,
+            self.props,
+        ) catch null);
+
+        return self.host_address;
+    }
+    pub fn hostPtr(self: *DeviceAllocation, T: type, device: *const core.Device) ?*T {
+        return @ptrFromInt(self.map(device));
+    }
 };
 
 device: *const core.Device,

@@ -62,7 +62,7 @@ pub fn initAlloc(
 }
 
 pub fn deinit(self: *const Buffer, device_allocator: ?*DeviceAllocator) void {
-    if (device_allocator)|allocator| {
+    if (device_allocator) |allocator| {
         if (self.mem_alloc) |alloc| {
             allocator.free(alloc);
         }
@@ -97,6 +97,24 @@ pub fn getDescriptorBufferInfo(self: *const Buffer) vk.DescriptorBufferInfo {
         .offset = 0,
         .range = self.mem_requirements.size,
     };
+}
+
+pub fn hostPtr(self: *Buffer, T: type) ?*T {
+    if (self.mem_alloc == null)
+        return null;
+
+    return self.mem_alloc.?.hostPtr(T, self.device);
+}
+
+pub fn hostSlice(self: *Buffer, T: type) ?[]T {
+    if (self.mem_alloc == null)
+        return null;
+
+    const ptr: [*]T = @ptrCast(self.mem_alloc.?.hostPtr(T, self.device) orelse return null);
+
+    const len = self.mem_alloc.?.size / @sizeOf(T);
+
+    return ptr[0..len];
 }
 
 const std = @import("std");

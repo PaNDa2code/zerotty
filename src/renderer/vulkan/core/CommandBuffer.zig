@@ -188,6 +188,23 @@ pub fn copyBuffer(self: *const CommandBuffer, src: vk.Buffer, dst: vk.Buffer, re
     );
 }
 
+pub const CopyBufferToImageError = StateError;
+
+pub fn copyBufferToImage(self: *const CommandBuffer, src: vk.Buffer, dst: vk.Image, regons: []vk.BufferImageCopy) CopyBufferError!void {
+    if (!self.recording)
+        return error.NotRecording;
+
+    if (regons.len == 0) return;
+
+    self.device.vkd.cmdCopyBufferToImage(
+        self.handle,
+        src,
+        dst,
+        @intCast(regons.len),
+        regons.ptr,
+    );
+}
+
 pub const ExecuteCommandsError = error{
     OperationNotAllowedOnSecondary,
 } || StateError;
