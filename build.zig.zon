@@ -11,11 +11,9 @@
         .vtparse = .{
             .path = "./libs/vtparse",
         },
-        .freetype = .{
-            .path = "./libs/freetype",
-        },
-        .harfbuzz = .{
-            .path = "./libs/harfbuzz",
+        .TrueType = .{
+            .url = "https://codeberg.org/andrewrk/TrueType/archive/c1d4b62157ca47f6d551c45a1c485b799c6dbf0a.tar.gz",
+            .hash = "TrueType-0.0.0-Ne-mWAdyAQBpSstW5tKe3xnKdf0hLBdk0FYAxm1MjvYi",
         },
         .zigwin32 = .{
             .url = "git+https://github.com/marlersoft/zigwin32#9d399c0895de4746c1fcab366841e2ab031b0429",

@@ -23,36 +23,28 @@ cols: u32,
 from: u32,
 to: u32,
 
-pub const CreateError = freetype.Error || Allocator.Error || SaveAtlasError;
+pub const CreateError = TrueType.GlyphBitmapError || Allocator.Error || SaveAtlasError;
 
 // TODO: glyphs are not placed correctly on the baseline
 pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32, to: u32) CreateError!Atlas {
     const glyphs_count = to - from;
-    const ft_library = try freetype.Library.init(allocator);
-    defer ft_library.deinit();
+    const ttf = try TrueType.load(assets.fonts.@"FiraCodeNerdFontMono-Regular.ttf");
+    const scale = ttf.scaleForPixelHeight(@floatFromInt(cell_height));
 
-    const ft_face = try ft_library.memoryFace(assets.fonts.@"FiraCodeNerdFontMono-Regular.ttf", 0);
-    defer ft_face.deinit();
-
-    // font should always be monospace (at least for now)
-    std.debug.assert(ft_face.isFixedWidth());
-
-    try ft_face.setPixelSize(cell_width, cell_height);
+    var buffer = try std.ArrayList(u8).initCapacity(allocator, cell_height * cell_width);
+    defer buffer.deinit(allocator);
 
     const atlas_cols = std.math.sqrt(glyphs_count);
     const atlas_rows = try std.math.divCeil(u32, glyphs_count, atlas_cols);
 
-    const padding_x = 0;
-    const padding_y = 0;
+    const padding_x = 2;
+    const padding_y = 2;
 
-    const max_glyph_height = (@as(u32, @intCast(ft_face.ft_face.*.size.*.metrics.height)) >> 6);
-    const glyph_width = (@as(u32, @intCast(ft_face.ft_face.*.size.*.metrics.max_advance)) >> 6);
-    const descender = (@as(i32, @intCast(ft_face.ft_face.*.size.*.metrics.descender)) >> 6);
-
-    const tex_height = (max_glyph_height + padding_y) * atlas_rows;
+    const tex_height = try std.math.ceilPowerOfTwo(u32, (cell_height + padding_y) * atlas_rows);
     const tex_width = tex_height;
 
     var pixels = try allocator.alloc(u8, tex_width * tex_height);
+
     if (builtin.mode == .Debug)
         @memset(pixels, 0);
 
@@ -61,41 +53,46 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
     var line_height: u32 = 0;
     var pin: Vec2(u32) = .zero;
 
-    for (from..to) |c| {
-        var glyph = try ft_face.getGlyph(@intCast(c));
-        defer glyph.deinit();
+    for (from..to) |codepoint| {
+        const glyph_index = ttf.codepointGlyphIndex(@intCast(codepoint));
+        if (glyph_index == .notdef) continue;
+        buffer.clearRetainingCapacity();
+        const dims = ttf.glyphBitmap(allocator, &buffer, glyph_index, scale, scale) catch |err| {
+            switch (err) {
+                error.GlyphNotFound => continue,
+                else => return err,
+            }
+        };
+        const bitmap = buffer.items;
 
-        const bitmap_glyph = try glyph.glyphBitmap();
-        const bitmap = bitmap_glyph.bitmap;
-
-        line_height = @max(line_height, bitmap.rows);
-
-        if (pin.x + bitmap.width > tex_width) {
+        if (pin.x + dims.width > tex_width) {
             pin.x = 0;
-            pin.y += line_height;
+            pin.y += line_height + padding_y;
             line_height = 0;
         }
 
-        for (0..bitmap.rows) |row| {
-            const src_start = row * @as(usize, @intCast(bitmap.pitch));
-            const src_row = bitmap.buffer.?[src_start .. src_start + bitmap.width];
+        for (0..dims.height) |row| {
+            const src_start = dims.width * row;
+            const src_row = bitmap[src_start..][0..dims.width];
 
             const dst_start = (pin.y + row) * tex_width + pin.x;
-            const dst_row = pixels[dst_start .. dst_start + bitmap.width];
+            const dst_row = pixels[dst_start..][0..dims.width];
 
             @memcpy(dst_row, src_row);
         }
 
         const glyph_info: GlyphInfo = .{
             .coord_start = pin,
-            .coord_end = .{ .x = pin.x + bitmap.width, .y = pin.y + bitmap.rows },
-            .bearing = .{ .x = bitmap_glyph.left, .y = bitmap_glyph.top },
+            .coord_end = .{ .x = pin.x + dims.width, .y = pin.y + dims.height },
+            .bearing = .{ .x = dims.off_x, .y = dims.off_y },
         };
 
-        try glyph_map.put(@intCast(c), glyph_info);
+        try glyph_map.put(@intCast(codepoint), glyph_info);
 
         // Advance to next position
-        pin.x += bitmap.width + padding_x;
+        pin.x += dims.width + padding_x;
+
+        line_height = @max(line_height, dims.height);
     }
 
     if (builtin.mode == .Debug)
@@ -106,116 +103,15 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
         .height = tex_height,
         .width = tex_width,
         .glyph_lookup_map = glyph_map,
-        .cell_width = @intCast(glyph_width),
-        .cell_height = @intCast(cell_height - descender),
-        .descender = descender,
+        .cell_width = cell_width,
+        .cell_height = cell_height,
+        .descender = 0,
         .rows = atlas_rows,
         .cols = atlas_cols,
         .from = from,
         .to = to,
     };
 }
-
-pub fn loadAll(allocator: Allocator, cell_height: u16, cell_width: u16, max_glyphs: usize) CreateError!Atlas {
-    const ft_library = try freetype.Library.init(allocator);
-    defer ft_library.deinit();
-
-    const ft_face = try ft_library.memoryFace(assets.fonts.@"FiraCodeNerdFontMono-Regular.ttf", 0);
-    defer ft_face.deinit();
-
-    // font should always be monospace (at least for now)
-    std.debug.assert(ft_face.isFixedWidth());
-
-    try ft_face.setPixelSize(cell_width, cell_height);
-
-    const glyphs_count = @min(@as(usize, @intCast(ft_face.ft_face.*.num_glyphs)), max_glyphs);
-    const atlas_cols = std.math.sqrt(glyphs_count);
-    const atlas_rows = try std.math.divCeil(usize, glyphs_count, atlas_cols);
-
-    const padding_x = 0;
-    const padding_y = 0;
-
-    const max_glyph_height = (@as(u32, @intCast(ft_face.ft_face.*.size.*.metrics.height)) >> 6);
-    const glyph_width = (@as(u32, @intCast(ft_face.ft_face.*.size.*.metrics.max_advance)) >> 6);
-    const descender = (@as(i32, @intCast(ft_face.ft_face.*.size.*.metrics.descender)) >> 6);
-
-    const tex_height = (max_glyph_height + padding_y) * atlas_rows;
-    const tex_width = tex_height;
-
-    var glyph_map = std.AutoArrayHashMap(u32, GlyphInfo).init(allocator);
-    var pixels = try allocator.alloc(u8, tex_width * tex_height);
-    if (builtin.mode == .Debug)
-        @memset(pixels, 0);
-
-    _ = freetype.c.FT_Select_Charmap(@ptrCast(ft_face.ft_face), freetype.c.FT_ENCODING_UNICODE);
-
-    var line_height: u32 = 0;
-    var pin: Vec2(u32) = .zero;
-
-    var char_code: c_ulong = 0;
-    var gid: c_uint = 0;
-    char_code = freetype.c.FT_Get_First_Char(@ptrCast(ft_face.ft_face), &gid);
-
-    var counter: usize = 0;
-
-    while (gid != 0) : (char_code = freetype.c.FT_Get_Next_Char(@ptrCast(ft_face.ft_face), char_code, &gid)) {
-        defer counter += 1;
-        if (counter == glyphs_count) break;
-        
-        var glyph = try ft_face.getGlyph(@intCast(char_code));
-        defer glyph.deinit();
-
-        const bitmap_glyph = try glyph.glyphBitmap();
-        const bitmap = bitmap_glyph.bitmap;
-
-        line_height = @max(line_height, bitmap.rows);
-
-        if (pin.x + bitmap.width > tex_width) {
-            pin.x = 0;
-            pin.y += line_height;
-            line_height = 0;
-        }
-
-        for (0..bitmap.rows) |row| {
-            const src_start = row * @as(usize, @intCast(bitmap.pitch));
-            const src_row = bitmap.buffer.?[src_start .. src_start + bitmap.width];
-
-            const dst_start = (pin.y + row) * tex_width + pin.x;
-            const dst_row = pixels[dst_start .. dst_start + bitmap.width];
-
-            @memcpy(dst_row, src_row);
-        }
-
-        const glyph_info: GlyphInfo = .{
-            .coord_start = pin,
-            .coord_end = .{ .x = pin.x + bitmap.width, .y = pin.y + bitmap.rows },
-            .bearing = .{ .x = bitmap_glyph.left, .y = bitmap_glyph.top },
-        };
-
-        try glyph_map.put(@intCast(char_code), glyph_info);
-
-        // Advance to next position
-        pin.x += bitmap.width + padding_x;
-    }
-
-    if (builtin.mode == .Debug)
-        try saveAtlas(allocator, "temp/atlas.png", pixels, tex_width, tex_height);
-
-    return .{
-        .buffer = pixels,
-        .height = tex_height,
-        .width = tex_width,
-        .glyph_lookup_map = glyph_map,
-        .cell_width = @intCast(glyph_width),
-        .cell_height = @intCast(cell_height - descender),
-        .descender = descender,
-        .rows = @intCast(atlas_rows),
-        .cols = @intCast(atlas_cols),
-        .from = 0,
-        .to = 0,
-    };
-}
-// pub fn lookupGlyph(self: *Atlas, char_code: u32) void {}
 
 pub fn deinit(self: *Atlas, allocator: Allocator) void {
     allocator.free(self.buffer);
@@ -241,10 +137,11 @@ pub fn saveAtlas(
 
 const std = @import("std");
 const builtin = @import("builtin");
-const freetype = @import("freetype");
 const assets = @import("assets");
 const zigimg = @import("zigimg");
 const Allocator = std.mem.Allocator;
 
 const math = @import("../renderer/common/math.zig");
 const Vec2 = math.Vec2;
+
+const TrueType = @import("TrueType");

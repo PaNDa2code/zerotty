@@ -29,7 +29,6 @@ pub fn build(b: *Build) !void {
     };
 
     const window_system = b.option(WindowSystem, "window-system", "") orelse default_window_system;
-    const no_lsp_check = b.option(bool, "no-lsp-check", "Disables step \"check\" used by zls") orelse false;
     const disable_renderer_debug = b.option(
         bool,
         "disable-renderer-debug",
@@ -118,20 +117,12 @@ pub fn build(b: *Build) !void {
     const vtparse_mod = vtparse.module("vtparse");
     try imports.append(b.allocator, .{ .name = "vtparse", .module = vtparse_mod });
 
-    const freetype = b.dependency("freetype", .{
+    const truetype = b.dependency("TrueType", .{
         .target = target,
         .optimize = optimize,
     });
-    const freetype_mod = freetype.module("freetype");
-    try imports.append(b.allocator, .{ .name = "freetype", .module = freetype_mod });
-
-    const harfbuzz = b.dependency("harfbuzz", .{
-        .target = target,
-        .optimize = optimize,
-        .enable_freetype = true,
-    });
-    const harfbuzz_mod = harfbuzz.module("harfbuzz");
-    try imports.append(b.allocator, .{ .name = "harfbuzz", .module = harfbuzz_mod });
+    const truetype_mod = truetype.module("TrueType");
+    try imports.append(b.allocator, .{ .name = "TrueType", .module = truetype_mod });
 
     const zigimg = b.dependency("zigimg", .{
         .target = target,
@@ -222,9 +213,9 @@ pub fn build(b: *Build) !void {
     const test_step = b.step("test", "run main.zig tests");
     test_step.dependOn(&run_unit_test.step);
 
-    if (!no_lsp_check) {
-        @import("build/check.zig").addCheckStep(b) catch unreachable;
-    }
+    // if (!no_lsp_check) {
+    //     @import("build/check.zig").addCheckStep(b) catch unreachable;
+    // }
 }
 
 fn linkSystemLibraries(
