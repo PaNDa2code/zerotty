@@ -24,6 +24,9 @@ pub fn new(title: []const u8, height: u32, width: u32) Window {
 }
 
 pub fn open(self: *Window, allocator: Allocator) !void {
+    if (@import("builtin").mode == .Debug)
+        _ = c.glfwSetErrorCallback(callbacks.errorCallback);
+
     _ = c.glfwInit();
 
     c.glfwWindowHint(c.GLFW_CLIENT_API, c.GLFW_NO_API);
@@ -109,6 +112,10 @@ const callbacks = struct {
     fn windowClose(glfw_window: ?*c.GLFWwindow) callconv(.c) void {
         const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
         window.exit = true;
+    }
+
+    fn errorCallback(code: c_int, description: [*c]const u8) callconv(.c) void {
+        std.log.scoped(.glfw).err(": {} {s}", .{ code, description });
     }
 };
 
