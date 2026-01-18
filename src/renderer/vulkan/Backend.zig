@@ -1,9 +1,10 @@
 const Backend = @This();
 
 render_context: RenderContext,
+render_pipeline: RenderPipeline,
+render_resources: RenderResources,
 
 swapchain: core.Swapchain,
-render_pass: core.RenderPass,
 render_targets: []core.RenderTarget,
 
 window_height: u32,
@@ -50,37 +51,17 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
 
     self.render_targets = try core.RenderTarget.initFromSwapchain(&self.swapchain, allocator);
 
-    var render_pass_builder = core.RenderPass.Builder.init(allocator);
-    defer render_pass_builder.deinit();
+    self.render_resources = try RenderResources.init(allocator, device, self.render_context.device_allocator, 1000, 1000, 1000, 1000);
 
-    try render_pass_builder.addAttachment(.{
-        .format = self.swapchain.surface_format.format,
-        .samples = .{ .@"1_bit" = true },
-        .load_op = .clear,
-        .store_op = .store,
-        .stencil_load_op = .dont_care,
-        .stencil_store_op = .dont_care,
-        .initial_layout = .undefined,
-        .final_layout = .present_src_khr,
-    });
-
-    try render_pass_builder.addSubpass(.{
-        .pipeline_bind_point = .graphics,
-        .color_attachments = &.{
-            .{ .attachment = 0, .layout = .color_attachment_optimal },
+    self.render_pipeline = try RenderPipeline.init(
+        allocator,
+        self.render_context.device,
+        .{
+            .extent = self.swapchain.extent,
+            .image_attachemnt_format = self.swapchain.surface_format.format,
         },
-    });
-
-    try render_pass_builder.addDependency(.{
-        .src_subpass = vk.SUBPASS_EXTERNAL,
-        .dst_subpass = 0,
-        .src_stage_mask = .{ .color_attachment_output_bit = true },
-        .src_access_mask = .{},
-        .dst_stage_mask = .{ .color_attachment_output_bit = true },
-        .dst_access_mask = .{ .color_attachment_write_bit = true },
-    });
-
-    self.render_pass = try render_pass_builder.build(self.render_context.device);
+        .{ .descriptor_set_layouts = &.{self.render_resources.descriptor_layout} },
+    );
 
     const framebuffers = try allocator.alloc(core.Framebuffer, self.render_targets.len);
     defer {
@@ -95,94 +76,9 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
     }
 
     for (0..framebuffers.len) |i| {
-        framebuffers[i] = try core.Framebuffer.init(self.render_context.device, &self.render_pass, &self.render_targets[i]);
+        framebuffers[i] = try core.Framebuffer.init(self.render_context.device, &self.render_pipeline.renderpass, &self.render_targets[i]);
     }
 
-    const descriptor_pool = try core.DescriptorPool.Builder
-        .addPoolSize(.storage_buffer, 2)
-        .addPoolSize(.combined_image_sampler, 1)
-        .addPoolSize(.uniform_buffer, 1)
-        .build(self.render_context.device);
-
-    defer descriptor_pool.deinit();
-
-    const descriptor_set_layout = try core.DescriptorSetLayout.Builder
-        .addBinding(0, .uniform_buffer, 1, .{ .vertex_bit = true })
-        .addBinding(1, .combined_image_sampler, 1, .{ .fragment_bit = true })
-        .addBinding(2, .storage_buffer, 1, .{ .vertex_bit = true })
-        .addBinding(3, .storage_buffer, 1, .{ .vertex_bit = true })
-        .build(self.render_context.device);
-
-    defer descriptor_set_layout.deinit(self.render_context.device);
-
-    _ = try core.DescriptorSet.init(&descriptor_pool, &descriptor_set_layout, allocator, &.{}, &.{});
-
-    const pipeline_layout = try core.PipelineLayout.init(device, &.{descriptor_set_layout}, allocator);
-    defer pipeline_layout.deinit(device);
-
-    var vertex_shader = core.ShaderModule.init(
-        &assets.shaders.cell_vert,
-        "main",
-        .vertex,
-    );
-    defer vertex_shader.deinit(device);
-
-    var fragment_shader = core.ShaderModule.init(
-        &assets.shaders.cell_frag,
-        "main",
-        .fragment,
-    );
-    defer fragment_shader.deinit(device);
-
-    var pipeline_builder = core.Pipeline.Builder.init(device, allocator);
-    defer pipeline_builder.deinit();
-
-    pipeline_builder.setLayout(&pipeline_layout);
-    pipeline_builder.setRenderPass(&self.render_pass);
-
-    try pipeline_builder.setVertexInput(vertex_input.bindings, vertex_input.attributes);
-
-    try pipeline_builder.addShader(&vertex_shader);
-    try pipeline_builder.addShader(&fragment_shader);
-
-    const viewport: vk.Viewport = .{
-        .x = 0,
-        .y = 0,
-        .width = @floatFromInt(framebuffers[0].extent.width),
-        .height = @floatFromInt(framebuffers[0].extent.height),
-        .min_depth = 0,
-        .max_depth = 1,
-    };
-
-    const scissor: vk.Rect2D = .{
-        .offset = .{ .x = 0, .y = 0 },
-        .extent = framebuffers[0].extent,
-    };
-
-    pipeline_builder.setViewport(viewport);
-    pipeline_builder.setScissor(scissor);
-
-    try pipeline_builder.addDynamicState(.viewport);
-    try pipeline_builder.addDynamicState(.scissor);
-
-    try pipeline_builder.addColorBlendAttachment(.{
-        .blend_enable = .false,
-        .src_color_blend_factor = .one,
-        .dst_color_blend_factor = .zero,
-        .color_blend_op = .add,
-        .src_alpha_blend_factor = .one,
-        .dst_alpha_blend_factor = .zero,
-        .alpha_blend_op = .add,
-        .color_write_mask = .{
-            .r_bit = true,
-            .g_bit = true,
-            .b_bit = true,
-            .a_bit = true,
-        },
-    });
-
-    const pipeline = try pipeline_builder.build();
-    defer pipeline.deinit();
 
     const cmd_pool = try core.CommandPool.init(
         device,
@@ -197,7 +93,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
     var cmd_buffer = try cmd_pool.allocBuffer(.primary);
     try cmd_buffer.begin(.{});
     try cmd_buffer.executeCommand(sec_cmd_buffer.handle);
-    try cmd_buffer.beginRenderPass(&self.render_pass, framebuffers[0], null, .secondary_command_buffers);
+    try cmd_buffer.beginRenderPass(&self.render_pipeline.renderpass, framebuffers[0], null, .secondary_command_buffers);
     try cmd_buffer.endRenderPass();
     try cmd_buffer.end();
 
@@ -223,24 +119,12 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
 
     const vertex_buffer_descriptor_info = vertex_buffer.getDescriptorBufferInfo();
 
-    var descriptor_set = try core.DescriptorSet.init(
-        &descriptor_pool,
-        &descriptor_set_layout,
-        allocator,
-        &.{},
-        &.{},
-    );
-
     const buffer_infos = try allocator.alloc([]vk.DescriptorBufferInfo, 1);
     defer allocator.free(buffer_infos);
     buffer_infos[0] = try allocator.alloc(vk.DescriptorBufferInfo, 1);
     defer allocator.free(buffer_infos[0]);
 
     buffer_infos[0][0] = vertex_buffer_descriptor_info;
-
-    try descriptor_set.reset(buffer_infos, &.{});
-
-    descriptor_set.update();
 }
 
 pub fn deinit(self: *Backend) void {
@@ -256,7 +140,7 @@ pub fn deinit(self: *Backend) void {
         instance.vk_allocator,
     );
 
-    self.render_pass.deinit(allocator);
+    self.render_pipeline.renderpass.deinit(allocator);
 
     for (self.render_targets) |target| {
         target.deinit(device, self.render_context.allocator_adapter.allocator);
@@ -325,6 +209,8 @@ const core = @import("core/root.zig");
 
 const Window = @import("../../window/root.zig").Window;
 const RenderContext = @import("rendering/RenderContext.zig");
+const RenderPipeline = @import("rendering/RenderPipeline.zig");
+const RenderResources = @import("rendering/Resources.zig");
 const Allocator = std.mem.Allocator;
 const ColorRGBAu8 = @import("../common/color.zig").ColorRGBAu8;
 const ColorRGBAf32 = @import("../common/color.zig").ColorRGBAf32;
