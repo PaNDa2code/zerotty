@@ -198,5 +198,6 @@ pub fn deinit(self: *const Image, device_allocator: *DeviceAllocator) void {
 const std = @import("std");
 const vk = @import("vulkan");
 const Device = @import("Device.zig");
-const DeviceAllocator = @import("../memory/DeviceAllocator.zig");
+const memory = @import("memory/root.zig");
+const DeviceAllocator = memory.DeviceAllocator;
 const DeviceAllocation = DeviceAllocator.DeviceAllocation;
