@@ -138,4 +138,4 @@ fn findMemoryType(
 const std = @import("std");
 const vk = @import("vulkan");
 const AllocatorAdapter = @import("AllocatorAdapter.zig");
-const core = @import("../core/root.zig");
+const core = @import("../root.zig");

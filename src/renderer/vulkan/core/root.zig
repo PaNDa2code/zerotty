@@ -1,4 +1,5 @@
 pub const debug = @import("debug.zig");
+pub const memory = @import("memory/root.zig");
 
 pub const Instance = @import("Instance.zig");
 pub const Device = @import("Device.zig");

@@ -1,7 +1,6 @@
 const Backend = @This();
 
-instance: *const core.Instance,
-device: *const core.Device,
+render_context: RenderContext,
 
 swapchain: core.Swapchain,
 render_pass: core.RenderPass,
@@ -9,8 +8,6 @@ render_targets: []core.RenderTarget,
 
 window_height: u32,
 window_width: u32,
-
-allocator_adapter: *AllocatorAdapter,
 
 pub const log = std.log.scoped(.renderer);
 
@@ -21,29 +18,10 @@ pub fn init(window: *Window, allocator: Allocator) !Backend {
 }
 
 pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
-    self.allocator_adapter = try AllocatorAdapter.init(allocator);
+    self.render_context = try RenderContext.init(allocator, window);
 
-    const surface_creation_info = SurfaceCreationInfo.fromWindow(window);
-
-    const instance = try allocator.create(core.Instance);
-
-    instance.* = try core.Instance.init(
-        allocator,
-        &self.allocator_adapter.alloc_callbacks,
-        surface_creation_info.instanceExtensions(),
-    );
-    errdefer instance.deinit();
-
-    const surface = try createWindowSurface(instance, surface_creation_info);
-
-    const device = try allocator.create(core.Device);
-    device.* = try .init(
-        allocator,
-        instance,
-        surface,
-        SurfaceCreationInfo.deviceExtensions(),
-    );
-    errdefer device.deinit();
+    const device = self.render_context.device;
+    const surface = self.render_context.surface;
 
     const present_queue = core.Queue.init(
         device,
@@ -62,11 +40,8 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
     _ = graphics_queue;
     _ = present_queue;
 
-    self.instance = instance;
-    self.device = device;
-
     self.swapchain =
-        try core.Swapchain.init(self.instance, self.device, allocator, surface, .{
+        try core.Swapchain.init(self.render_context.instance, self.render_context.device, allocator, surface, .{
             .extent = .{
                 .height = window.height,
                 .width = window.width,
@@ -105,7 +80,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
         .dst_access_mask = .{ .color_attachment_write_bit = true },
     });
 
-    self.render_pass = try render_pass_builder.build(self.device);
+    self.render_pass = try render_pass_builder.build(self.render_context.device);
 
     const framebuffers = try allocator.alloc(core.Framebuffer, self.render_targets.len);
     defer {
@@ -120,14 +95,14 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
     }
 
     for (0..framebuffers.len) |i| {
-        framebuffers[i] = try core.Framebuffer.init(self.device, &self.render_pass, &self.render_targets[i]);
+        framebuffers[i] = try core.Framebuffer.init(self.render_context.device, &self.render_pass, &self.render_targets[i]);
     }
 
     const descriptor_pool = try core.DescriptorPool.Builder
         .addPoolSize(.storage_buffer, 2)
         .addPoolSize(.combined_image_sampler, 1)
         .addPoolSize(.uniform_buffer, 1)
-        .build(self.device);
+        .build(self.render_context.device);
 
     defer descriptor_pool.deinit();
 
@@ -136,9 +111,9 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
         .addBinding(1, .combined_image_sampler, 1, .{ .fragment_bit = true })
         .addBinding(2, .storage_buffer, 1, .{ .vertex_bit = true })
         .addBinding(3, .storage_buffer, 1, .{ .vertex_bit = true })
-        .build(self.device);
+        .build(self.render_context.device);
 
-    defer descriptor_set_layout.deinit(self.device);
+    defer descriptor_set_layout.deinit(self.render_context.device);
 
     _ = try core.DescriptorSet.init(&descriptor_pool, &descriptor_set_layout, allocator, &.{}, &.{});
 
@@ -226,7 +201,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
     try cmd_buffer.endRenderPass();
     try cmd_buffer.end();
 
-    var vram_allocator = DeviceAllocator.init(device, allocator);
+    const vram_allocator = self.render_context.device_allocator;
 
     var image_builder = core.Image.Builder.new();
 
@@ -234,17 +209,17 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
         .setFormat(.r8_unorm)
         .setSize(100, 100)
         .asTexture()
-        .build(&vram_allocator);
-    defer image.deinit(&vram_allocator);
+        .build(vram_allocator);
+    defer image.deinit(vram_allocator);
 
     var vertex_buffer = try core.Buffer.initAlloc(
-        &vram_allocator,
+        vram_allocator,
         1024,
         .{ .vertex_buffer_bit = true, .transfer_dst_bit = true },
         .{ .device_local_bit = true, .host_visible_bit = true },
         .exclusive,
     );
-    defer vertex_buffer.deinit(&vram_allocator);
+    defer vertex_buffer.deinit(vram_allocator);
 
     const vertex_buffer_descriptor_info = vertex_buffer.getDescriptorBufferInfo();
 
@@ -269,30 +244,26 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator) !void {
 }
 
 pub fn deinit(self: *Backend) void {
-    const allocator = self.allocator_adapter.allocator;
+    const instance = self.render_context.instance;
+    const device = self.render_context.device;
+    const allocator = self.render_context.allocator_adapter.allocator;
 
     self.swapchain.deinit(allocator);
 
-    self.instance.vki.destroySurfaceKHR(
-        self.instance.handle,
+    instance.vki.destroySurfaceKHR(
+        instance.handle,
         self.swapchain.surface,
-        self.instance.vk_allocator,
+        instance.vk_allocator,
     );
 
     self.render_pass.deinit(allocator);
 
     for (self.render_targets) |target| {
-        target.deinit(self.device, self.allocator_adapter.allocator);
+        target.deinit(device, self.render_context.allocator_adapter.allocator);
     }
-    self.allocator_adapter.allocator.free(self.render_targets);
+    self.render_context.allocator_adapter.allocator.free(self.render_targets);
 
-    self.device.deinit();
-    self.instance.deinit();
-
-    self.allocator_adapter.deinit();
-
-    allocator.destroy(self.instance);
-    allocator.destroy(self.device);
+    self.render_context.deinit();
 }
 
 pub fn clearBuffer(self: *Backend, color: ColorRGBAf32) void {
@@ -302,18 +273,18 @@ pub fn clearBuffer(self: *Backend, color: ColorRGBAf32) void {
 
 pub fn resize(self: *Backend, width: u32, height: u32) !void {
     try self.swapchain.recreate(
-        self.allocator_adapter.allocator,
+        self.render_context.allocator_adapter.allocator,
         .{ .width = width, .height = height },
     );
 
     for (self.render_targets) |target| {
-        target.deinit(self.device, self.allocator_adapter.allocator);
+        target.deinit(self.render_context.device, self.render_context.allocator_adapter.allocator);
     }
-    self.allocator_adapter.allocator.free(self.render_targets);
+    self.render_context.allocator_adapter.allocator.free(self.render_targets);
 
     self.render_targets = try core.RenderTarget.initFromSwapchain(
         &self.swapchain,
-        self.allocator_adapter.allocator,
+        self.render_context.allocator_adapter.allocator,
     );
 }
 
@@ -351,19 +322,15 @@ const os_tag = builtin.os.tag;
 const vk = @import("vulkan");
 
 const core = @import("core/root.zig");
-const DeviceAllocator = @import("memory/DeviceAllocator.zig");
-const window_surface = @import("window_surface.zig");
-const SurfaceCreationInfo = window_surface.SurfaceCreationInfo;
-const createWindowSurface = window_surface.createWindowSurface;
 
 const Window = @import("../../window/root.zig").Window;
+const RenderContext = @import("rendering/RenderContext.zig");
 const Allocator = std.mem.Allocator;
 const ColorRGBAu8 = @import("../common/color.zig").ColorRGBAu8;
 const ColorRGBAf32 = @import("../common/color.zig").ColorRGBAf32;
-const DynamicLibrary = @import("../../DynamicLibrary.zig");
-const AllocatorAdapter = @import("memory/AllocatorAdapter.zig");
-const Grid = @import("../../Grid.zig");
-const Atlas = @import("../../font/Atlas.zig");
+// const DynamicLibrary = @import("../../DynamicLibrary.zig");
+// const Grid = @import("../../Grid.zig");
+// const Atlas = @import("../../font/Atlas.zig");
 
 const vertex_input = core.Pipeline.VertexInputDescriptionBuilder
     .addBinding(.{ .binding = 0, .stride = 0, .input_rate = .instance })
