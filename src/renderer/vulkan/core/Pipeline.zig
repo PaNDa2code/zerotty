@@ -13,6 +13,8 @@ device: *const Device,
 handle: vk.Pipeline,
 layout: vk.PipelineLayout,
 
+cache: vk.PipelineCache = .null_handle,
+
 pub const VertexInputDescriptionBuilder = VertexInputAssembler(&.{}, &.{});
 
 fn VertexInputAssembler(
@@ -66,6 +68,8 @@ pub const Builder = struct {
     layout: vk.PipelineLayout = .null_handle,
     render_pass: vk.RenderPass = .null_handle,
     subpass: u32 = 0,
+
+    cache_reader: ?std.Io.Reader = null,
 
     pub fn init(device: *const Device, allocator: std.mem.Allocator) Builder {
         return .{
@@ -167,6 +171,10 @@ pub const Builder = struct {
         self.render_pass = render_pass.handle;
     }
 
+    pub fn cacheReader(self: *Builder, reader: std.Io.Reader) void {
+        self.cache_reader = reader;
+    }
+
     pub fn build(self: *Builder) !Pipeline {
         const vertex_input_info = vk.PipelineVertexInputStateCreateInfo{
             .vertex_binding_description_count = @intCast(self.vertex_bindings.items.len),
@@ -218,9 +226,30 @@ pub const Builder = struct {
 
         var handle = vk.Pipeline.null_handle;
 
+        const cache = blk: {
+            var reader = self.cache_reader orelse
+                break :blk vk.PipelineCache.null_handle;
+
+            const data = reader.allocRemaining(self.allocator, 5 * 1024 * 1024) catch
+                break :blk vk.PipelineCache.null_handle;
+
+            const cache_info = vk.PipelineCacheCreateInfo{
+                .p_initial_data = data.ptr,
+                .initial_data_size = data.len,
+            };
+
+            const cache = self.device.vkd.createPipelineCache(
+                self.device.handle,
+                &cache_info,
+                self.device.vk_allocator,
+            ) catch .null_handle;
+
+            break :blk cache;
+        };
+
         _ = try self.device.vkd.createGraphicsPipelines(
             self.device.handle,
-            .null_handle,
+            cache,
             1,
             @ptrCast(&pipeline_info),
             self.device.vk_allocator,
@@ -235,6 +264,50 @@ pub const Builder = struct {
     }
 };
 
-pub fn deinit(self: Pipeline) void {
+pub fn deinit(self: *Pipeline) void {
+    if (self.cache != .null_handle)
+        self.device.vkd.destroyPipelineCache(
+            self.device.handle,
+            self.cache,
+            self.device.vk_allocator,
+        );
+
     self.device.vkd.destroyPipeline(self.device.handle, self.handle, self.device.vk_allocator);
+}
+
+fn createPipelineCache(self: *Pipeline) !void {
+    if (self.cache != .null_handle) return;
+
+    const pipeline_cache_info = vk.PipelineCacheCreateInfo{};
+
+    self.cache = try self.device.vkd.createPipelineCache(
+        self.device.handle,
+        &pipeline_cache_info,
+        self.device.vk_allocator,
+    );
+}
+
+pub fn writePipelineCacheData(self: *Pipeline, writer: std.Io.Writer) !void {
+    var buffer: [1024]u8 = undefined;
+    var count: usize = 0;
+    var result = vk.Result.incomplete;
+
+    try self.createPipelineCache();
+
+    _ = try self.device.vkd.getPipelineCacheData(
+        self.device.handle,
+        self.cache,
+        &count,
+        null,
+    );
+
+    while (result == .incomplete) {
+        result = try self.device.vkd.getPipelineCacheData(
+            self.device.handle,
+            self.cache,
+            &count,
+            &buffer,
+        );
+        try writer.writeAll(buffer[0..count]);
+    }
 }
