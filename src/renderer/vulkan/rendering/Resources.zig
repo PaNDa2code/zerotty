@@ -13,7 +13,7 @@ vertex_buffer: core.Buffer, // Quad vertices
 cell_data_buffer: core.Buffer, // Cell character data
 style_data_buffer: core.Buffer, // Cell style/color data
 font_atlas: core.Image, // Font texture atlas
-// font_sampler: vk.Sampler, // Font atlas sampler
+font_sampler: core.Sampler, // Font atlas sampler
 
 // Resource capacities
 max_cells: usize,
@@ -96,14 +96,8 @@ pub fn init(
     errdefer font_atlas.deinit(vram_allocator);
 
     // Create font sampler
-    // const font_sampler = try core.Sampler.init(device, .{
-    //     .min_filter = .linear,
-    //     .mag_filter = .linear,
-    //     .address_mode_u = .clamp_to_edge,
-    //     .address_mode_v = .clamp_to_edge,
-    //     .address_mode_w = .clamp_to_edge,
-    // });
-    // errdefer font_sampler.deinit(device);
+    const font_sampler = try core.Sampler.init(device);
+    errdefer font_sampler.deinit(device);
 
     // Prepare descriptor infos
     const uniform_buffer_info = uniform_buffer.getDescriptorBufferInfo();
@@ -119,7 +113,6 @@ pub fn init(
     descriptor_info[0][0] = uniform_buffer_info;
     descriptor_info[1][0] = cell_data_info;
     descriptor_info[2][0] = style_data_info;
-
 
     // Create descriptor set with all bindings
     const descriptor_set = try core.DescriptorSet.init(
@@ -148,14 +141,16 @@ pub fn init(
         .cell_data_buffer = cell_data_buffer,
         .style_data_buffer = style_data_buffer,
         .font_atlas = font_atlas,
-        // .font_sampler = font_sampler,
+        .font_sampler = font_sampler,
         .max_cells = max_cells,
         .max_styles = max_styles,
     };
 }
 
-pub fn deinit(self: *Resources, device: *const core.Device, vram_allocator: *core.memory.DeviceAllocator) void {
-    self.descriptor_set.deinit();
+pub fn deinit(self: *Resources, device: *const core.Device, vram_allocator: *core.memory.DeviceAllocator, allocator: std.mem.Allocator) void {
+    for (self.descriptor_set.buffer_infos) |arr| {
+        allocator.free(arr);
+    }
     self.descriptor_layout.deinit(device);
     self.descriptor_pool.deinit();
 
@@ -164,7 +159,7 @@ pub fn deinit(self: *Resources, device: *const core.Device, vram_allocator: *cor
     self.cell_data_buffer.deinit(vram_allocator);
     self.style_data_buffer.deinit(vram_allocator);
     self.font_atlas.deinit(vram_allocator);
-    // self.font_sampler.deinit(device);
+    self.font_sampler.deinit(device);
 }
 
 pub fn updateUniforms(self: *Resources, screen_width: f32, screen_height: f32, cell_width: f32, cell_height: f32) !void {

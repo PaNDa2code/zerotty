@@ -134,9 +134,11 @@ const assets = @import("assets");
 
 const core = @import("../core/root.zig");
 
+const vertex = @import("vertex.zig");
+
 const vertex_input = core.Pipeline.VertexInputDescriptionBuilder
-    .addBinding(.{ .binding = 0, .stride = 0, .input_rate = .instance })
-    .addAttribute(.{ .location = 1, .binding = 0, .format = .r32_uint, .offset = 0 })
-    .addAttribute(.{ .location = 2, .binding = 0, .format = .r32_uint, .offset = 0 })
-    .addAttribute(.{ .location = 3, .binding = 0, .format = .r32_uint, .offset = 0 })
+    .addBinding(.{ .binding = 0, .stride = @sizeOf(vertex.Instance), .input_rate = .instance })
+    .addAttribute(.{ .location = 1, .binding = 0, .format = .r32_uint, .offset = @offsetOf(vertex.Instance, "packed_pos") })
+    .addAttribute(.{ .location = 2, .binding = 0, .format = .r32_uint, .offset = @offsetOf(vertex.Instance, "glyph_index") })
+    .addAttribute(.{ .location = 3, .binding = 0, .format = .r32_uint, .offset = @offsetOf(vertex.Instance, "style_index") })
     .collect();

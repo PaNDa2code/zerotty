@@ -25,3 +25,5 @@ pub const RenderPass = @import("RenderPass.zig");
 
 pub const Framebuffer = @import("Framebuffer.zig");
 pub const RenderTarget = @import("RenderTarget.zig");
+
+pub const Sampler = @import("Sampler.zig");

@@ -132,6 +132,8 @@ pub fn deinit(self: *Backend) void {
     const device = self.render_context.device;
     const allocator = self.render_context.allocator_adapter.allocator;
 
+    self.render_resources.deinit(device, self.render_context.device_allocator, allocator);
+
     self.swapchain.deinit(allocator);
 
     instance.vki.destroySurfaceKHR(
