@@ -102,10 +102,12 @@ pub fn build(b: *Build) !void {
             else
                 b.lazyDependency("vulkan", .{});
 
-            if (vulkan) |dep| {
-                const vulkan_mod = dep.module("vulkan-zig");
-                renderer_module.addImport("vulkan", vulkan_mod);
-                try imports.append(b.allocator, .{ .name = "vulkan", .module = vulkan_mod });
+            if (vulkan_headers != null) {
+                if (vulkan) |dep| {
+                    const vulkan_mod = dep.module("vulkan-zig");
+                    renderer_module.addImport("vulkan", vulkan_mod);
+                    try imports.append(b.allocator, .{ .name = "vulkan", .module = vulkan_mod });
+                }
             }
         },
     }

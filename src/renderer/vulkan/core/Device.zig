@@ -69,22 +69,35 @@ pub fn waitIdle(self: *const Device) WaitIdleError!void {
 
 pub const CreateFenceError = vk.DeviceWrapper.CreateFenceError;
 
-pub fn createFence(self: *const Device) CreateFenceError!vk.Fence {
+pub fn createFence(self: *const Device, signaled: bool) CreateFenceError!vk.Fence {
     return self.vkd.createFence(
         self.handle,
-        &.{},
+        &vk.FenceCreateInfo{ .flags = .{ .signaled_bit = signaled } },
         self.vk_allocator,
     );
+}
+
+pub const WaitFenceError = vk.DeviceWrapper.WaitForFencesError;
+
+pub const WaitFenceResult = enum(i32) {
+    success = @intFromEnum(vk.Result.success),
+    timeout = @intFromEnum(vk.Result.timeout),
+};
+
+pub fn waitFence(self: *const Device, fence: vk.Fence, timeout: u64) WaitFenceError!WaitFenceResult {
+    const res = try self.vkd.waitForFences(self.handle, 1, &.{fence}, .true, timeout);
+
+    return switch (res) {
+        .success => .success,
+        .timeout => .timeout,
+        else => unreachable,
+    };
 }
 
 pub const CreateSemaphoreError = vk.DeviceWrapper.CreateSemaphoreError;
 
 pub fn createSemaphore(self: *const Device) CreateSemaphoreError!vk.Semaphore {
-    return self.vkd.createSemaphore(
-        self.handle,
-        &.{},
-        self.vk_allocator,
-    );
+    return self.vkd.createSemaphore(self.handle, &.{}, self.vk_allocator);
 }
 
 fn createDevice(

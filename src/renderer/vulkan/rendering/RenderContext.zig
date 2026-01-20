@@ -5,6 +5,8 @@ device: *const core.Device,
 
 surface: vk.SurfaceKHR,
 
+queue: core.Queue,
+
 // allocator: std.mem.Allocator,
 allocator_adapter: *core.memory.AllocatorAdapter,
 device_allocator: *core.memory.DeviceAllocator,
@@ -18,7 +20,7 @@ pub fn init(allocator: std.mem.Allocator, window: anytype) !RenderContext {
     instance.* = try core.Instance.init(
         allocator,
         &allocator_adapter.alloc_callbacks,
-        surface_creation_info.instanceExtensions(),
+        try surface_creation_info.instanceExtensions(allocator),
     );
     errdefer instance.deinit();
 
@@ -37,11 +39,20 @@ pub fn init(allocator: std.mem.Allocator, window: anytype) !RenderContext {
 
     device_allocator.* = .init(device, allocator);
 
+    const queue = core.Queue.init(
+        device,
+        device.physical_device.graphic_family_index,
+        0,
+        true,
+    );
+
     return .{
         .instance = instance,
         .device = device,
 
         .surface = surface,
+
+        .queue = queue,
 
         .allocator_adapter = allocator_adapter,
         .device_allocator = device_allocator,

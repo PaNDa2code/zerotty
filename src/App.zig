@@ -100,7 +100,7 @@ fn keyboard_cb(utf32: u32, press: bool) void {
 }
 
 pub fn loop(self: *App) void {
-    self.window.render_cb = &drawCallBack;
+    // self.window.render_cb = &drawCallBack;
     self.window.resize_cb = &resizeCallBack;
     self.window.keyboard_cb = &keyboard_cb;
     while (!self.window.exit) {
@@ -113,7 +113,7 @@ var fps: f64 = 0;
 pub fn drawCallBack(renderer: *Renderer) void {
     evloop.poll(0) catch unreachable;
     renderer.clearBuffer(.Black);
-    renderer.renaderGrid();
+    renderer.renaderGrid() catch {};
     renderer.presentBuffer();
 
     const _fps = renderer.getFps();

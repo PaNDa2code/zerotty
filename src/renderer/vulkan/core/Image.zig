@@ -95,8 +95,7 @@ pub const Builder = struct {
     }
 
     pub fn asTexture(self: *Builder) *Builder {
-        _ = self.addUsage(.{ .sampled_bit = true, .transfer_dst_bit = true });
-        _ = self.setMipLevels(4);
+        _ = self.addUsage();
         return self;
     }
 
@@ -185,6 +184,14 @@ pub const Builder = struct {
         };
     }
 };
+
+pub fn getDescriptorImageInfo(self: *const Image, sampler: vk.Sampler) vk.DescriptorImageInfo {
+    return .{
+        .sampler = sampler,
+        .image_view = self.view,
+        .image_layout = .shader_read_only_optimal,
+    };
+}
 
 pub fn deinit(self: *const Image, device_allocator: *DeviceAllocator) void {
     const device = device_allocator.device;

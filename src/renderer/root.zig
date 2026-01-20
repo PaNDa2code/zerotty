@@ -15,9 +15,8 @@ pub fn init(window: *Window, allocator: Allocator) !Renderer {
         .cols = window.width / atlas.cell_width,
     });
 
-    const backend = try Backend.init(window, allocator);
+    const backend = try Backend.init(window, allocator, grid.rows, grid.cols);
     const cursor = try Cursor.init();
-
 
     return .{
         .backend = backend,
@@ -44,8 +43,8 @@ pub fn presentBuffer(self: *Renderer) void {
     self.backend.presentBuffer();
 }
 
-pub fn renaderGrid(self: *Renderer) void {
-    self.backend.renaderGrid();
+pub fn renaderGrid(self: *Renderer) !void {
+    try self.backend.renaderGrid();
 }
 
 pub fn setCell(

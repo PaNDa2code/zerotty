@@ -1,6 +1,7 @@
 const RenderPipeline = @This();
 
 pipeline: core.Pipeline,
+pipeline_layout: core.PipelineLayout,
 renderpass: core.RenderPass,
 
 pub const DisplayInfo = struct {
@@ -73,7 +74,7 @@ pub fn init(
         descriptor_info.descriptor_set_layouts,
         allocator,
     );
-    defer pipeline_layout.deinit(device);
+    errdefer pipeline_layout.deinit(device);
 
     pipeline_builder.setLayout(&pipeline_layout);
     pipeline_builder.setRenderPass(&renderpass);
@@ -120,12 +121,18 @@ pub fn init(
     });
 
     const pipeline = try pipeline_builder.build();
-    defer pipeline.deinit();
 
     return .{
         .pipeline = pipeline,
+        .pipeline_layout = pipeline_layout,
         .renderpass = renderpass,
     };
+}
+
+pub fn deinit(self: *RenderPipeline, device: *const core.Device, allocator: std.mem.Allocator) void {
+    self.pipeline.deinit();
+    self.pipeline_layout.deinit(device);
+    self.renderpass.deinit(allocator);
 }
 
 const std = @import("std");

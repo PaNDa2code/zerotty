@@ -49,7 +49,9 @@ pixel_shader_blob: *ID3DBlob = undefined,
 dxdi: if (builtin.mode == .Debug) DxgiDebugInterface else void = undefined,
 
 // TODO: Replace manual HRESULT checks with proper Zig error unions and error sets when supported.
-pub fn init(window: *Window, _: Allocator) !D3D11Renderer {
+pub fn init(window: *Window, _: Allocator, grid_rows: u32, grid_cols: u32) !D3D11Renderer {
+    _ = grid_rows;
+    _ = grid_cols;
     var self: D3D11Renderer = .{};
 
     const sd = dxgi.DXGI_SWAP_CHAIN_DESC{
