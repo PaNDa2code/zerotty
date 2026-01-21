@@ -20,7 +20,10 @@ struct GlyphStyle {
 layout(location = 0) in vec4 quad_vertex; // xy = position, zw = UV
 #endif
 
-// packed_pos = (row << 16) | col
+// 32       16       0
+// +--------+--------+
+// |  col   |   row  |
+// +--------+--------+
 // Lower 16 bits = row, upper 16 bits = col
 // Allows up to 65535 rows/cols, far beyond any real terminal size 
 layout(location = 1) in uint packed_pos;
@@ -42,11 +45,11 @@ layout(set = 0, binding = 0) uniform Uniforms {
 } ubo;
 
 // SSBOs
-layout(std430, binding = 2) readonly buffer GlyphMetricsBuffer {
+layout(std140, binding = 2) readonly buffer GlyphMetricsBuffer {
     GlyphMetrics glyph_metrics[];
 };
 
-layout(std430, binding = 3) readonly buffer GlyphStylesBuffer {
+layout(std140, binding = 3) readonly buffer GlyphStylesBuffer {
     GlyphStyle glyph_styles[];
 };
 

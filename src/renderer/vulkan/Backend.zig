@@ -89,7 +89,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator, grid_rows: u
     }
 
     // Setup frame synchronization
-    self.max_frames_in_flight = @min(self.swapchain.images.len, 3);
+    self.max_frames_in_flight = @intCast(self.swapchain.images.len);
     self.current_frame = 0;
 
     self.in_flight_fences = try allocator.alloc(vk.Fence, self.max_frames_in_flight);
@@ -344,7 +344,10 @@ pub fn setCell(
     std.log.debug("{any}", .{&.{ row, col, char_code, fg_color, bg_color }});
 
     const cell_instance = vertex.Instance{
-        .packed_pos = .{ .row = @intCast(row), .col = @intCast(col) },
+        .packed_pos = .{
+            .row = @intCast(row),
+            .col = @intCast(col),
+        },
         .glyph_index = 0,
         .style_index = 0,
     };

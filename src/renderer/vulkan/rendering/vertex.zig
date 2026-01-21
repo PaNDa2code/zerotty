@@ -10,13 +10,13 @@ pub const Instance = packed struct {
     style_index: u32,
 };
 
-pub const GlyphMetrics = extern struct {
+pub const GlyphMetrics = packed struct {
     coord_start: math.Vec2(u32),
     coord_end: math.Vec2(u32),
     bearing: math.Vec2(i32),
 };
 
-pub const GlyphStyle = extern struct {
+pub const GlyphStyle = packed struct {
     fg_color: color.ColorRGBAf32,
     bg_color: color.ColorRGBAf32,
 };
