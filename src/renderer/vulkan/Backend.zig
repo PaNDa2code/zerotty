@@ -11,9 +11,6 @@ framebuffers: []core.Framebuffer,
 window_height: u32,
 window_width: u32,
 
-grid_rows: u32,
-grid_cols: u32,
-
 // Frame synchronization
 current_frame: u32,
 max_frames_in_flight: u32,
@@ -26,6 +23,7 @@ command_pool: core.CommandPool,
 command_buffers: []core.CommandBuffer,
 
 atlas: Atlas,
+grid: Grid,
 
 copy_command_buffer: core.CommandBuffer,
 copy_fence: vk.Fence,
@@ -39,10 +37,11 @@ pub fn init(window: *Window, allocator: Allocator, grid_rows: u32, grid_cols: u3
 }
 
 pub fn setup(self: *Backend, window: *Window, allocator: Allocator, grid_rows: u32, grid_cols: u32) !void {
-    self.grid_rows = grid_rows;
-    self.grid_cols = grid_cols;
-
     self.atlas = try Atlas.create(allocator, 20, 20, 0, 128);
+    self.grid = try Grid.create(allocator, .{
+        .rows = grid_rows,
+        .cols = grid_cols,
+    });
 
     self.render_context = try RenderContext.init(allocator, window);
     const device = self.render_context.device;
@@ -144,6 +143,8 @@ pub fn deinit(self: *Backend) void {
     allocator.free(self.image_available_semaphores);
     allocator.free(self.render_finished_semaphores);
 
+    device.vkd.destroyFence(device.handle, self.copy_fence, device.vk_allocator);
+
     // Clean up framebuffers
     for (self.framebuffers) |framebuffer| {
         device.vkd.destroyFramebuffer(device.handle, framebuffer.handle, device.vk_allocator);
@@ -155,7 +156,7 @@ pub fn deinit(self: *Backend) void {
     allocator.free(self.command_buffers);
 
     // Clean up resources
-    // self.render_resources.deinit(device, self.render_context.device_allocator, allocator);
+    self.render_resources.deinit(device, self.render_context.device_allocator, allocator);
 
     // Clean up pipeline
     self.render_pipeline.deinit(device, allocator);
@@ -173,6 +174,9 @@ pub fn deinit(self: *Backend) void {
     allocator.free(self.render_targets);
 
     self.render_context.deinit();
+
+    self.atlas.deinit(allocator);
+    self.grid.free(allocator);
 }
 
 pub fn clearBuffer(self: *Backend, color: ColorRGBAf32) void {
@@ -218,13 +222,13 @@ pub fn renaderGrid(self: *Backend) !void {
     const device = self.render_context.device;
 
     // Wait for previous frame to finish
-    _ = device.vkd.waitForFences(
+    _ = try device.vkd.waitForFences(
         device.handle,
         1,
         &.{self.in_flight_fences[self.current_frame]},
         vk.Bool32.true,
         std.math.maxInt(u64),
-    ) catch {};
+    );
 
     // Acquire next image from swapchain
     const acquire_result = device.vkd.acquireNextImageKHR(
@@ -328,32 +332,22 @@ pub fn setCell(
     fg_color: ?ColorRGBAu8,
     bg_color: ?ColorRGBAu8,
 ) !void {
-    _ = bg_color; // autofix
-    _ = fg_color; // autofix
-    _ = char_code; // autofix
-    _ = col; // autofix
-    _ = row; // autofix
-    _ = self; // autofix
-    // // Calculate cell index in the instance data
-    // const cell_index = row * self.grid_cols + col;
-    // if (cell_index >= self.render_resources.max_cells) return error.OutOfRange;
-    //
-    // // Create cell instance data
-    // const cell_instance = vertex.Instance{
-    //     .packed_pos = .{ .row = @intCast(row), .col = @intCast(col) },
-    //     .glyph_index = char_code,
-    //     .style_index = 0, // TODO: Implement style management
-    // };
-    //
-    // // Create style data
-    // const cell_style = vertex.GlyphStyle{
-    //     .fg_color = fg_color orelse ColorRGBAu8{ .r = 255, .g = 255, .b = 255, .a = 255 },
-    //     .bg_color = bg_color orelse ColorRGBAu8{ .r = 0, .g = 0, .b = 0, .a = 0 },
-    // };
-    //
-    // // Update buffers - for now just update one cell at a time
-    // try self.render_resources.updateCellData(&.{cell_instance});
-    // try self.render_resources.updateStyleData(&.{cell_style});
+    const cell_index = row * self.grid.cols + col;
+    if (cell_index >= self.render_resources.max_cells) return error.OutOfRange;
+
+    const cell_instance = vertex.Instance{
+        .packed_pos = .{ .row = @intCast(row), .col = @intCast(col) },
+        .glyph_index = char_code,
+        .style_index = 0,
+    };
+
+    const cell_style = vertex.GlyphStyle{
+        .fg_color = fg_color orelse ColorRGBAu8{ .r = 255, .g = 255, .b = 255, .a = 255 },
+        .bg_color = bg_color orelse ColorRGBAu8{ .r = 0, .g = 0, .b = 0, .a = 0 },
+    };
+
+    try self.render_resources.updateCellData(&.{cell_instance});
+    try self.render_resources.updateStyleData(&.{cell_style});
 }
 
 const std = @import("std");
@@ -374,7 +368,7 @@ const Allocator = std.mem.Allocator;
 const ColorRGBAu8 = @import("../common/color.zig").ColorRGBAu8;
 const ColorRGBAf32 = @import("../common/color.zig").ColorRGBAf32;
 // const DynamicLibrary = @import("../../DynamicLibrary.zig");
-// const Grid = @import("../../Grid.zig");
+const Grid = @import("../../Grid.zig");
 const Atlas = @import("../../font/Atlas.zig");
 
 const vertex = @import("rendering/vertex.zig");

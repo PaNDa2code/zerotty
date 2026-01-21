@@ -53,7 +53,7 @@ pub fn beginSecondary(
         return error.StillRecording;
 
     var flags = usage_flags;
-    var inheritance_info = std.mem.zeroInit(vk.CommandBufferInheritanceInfo, .{});
+    var inheritance_info: vk.CommandBufferInheritanceInfo = undefined;
 
     if (render_pass) |rp| {
         flags = flags.merge(.{ .render_pass_continue_bit = true });
@@ -68,7 +68,7 @@ pub fn beginSecondary(
 
     const begin_info = vk.CommandBufferBeginInfo{
         .flags = flags,
-        .p_inheritance_info = &inheritance_info,
+        .p_inheritance_info = if (render_pass != null) &inheritance_info else null,
     };
 
     try self.device.vkd.beginCommandBuffer(self.handle, &begin_info);
@@ -398,7 +398,9 @@ pub fn pipelineBarrier2(
 }
 
 pub fn pipelineBarrierAuto(self: *const CommandBuffer, arina: std.mem.Allocator, info: PipelineBarrierInfo) !void {
-    if (self.device.vkd.dispatch.vkCmdPipelineBarrier2 != null) {
+    if (@as(u32, @bitCast(self.device.instance.version)) >=
+        @as(u32, @bitCast(vk.API_VERSION_1_3)))
+    {
         const dependency_info = info.dependencyInfo();
         try self.pipelineBarrier2(&dependency_info);
     } else {

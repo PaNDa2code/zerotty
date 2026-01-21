@@ -60,10 +60,11 @@ pub fn init(
             &.{};
 
     const api_version: u32 = blk: {
-        // if (vkb.dispatch.vkEnumerateInstanceVersion == null)
+        if (@intFromPtr(vkb.dispatch.vkEnumerateInstanceVersion) >= 0 and
+            @intFromPtr(vkb.dispatch.vkEnumerateInstanceVersion) <= 3)
             break :blk @bitCast(vk.API_VERSION_1_0);
 
-        // break :blk vkb.enumerateInstanceVersion() catch @bitCast(vk.API_VERSION_1_0);
+        break :blk vkb.enumerateInstanceVersion() catch @bitCast(vk.API_VERSION_1_0);
     };
 
     const instance_info = vk.InstanceCreateInfo{

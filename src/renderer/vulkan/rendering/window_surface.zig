@@ -43,7 +43,7 @@ pub const SurfaceCreationInfo = union(enum) {
         };
     }
 
-    pub fn instanceExtensions(self: SurfaceCreationInfo, allocator: std.mem.Allocator) ![]const [*:0]const u8 {
+    pub fn instanceExtensionsAlloc(self: SurfaceCreationInfo, allocator: std.mem.Allocator) ![]const [*:0]const u8 {
         if (build_options.@"window-system" == .glfw) {
             var count: u32 = 0;
             const extentions: [*]const [*:0]const u8 =

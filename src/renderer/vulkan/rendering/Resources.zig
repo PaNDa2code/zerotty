@@ -167,7 +167,6 @@ pub fn init(
 }
 
 pub fn deinit(self: *Resources, device: *const core.Device, vram_allocator: *core.memory.DeviceAllocator, allocator: std.mem.Allocator) void {
-    _ = allocator;
     self.layout.deinit(device);
     self.pool.deinit();
 
@@ -175,8 +174,26 @@ pub fn deinit(self: *Resources, device: *const core.Device, vram_allocator: *cor
     self.vertex_buffer.deinit(vram_allocator);
     self.cell_data_buffer.deinit(vram_allocator);
     self.style_data_buffer.deinit(vram_allocator);
+    self.staging_buffer.deinit(vram_allocator);
     self.font_atlas.deinit(vram_allocator);
     self.font_sampler.deinit(device);
+
+    var buffer_iter = self.descriptor_buffer_infos.valueIterator();
+    while (buffer_iter.next()) |list| {
+        list.deinit(allocator);
+    }
+    var image_iter = self.descriptor_image_infos.valueIterator();
+    while (image_iter.next()) |list| {
+        list.deinit(allocator);
+    }
+
+    self.descriptor_buffer_infos.deinit();
+    self.descriptor_image_infos.deinit();
+
+    allocator.destroy(self.descriptor_buffer_infos);
+    allocator.destroy(self.descriptor_image_infos);
+
+    self.set.write_descriptor_sets.deinit(allocator);
 }
 
 // Update functions for modifying data

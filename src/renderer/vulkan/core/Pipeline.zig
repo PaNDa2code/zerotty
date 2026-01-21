@@ -230,7 +230,7 @@ pub const Builder = struct {
             var reader = self.cache_reader orelse
                 break :blk vk.PipelineCache.null_handle;
 
-            const data = reader.allocRemaining(self.allocator, 5 * 1024 * 1024) catch
+            const data = reader.allocRemaining(self.allocator, .unlimited) catch
                 break :blk vk.PipelineCache.null_handle;
 
             const cache_info = vk.PipelineCacheCreateInfo{

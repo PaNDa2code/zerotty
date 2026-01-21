@@ -11,6 +11,8 @@ pub const PhysicalDevice = struct {
     present_family_index: u32,
 };
 
+instance: *const Instance,
+
 handle: vk.Device,
 physical_device: PhysicalDevice,
 
@@ -46,6 +48,8 @@ pub fn init(
         const vkd = vk.DeviceWrapper.load(device, vkGetDeviceProcAddr);
 
         return .{
+            .instance = instance,
+
             .handle = device,
             .physical_device = physical_device,
 

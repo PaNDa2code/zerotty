@@ -15,12 +15,14 @@ pub fn init(allocator: std.mem.Allocator, window: anytype) !RenderContext {
     const allocator_adapter = try core.memory.AllocatorAdapter.init(allocator);
 
     const surface_creation_info = SurfaceCreationInfo.fromWindow(window);
+    const instance_extensions = try surface_creation_info.instanceExtensionsAlloc(allocator);
+    defer allocator.free(instance_extensions);
 
     const instance = try allocator.create(core.Instance);
     instance.* = try core.Instance.init(
         allocator,
         &allocator_adapter.alloc_callbacks,
-        try surface_creation_info.instanceExtensions(allocator),
+        instance_extensions,
     );
     errdefer instance.deinit();
 
