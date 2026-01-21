@@ -3,7 +3,7 @@ const vk = @import("vulkan");
 
 const build_options = @import("build_options");
 
-const Instance = @import("core/Instance.zig");
+const Instance = @import("../core/root.zig").Instance;
 
 pub const SurfaceCreationInfo = union(enum) {
     win32: struct {
@@ -43,7 +43,7 @@ pub const SurfaceCreationInfo = union(enum) {
         };
     }
 
-    pub fn instanceExtensions(self: SurfaceCreationInfo) []const [*:0]const u8 {
+    pub fn instanceExtensions(self: SurfaceCreationInfo, allocator: std.mem.Allocator) ![]const [*:0]const u8 {
         if (build_options.@"window-system" == .glfw) {
             var count: u32 = 0;
             const extentions: [*]const [*:0]const u8 =
@@ -52,7 +52,7 @@ pub const SurfaceCreationInfo = union(enum) {
             return extentions[0..count];
         }
 
-        var exts: [2][*:0]const u8 = undefined;
+        const exts = try allocator.alloc([*:0]const u8, 2);
 
         exts[0] = "VK_KHR_surface";
 
@@ -64,7 +64,7 @@ pub const SurfaceCreationInfo = union(enum) {
             else => unreachable,
         };
 
-        return &exts;
+        return exts;
     }
 
     pub fn deviceExtensions() []const [*:0]const u8 {

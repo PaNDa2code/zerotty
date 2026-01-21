@@ -15,14 +15,14 @@ pub const DeviceAllocation = struct {
             return 0;
 
         if (self.host_address != 0)
-            return @ptrFromInt(self.host_address);
+            return self.host_address;
 
         self.host_address = @intFromPtr(device.vkd.mapMemory(
             device.handle,
             self.memory,
             self.offset,
             self.size,
-            self.props,
+            .{},
         ) catch null);
 
         return self.host_address;
@@ -138,4 +138,4 @@ fn findMemoryType(
 const std = @import("std");
 const vk = @import("vulkan");
 const AllocatorAdapter = @import("AllocatorAdapter.zig");
-const core = @import("../core/root.zig");
+const core = @import("../root.zig");

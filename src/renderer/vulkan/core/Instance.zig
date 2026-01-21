@@ -60,10 +60,10 @@ pub fn init(
             &.{};
 
     const api_version: u32 = blk: {
-        if (vkb.dispatch.vkEnumerateInstanceVersion == null)
+        // if (vkb.dispatch.vkEnumerateInstanceVersion == null)
             break :blk @bitCast(vk.API_VERSION_1_0);
 
-        break :blk vkb.enumerateInstanceVersion() catch @bitCast(vk.API_VERSION_1_0);
+        // break :blk vkb.enumerateInstanceVersion() catch @bitCast(vk.API_VERSION_1_0);
     };
 
     const instance_info = vk.InstanceCreateInfo{

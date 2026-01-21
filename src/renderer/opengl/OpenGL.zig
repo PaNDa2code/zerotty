@@ -17,7 +17,9 @@ grid: Grid,
 pub const InitError = shader_utils.CreateShaderProgramError ||
     Allocator.Error || CreateOpenGLContextError || Atlas.CreateError;
 
-pub fn init(window: *Window, allocator: Allocator) InitError!OpenGLRenderer {
+pub fn init(window: *Window, allocator: Allocator, grid_rows: u32, grid_cols: u32) InitError!OpenGLRenderer {
+    _ = grid_rows;
+    _ = grid_cols;
     var self: OpenGLRenderer = undefined;
     self.allocator = allocator;
     self.context = try OpenGLContext.createOpenGLContext(window);

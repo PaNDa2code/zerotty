@@ -5,10 +5,9 @@ handle: vk.DescriptorSet,
 pool: *const DescriptorPool,
 layout: *const DescriptorSetLayout,
 
-// TODO: use maps
 // [binding][element]
-buffer_infos: [][]vk.DescriptorBufferInfo,
-image_infos: [][]vk.DescriptorImageInfo,
+buffer_infos: *const std.AutoHashMap(u32, std.ArrayList(vk.DescriptorBufferInfo)),
+image_infos: *const std.AutoHashMap(u32, std.ArrayList(vk.DescriptorImageInfo)),
 
 allocator: std.mem.Allocator,
 write_descriptor_sets: std.ArrayList(vk.WriteDescriptorSet),
@@ -20,8 +19,8 @@ pub fn init(
     pool: *const DescriptorPool,
     layout: *const DescriptorSetLayout,
     allocator: std.mem.Allocator,
-    buffer_infos: [][]vk.DescriptorBufferInfo,
-    image_infos: [][]vk.DescriptorImageInfo,
+    buffer_infos: *const std.AutoHashMap(u32, std.ArrayList(vk.DescriptorBufferInfo)),
+    image_infos: *const std.AutoHashMap(u32, std.ArrayList(vk.DescriptorImageInfo)),
 ) InitError!DescriptorSet {
     const handle = try pool.allocDescriptorSets(layout);
 
@@ -44,10 +43,10 @@ pub const ResetError = error{};
 
 pub fn reset(
     self: *DescriptorSet,
-    buffer_infos: [][]vk.DescriptorBufferInfo,
-    image_infos: [][]vk.DescriptorImageInfo,
+    buffer_infos: *const std.AutoHashMap(u32, std.ArrayList(vk.DescriptorBufferInfo)),
+    image_infos: *const std.AutoHashMap(u32, std.ArrayList(vk.DescriptorImageInfo)),
 ) !void {
-    if (buffer_infos.len != 0 and image_infos.len != 0) {
+    if (buffer_infos.count() != 0 and image_infos.count() != 0) {
         self.image_infos = image_infos;
         self.buffer_infos = buffer_infos;
     }
@@ -60,9 +59,13 @@ pub fn reset(
 pub fn prepare(self: *DescriptorSet) std.mem.Allocator.Error!void {
     const limits = self.pool.device.physical_device.properties.limits;
 
-    for (self.buffer_infos, 0..) |binding_buffers, binding_index| {
+    var buffers_iter = self.buffer_infos.iterator();
+
+    while (buffers_iter.next()) |entry| {
+        const binding_index = entry.key_ptr.*;
         const layout_binding = self.layout.bindings[binding_index];
-        for (binding_buffers, 0..) |*buffer_info, array_index| {
+
+        for (entry.value_ptr.items, 0..) |*buffer_info, array_index| {
             var range = buffer_info.range;
 
             switch (layout_binding.descriptor_type) {
@@ -91,9 +94,12 @@ pub fn prepare(self: *DescriptorSet) std.mem.Allocator.Error!void {
         }
     }
 
-    for (self.image_infos, 0..) |binding_images, binding_index| {
+    var images_iter = self.image_infos.iterator();
+
+    while (images_iter.next()) |entry| {
+        const binding_index = entry.key_ptr.*;
         const layout_binding = self.layout.bindings[binding_index];
-        for (binding_images, 0..) |*image_info, array_index| {
+        for (entry.value_ptr.items, 0..) |*image_info, array_index| {
             try self.write_descriptor_sets.append(self.allocator, .{
                 .dst_set = self.handle,
                 .dst_binding = @intCast(binding_index),

@@ -4,14 +4,26 @@ const Renderer = @This();
 backend: Backend,
 fps: FPS,
 cursor: Cursor,
+grid: Grid,
+atlas: Atlas,
 
 pub fn init(window: *Window, allocator: Allocator) !Renderer {
-    const backend = try Backend.init(window, allocator);
+    const atlas = try Atlas.create(allocator, 20, 20, 0, 128);
+
+    const grid = try Grid.create(allocator, .{
+        .rows = window.height / atlas.cell_height,
+        .cols = window.width / atlas.cell_width,
+    });
+
+    const backend = try Backend.init(window, allocator, grid.rows, grid.cols);
     const cursor = try Cursor.init();
+
     return .{
         .backend = backend,
         .fps = try FPS.init(),
         .cursor = cursor,
+        .grid = grid,
+        .atlas = atlas,
     };
 }
 
@@ -31,8 +43,8 @@ pub fn presentBuffer(self: *Renderer) void {
     self.backend.presentBuffer();
 }
 
-pub fn renaderGrid(self: *Renderer) void {
-    self.backend.renaderGrid();
+pub fn renaderGrid(self: *Renderer) !void {
+    try self.backend.renaderGrid();
 }
 
 pub fn setCell(
@@ -70,6 +82,7 @@ pub const Backend = switch (Api) {
 pub const FPS = @import("common/FPS.zig");
 pub const Cursor = @import("../Cursor.zig");
 pub const Grid = @import("../Grid.zig");
+pub const Atlas = @import("../font/Atlas.zig");
 const Window = @import("../window/root.zig").Window;
 const Allocator = @import("std").mem.Allocator;
 const ColorRGBAu8 = @import("common/color.zig").ColorRGBAu8;

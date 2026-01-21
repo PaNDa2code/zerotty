@@ -42,7 +42,7 @@ pub fn allocBuffers(
     allocator: std.mem.Allocator,
     level: vk.CommandBufferLevel,
     count: u32,
-) []vk.CommandBuffer {
+) AllocBuffersError![]CommandBuffer {
     const buffer_info = vk.CommandBufferAllocateInfo{
         .command_pool = self.handle,
         .level = level,
@@ -50,12 +50,26 @@ pub fn allocBuffers(
     };
 
     const handles = try allocator.alloc(vk.CommandBuffer, @intCast(count));
+    defer allocator.free(handles);
 
     try self.device.vkd.allocateCommandBuffers(
         self.device.handle,
         &buffer_info,
         handles.ptr,
     );
+
+    const command_buffers = try allocator.alloc(CommandBuffer, @intCast(count));
+
+    for (command_buffers, handles) |*buffer, handle| {
+        buffer.* = .{
+            .device = self.device,
+            .pool = self,
+            .handle = handle,
+            .level = level,
+        };
+    }
+
+    return command_buffers;
 }
 
 pub const AllocBufferError = vk.DeviceWrapper.AllocateCommandBuffersError;

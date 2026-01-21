@@ -1,4 +1,5 @@
 pub const debug = @import("debug.zig");
+pub const memory = @import("memory/root.zig");
 
 pub const Instance = @import("Instance.zig");
 pub const Device = @import("Device.zig");
@@ -24,3 +25,5 @@ pub const RenderPass = @import("RenderPass.zig");
 
 pub const Framebuffer = @import("Framebuffer.zig");
 pub const RenderTarget = @import("RenderTarget.zig");
+
+pub const Sampler = @import("Sampler.zig");
