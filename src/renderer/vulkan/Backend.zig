@@ -37,7 +37,7 @@ pub fn init(window: *Window, allocator: Allocator, grid_rows: u32, grid_cols: u3
 }
 
 pub fn setup(self: *Backend, window: *Window, allocator: Allocator, grid_rows: u32, grid_cols: u32) !void {
-    self.atlas = try Atlas.create(allocator, 20, 20, 0, 128);
+    self.atlas = try Atlas.create(allocator, 45, 45, 0, 128);
     self.grid = try Grid.create(allocator, .{
         .rows = grid_rows,
         .cols = grid_cols,
@@ -89,7 +89,7 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator, grid_rows: u
     }
 
     // Setup frame synchronization
-    self.max_frames_in_flight = @min(self.swapchain.images.len, 3);
+    self.max_frames_in_flight = @intCast(self.swapchain.images.len);
     self.current_frame = 0;
 
     self.in_flight_fences = try allocator.alloc(vk.Fence, self.max_frames_in_flight);
@@ -210,6 +210,9 @@ pub fn resize(self: *Backend, width: u32, height: u32) !void {
     for (0..self.render_targets.len) |i| {
         self.framebuffers[i] = try core.Framebuffer.init(device, &self.render_pipeline.renderpass, &self.render_targets[i]);
     }
+
+    self.window_width = width;
+    self.window_height = height;
 }
 
 pub fn presentBuffer(self: *Backend) void {
@@ -267,6 +270,12 @@ pub fn renaderGrid(self: *Backend) !void {
     // Bind pipeline
     self.command_buffers[self.current_frame].bindPipeline(self.render_pipeline.pipeline.handle, .graphics) catch {};
 
+    try self.render_resources.updateUniforms(
+        @floatFromInt(self.window_width),
+        @floatFromInt(self.window_height),
+        @floatFromInt(self.atlas.cell_width),
+        @floatFromInt(self.atlas.cell_height),
+    );
     // Bind vertex buffer and descriptor sets
     // TODO: Implement proper binding
     try self.render_resources.bindVertexBuffers(&self.command_buffers[self.current_frame]);
@@ -332,22 +341,39 @@ pub fn setCell(
     fg_color: ?ColorRGBAu8,
     bg_color: ?ColorRGBAu8,
 ) !void {
-    const cell_index = row * self.grid.cols + col;
-    if (cell_index >= self.render_resources.max_cells) return error.OutOfRange;
+    std.log.debug("{any}", .{&.{ row, col, char_code, fg_color, bg_color }});
 
     const cell_instance = vertex.Instance{
-        .packed_pos = .{ .row = @intCast(row), .col = @intCast(col) },
-        .glyph_index = char_code,
+        .packed_pos = .{
+            .row = @intCast(row),
+            .col = @intCast(col),
+        },
+        .glyph_index = 0,
         .style_index = 0,
     };
 
     const cell_style = vertex.GlyphStyle{
-        .fg_color = fg_color orelse ColorRGBAu8{ .r = 255, .g = 255, .b = 255, .a = 255 },
-        .bg_color = bg_color orelse ColorRGBAu8{ .r = 0, .g = 0, .b = 0, .a = 0 },
+        .fg_color = .White,
+        .bg_color = .Black,
     };
 
-    try self.render_resources.updateCellData(&.{cell_instance});
+    try self.grid.set(.{
+        .packed_pos = @bitCast(cell_instance.packed_pos),
+        .glyph_index = @intCast(self.atlas.glyph_lookup_map.getIndex('N') orelse 0),
+        .style_index = 0,
+    });
+
+    const info = self.atlas.glyph_lookup_map.get('N').?;
+
+    const metrics = vertex.GlyphMetrics{
+        .coord_start = info.coord_start,
+        .coord_end = info.coord_end,
+        .bearing = info.bearing,
+    };
+
     try self.render_resources.updateStyleData(&.{cell_style});
+    try self.render_resources.updateGlyphData(&.{metrics});
+    try self.render_resources.updateVertexInstances(&.{cell_instance});
 }
 
 const std = @import("std");

@@ -14,7 +14,7 @@ present_mode: vk.PresentModeKHR,
 
 pub const SwapchainOptions = struct {
     extent: vk.Extent2D,
-    presnt_mode: vk.PresentModeKHR = .immediate_khr,
+    presnt_mode: vk.PresentModeKHR = .mailbox_khr,
     old_swapchain: vk.SwapchainKHR = .null_handle,
 
     image_count: u32 = 3,

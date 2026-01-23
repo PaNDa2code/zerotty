@@ -17,8 +17,8 @@ pub const GlyphMetrics = packed struct {
 };
 
 pub const GlyphStyle = packed struct {
-    fg_color: color.ColorRGBAu8,
-    bg_color: color.ColorRGBAu8,
+    fg_color: color.ColorRGBAf32,
+    bg_color: color.ColorRGBAf32,
 };
 
 pub const Uniforms = packed struct {

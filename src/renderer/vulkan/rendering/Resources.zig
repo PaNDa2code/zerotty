@@ -7,7 +7,7 @@ set: core.DescriptorSet,
 // Descriptor bindings for terminal rendering
 uniform_buffer: core.Buffer, // Binding 0: Screen/cell dimensions
 vertex_buffer: core.Buffer, // Binding for vertex data
-cell_data_buffer: core.Buffer, // Binding 2: Cell character data
+glyph_data_buffer: core.Buffer, // Binding 2: GlyphMetrics
 style_data_buffer: core.Buffer, // Binding 3: Cell style/color data
 font_atlas: core.Image, // Binding 1: Font texture atlas
 font_sampler: core.Sampler, // Font atlas sampler
@@ -60,24 +60,23 @@ pub fn init(
     // Create vertex buffer for basic quad rendering
     const vertex_buffer = try core.Buffer.initAlloc(
         vram_allocator,
-        @sizeOf(vertex.Vertex) * 4, // 4 vertices per quad
+        @sizeOf(vertex.Instance) * max_cells,
         .{ .vertex_buffer_bit = true },
         .{ .host_visible_bit = true, .host_coherent_bit = true },
         .exclusive,
     );
     errdefer vertex_buffer.deinit(vram_allocator);
 
-    // Create cell data storage buffer
-    const cell_data_buffer = try core.Buffer.initAlloc(
+    // Create style data storage buffer
+    const glyph_data_buffer = try core.Buffer.initAlloc(
         vram_allocator,
-        @sizeOf(vertex.Instance) * max_cells,
+        @sizeOf(vertex.GlyphMetrics) * 512,
         .{ .storage_buffer_bit = true },
         .{ .host_visible_bit = true, .host_coherent_bit = true },
         .exclusive,
     );
-    errdefer cell_data_buffer.deinit(vram_allocator);
+    errdefer glyph_data_buffer.deinit(vram_allocator);
 
-    // Create style data storage buffer
     const style_data_buffer = try core.Buffer.initAlloc(
         vram_allocator,
         @sizeOf(vertex.GlyphStyle) * max_styles,
@@ -115,8 +114,8 @@ pub fn init(
     // Create descriptor set with all bindings
     const uniform_buffer_info = uniform_buffer.getDescriptorBufferInfo();
     const font_atlas_info = font_atlas.getDescriptorImageInfo(font_sampler.handle);
-    const cell_data_info = cell_data_buffer.getDescriptorBufferInfo();
     const style_data_info = style_data_buffer.getDescriptorBufferInfo();
+    const glyph_data_info = glyph_data_buffer.getDescriptorBufferInfo();
 
     const buffer_infos = try allocator.create(std.AutoHashMap(u32, std.ArrayList(vk.DescriptorBufferInfo)));
     const image_infos = try allocator.create(std.AutoHashMap(u32, std.ArrayList(vk.DescriptorImageInfo)));
@@ -131,8 +130,8 @@ pub fn init(
         const font_atlas_entry = try image_infos.getOrPutValue(1, .empty);
         try font_atlas_entry.value_ptr.append(allocator, font_atlas_info);
 
-        const cell_data_entry = try buffer_infos.getOrPutValue(2, .empty);
-        try cell_data_entry.value_ptr.append(allocator, cell_data_info);
+        const glyph_data_entry = try buffer_infos.getOrPutValue(2, .empty);
+        try glyph_data_entry.value_ptr.append(allocator, glyph_data_info);
 
         const style_data_entry = try buffer_infos.getOrPutValue(3, .empty);
         try style_data_entry.value_ptr.append(allocator, style_data_info);
@@ -154,7 +153,7 @@ pub fn init(
         .set = set,
         .uniform_buffer = uniform_buffer,
         .vertex_buffer = vertex_buffer,
-        .cell_data_buffer = cell_data_buffer,
+        .glyph_data_buffer = glyph_data_buffer,
         .style_data_buffer = style_data_buffer,
         .staging_buffer = staging_buffer,
         .font_atlas = font_atlas,
@@ -172,7 +171,7 @@ pub fn deinit(self: *Resources, device: *const core.Device, vram_allocator: *cor
 
     self.uniform_buffer.deinit(vram_allocator);
     self.vertex_buffer.deinit(vram_allocator);
-    self.cell_data_buffer.deinit(vram_allocator);
+    self.glyph_data_buffer.deinit(vram_allocator);
     self.style_data_buffer.deinit(vram_allocator);
     self.staging_buffer.deinit(vram_allocator);
     self.font_atlas.deinit(vram_allocator);
@@ -198,7 +197,7 @@ pub fn deinit(self: *Resources, device: *const core.Device, vram_allocator: *cor
 
 // Update functions for modifying data
 pub fn updateUniforms(self: *Resources, screen_width: f32, screen_height: f32, cell_width: f32, cell_height: f32) !void {
-    if (self.uniform_buffer.hostSlice(vertex.Uniforms)) |uniforms| {
+    if (self.uniform_buffer.hostPtr(vertex.Uniforms)) |uniforms| {
         uniforms.* = .{
             .cell_height = cell_height,
             .cell_width = cell_width,
@@ -213,11 +212,18 @@ pub fn updateUniforms(self: *Resources, screen_width: f32, screen_height: f32, c
     }
 }
 
-pub fn updateCellData(self: *Resources, cell_instances: []const vertex.Instance) !void {
+pub fn updateVertexInstances(self: *Resources, cell_instances: []const vertex.Instance) !void {
     if (cell_instances.len > self.max_cells) return error.TooManyCells;
 
-    if (self.cell_data_buffer.hostSlice(vertex.Instance)) |cell_data| {
+    if (self.vertex_buffer.hostSlice(vertex.Instance)) |cell_data| {
         @memcpy(cell_data[0..cell_instances.len], cell_instances);
+    }
+}
+
+pub fn updateGlyphData(self: *Resources, metrics: []const vertex.GlyphMetrics) !void {
+
+    if (self.glyph_data_buffer.hostSlice(vertex.GlyphMetrics)) |glyph_data| {
+        @memcpy(glyph_data[0..metrics.len], metrics);
     }
 }
 
@@ -231,7 +237,8 @@ pub fn updateStyleData(self: *Resources, style_data: []const vertex.GlyphStyle) 
 
 // Update descriptor set with new data
 pub fn updateDescriptorSet(self: *Resources) !void {
-    _ = self;
+    try self.set.prepare();
+    self.set.update();
 }
 
 // Binding functions for rendering
