@@ -1,6 +1,8 @@
 const std = @import("std");
 const Build = std.Build;
 
+const android = @import("android");
+
 const DEFAULT_RENDER_BACKEND: RenderBackend = .vulkan;
 
 pub const RenderBackend = enum {
@@ -14,6 +16,7 @@ pub const WindowSystem = enum {
     xlib,
     xcb,
     glfw,
+    android,
 };
 
 pub fn build(b: *Build) !void {
@@ -22,7 +25,23 @@ pub fn build(b: *Build) !void {
 
     const render_backend = b.option(RenderBackend, "render-backend", "") orelse DEFAULT_RENDER_BACKEND;
 
-    const default_window_system: WindowSystem = switch (target.result.os.tag) {
+    const is_android = target.result.os.tag == .linux and target.result.abi == .android;
+
+    var android_build_tools_version: ?[]const u8 = null;
+    var android_ndk_version: ?[]const u8 = null;
+    var android_api_level: ?android.ApiLevel = null;
+    var android_home: ?[]const u8 = null;
+
+    if (is_android) {
+        android_home = b.option([]const u8, "android_home", "");
+        android_build_tools_version = b.option([]const u8, "android_build_tools_version", "") orelse "36.1.0";
+        android_ndk_version = b.option([]const u8, "android_ndk_version", "") orelse "29.0.14206865";
+        android_api_level = b.option(android.ApiLevel, "android_api_level", "") orelse .android7;
+    }
+
+    const default_window_system: WindowSystem = if (is_android)
+        .android
+    else switch (target.result.os.tag) {
         .windows => .win32,
         .linux => if (DEFAULT_RENDER_BACKEND == .vulkan) .xcb else .xlib,
         else => .glfw,
@@ -45,47 +64,58 @@ pub fn build(b: *Build) !void {
     const is_gnu = target.result.isGnuLibC();
     const linkage: std.builtin.LinkMode = if (is_gnu and is_native) .dynamic else .static;
 
-    var imports = std.ArrayList(struct { name: []const u8, module: *Build.Module }).empty;
-    defer imports.deinit(b.allocator);
+    var imports = std.ArrayList(Build.Module.Import).empty;
+    try imports.append(b.allocator, .{ .name = "build_options", .module = options_mod });
 
     const window_module = b.createModule(.{
         .root_source_file = b.path("src/window/root.zig"),
+        .imports = &.{
+            .{ .name = "build_options", .module = options_mod },
+        },
     });
-    window_module.addImport("build_options", options_mod);
 
     const pty_module = b.createModule(.{
         .root_source_file = b.path("src/pty/root.zig"),
+        .imports = &.{
+            .{ .name = "build_options", .module = options_mod },
+        },
     });
-    pty_module.addImport("build_options", options_mod);
 
     const font_module = b.createModule(.{
         .root_source_file = b.path("src/font/root.zig"),
+        .imports = &.{
+            .{ .name = "build_options", .module = options_mod },
+        },
     });
-    font_module.addImport("build_options", options_mod);
 
     const renderer_module = b.createModule(.{
         .root_source_file = b.path("src/renderer/root.zig"),
+        .imports = &.{
+            .{ .name = "build_options", .module = options_mod },
+        },
     });
-    renderer_module.addImport("build_options", options_mod);
 
-    switch (target.result.os.tag) {
-        .windows => {
-            if (b.lazyDependency("zigwin32", .{})) |dep| {
-                const win32_mod = dep.module("win32");
-                window_module.addImport("win32", win32_mod);
-                pty_module.addImport("win32", win32_mod);
-                try imports.append(b.allocator, .{ .name = "win32", .module = win32_mod });
-            }
-        },
-        .linux => {
-            if (b.lazyDependency("zig_openpty", .{})) |dep| {
-                const openpty_mod = dep.module("openpty");
-                pty_module.addImport("openpty", openpty_mod);
-                try imports.append(b.allocator, .{ .name = "openpty", .module = openpty_mod });
-            }
-        },
-        .macos => {},
-        else => {},
+    if (!is_android) {
+        switch (target.result.os.tag) {
+            .windows => {
+                if (b.lazyDependency("zigwin32", .{})) |dep| {
+                    const win32_mod = dep.module("win32");
+                    window_module.addImport("win32", win32_mod);
+                    pty_module.addImport("win32", win32_mod);
+                    try imports.append(b.allocator, .{ .name = "win32", .module = win32_mod });
+                }
+            },
+            .linux, .macos => {
+                if (target.result.abi == .gnu) {
+                    if (b.lazyDependency("zig_openpty", .{})) |dep| {
+                        const openpty_mod = dep.module("openpty");
+                        pty_module.addImport("openpty", openpty_mod);
+                        try imports.append(b.allocator, .{ .name = "openpty", .module = openpty_mod });
+                    }
+                }
+            },
+            else => {},
+        }
     }
 
     switch (render_backend) {
@@ -102,12 +132,10 @@ pub fn build(b: *Build) !void {
             else
                 b.lazyDependency("vulkan", .{});
 
-            if (vulkan_headers != null) {
-                if (vulkan) |dep| {
-                    const vulkan_mod = dep.module("vulkan-zig");
-                    renderer_module.addImport("vulkan", vulkan_mod);
-                    try imports.append(b.allocator, .{ .name = "vulkan", .module = vulkan_mod });
-                }
+            if (vulkan_headers != null and vulkan != null) {
+                const vulkan_mod = vulkan.?.module("vulkan-zig");
+                renderer_module.addImport("vulkan", vulkan_mod);
+                try imports.append(b.allocator, .{ .name = "vulkan", .module = vulkan_mod });
             }
         },
     }
@@ -165,6 +193,61 @@ pub fn build(b: *Build) !void {
 
     linkSystemLibraries(exe_mod, window_system, render_backend, target, b, linkage);
 
+    if (is_android) {
+        const android_sdk = android.Sdk.create(b, .{});
+        const apk = android_sdk.createApk(.{
+            .api_level = android_api_level.?,
+            .build_tools_version = android_build_tools_version.?,
+            .ndk_version = android_ndk_version.?,
+        });
+
+        apk.setAndroidManifest(b.path("android/AndroidManifest.xml"));
+        apk.addResourceDirectory(b.path("android/res"));
+        // apk.addJavaSourceFile(.{ .file = b.path("android/src/ZerottyActivity.java") });
+
+        // Add the library to APK for all Android targets
+        const android_targets = android.standardTargets(b, target);
+
+        const key_store = android_sdk.createKeyStore(.example);
+
+        apk.setKeyStore(key_store);
+
+        const native_app_glue_dir: std.Build.LazyPath = .{
+            .cwd_relative = b.fmt("{s}/sources/android/native_app_glue", .{apk.ndk.path}),
+        };
+
+        for (android_targets) |android_target| {
+            const mod = b.createModule(.{
+                .root_source_file = b.path("src/android.zig"),
+                .target = android_target,
+                .imports = imports.items,
+                .optimize = optimize,
+            });
+
+            mod.addImport(
+                "android",
+                b.dependency("android", .{}).module("android"),
+            );
+
+            const lib = b.addLibrary(.{
+                .name = "zerotty",
+                .root_module = mod,
+                .linkage = .dynamic,
+            });
+
+            lib.root_module.addIncludePath(native_app_glue_dir);
+
+            lib.root_module.addCSourceFiles(.{
+                .root = native_app_glue_dir,
+                .files = &.{"android_native_app_glue.c"},
+            });
+
+            apk.addArtifact(lib);
+            apk.installApk();
+        }
+        return;
+    }
+
     const exe = b.addExecutable(.{
         .name = "zerotty",
         .root_module = exe_mod,
@@ -214,10 +297,6 @@ pub fn build(b: *Build) !void {
     const run_unit_test = b.addRunArtifact(unit_test);
     const test_step = b.step("test", "run main.zig tests");
     test_step.dependOn(&run_unit_test.step);
-
-    // if (!no_lsp_check) {
-    //     @import("build/check.zig").addCheckStep(b) catch unreachable;
-    // }
 }
 
 fn linkSystemLibraries(
@@ -273,13 +352,33 @@ fn linkSystemLibraries(
                 module.linkLibrary(libxkbcommon);
             }
         },
+        .android => {
+            // Android NDK libraries
+            module.linkSystemLibrary("android", .{});
+            module.linkSystemLibrary("log", .{});
+            module.linkSystemLibrary("android_native_app_glue", .{});
+
+            if (render_backend == .opengl) {
+                module.linkSystemLibrary("EGL", .{});
+                module.linkSystemLibrary("GLESv3", .{});
+            } else if (render_backend == .vulkan) {
+                module.linkSystemLibrary("vulkan", .{});
+            }
+        },
     }
 }
 
 fn shouldUseGLES(target: Build.ResolvedTarget) bool {
     return switch (target.result.os.tag) {
         .emscripten, .wasi, .ios => true,
-        .linux, .windows => switch (target.result.cpu.arch) {
+        .linux => switch (target.result.abi) {
+            .android => true, // Android uses GLES
+            else => switch (target.result.cpu.arch) {
+                .arm, .armeb, .aarch64 => true,
+                else => false,
+            },
+        },
+        .windows => switch (target.result.cpu.arch) {
             .arm, .armeb, .aarch64 => true,
             else => false,
         },
@@ -294,7 +393,8 @@ fn createOpenGLBindings(b: *Build, target: Build.ResolvedTarget) *Build.Module {
         "ARB_gl_spirv",
     };
 
-    const gl_target = if (shouldUseGLES(target)) "gles-3.2" else "gl-4.1-core";
+    const use_gles = shouldUseGLES(target);
+    const gl_target = if (use_gles) "gles-3.2" else "gl-4.1-core";
 
     const gl = b.createModule(.{});
 

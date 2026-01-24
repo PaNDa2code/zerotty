@@ -5,4 +5,5 @@ pub const Window = switch (Api) {
     .xlib => @import("Xlib.zig"),
     .xcb => @import("Xcb.zig"),
     .glfw => @import("GLFW.zig"),
+    .android => @import("Android.zig"),
 };

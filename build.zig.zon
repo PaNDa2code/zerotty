@@ -74,6 +74,10 @@
             .hash = "glfw_zig-1.0.0-NrvYo8bXGQDNplF8UkNbZbjoTEXXwSu7aKICMnlJiuhl",
             .lazy = true,
         },
+        .android = .{
+            .url = "git+https://github.com/silbinarywolf/zig-android-sdk#b124e1d61a8856ae9ab3cb00d4ca54444aa9836e",
+            .hash = "android-0.3.0-7iz7QuLTAQAvVw7BFyhlf4GsEjxrYGtMpcvGQRbZ6K9X",
+        },
     },
     .paths = .{
         "build.zig",
