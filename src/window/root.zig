@@ -81,8 +81,8 @@ fn WindowInterface(WindowBackend: type) type {
             try self.w.setTitle(title);
         }
 
-        pub fn pumpMessages(self: *Self) void {
-            self.w.pumpMessages();
+        pub fn poll(self: *Self) void {
+            self.w.poll();
         }
 
         pub fn close(self: *Self) void {
@@ -101,7 +101,7 @@ fn backendAssert(comptime T: type) void {
             "new",
             "open",
             "close",
-            "pumpMessages",
+            "poll",
             "setTitle",
             "getHandles",
         };

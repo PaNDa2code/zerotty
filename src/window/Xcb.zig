@@ -221,7 +221,7 @@ pub fn setTitle(self: *Window, title: []const u8) !void {
     }
 }
 
-pub fn pumpMessages(self: *Window) void {
+pub fn poll(self: *Window) void {
     while (c.xcb_poll_for_event(self.connection)) |event| {
         const response_type = event.*.response_type & 0x7F;
 

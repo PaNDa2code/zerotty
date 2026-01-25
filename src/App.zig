@@ -23,7 +23,7 @@ pub fn init(allocator: std.mem.Allocator) !App {
 
 pub fn run(self: *App) !void {
     while (self.window.running) {
-        self.window.pumpMessages();
+        self.window.poll();
     }
 }
 

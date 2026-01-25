@@ -58,11 +58,11 @@ pub fn setTitle(self: *Window, title: []const u8) !void {
 
 pub fn messageLoop(self: *Window) void {
     while (!self.exit) {
-        self.pumpMessages();
+        self.poll();
     }
 }
 
-pub fn pumpMessages(self: *Window) void {
+pub fn poll(self: *Window) void {
     _ = c.XSelectInput(self.display, self.w, c.ExposureMask | c.StructureNotifyMask | c.KeyPressMask);
 
     var event: c.XEvent = undefined;

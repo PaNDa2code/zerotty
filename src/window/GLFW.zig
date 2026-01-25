@@ -69,7 +69,7 @@ pub fn setTitle(self: *Window, title: []const u8) !void {
     std.heap.c_allocator.free(title_z);
 }
 
-pub fn pumpMessages(_: *Window) void {
+pub fn poll(_: *Window) void {
     c.glfwPollEvents();
 }
 

@@ -207,11 +207,11 @@ fn setAcrylicBlur(self: *Window) void {
 
 pub fn messageLoop(self: *Window) void {
     while (!self.exit) {
-        self.pumpMessages();
+        self.poll();
     }
 }
 
-pub fn pumpMessages(self: *Window) void {
+pub fn poll(self: *Window) void {
     var msg: win32wm.MSG = undefined;
 
     if (win32wm.PeekMessageW(&msg, null, 0, 0, .{ .REMOVE = 1 }) != 0) {
