@@ -14,11 +14,10 @@ pub fn main() !void {
         else
             std.heap.c_allocator;
 
-    var app = App.new(allocator);
-    try app.start();
-    defer app.exit();
+    var app = try App.init(allocator);
+    defer app.deinit();
 
-    app.loop();
+    try app.run();
 }
 
 pub const panic = std.debug.FullPanic(panicHandle);

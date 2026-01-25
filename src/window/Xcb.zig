@@ -4,14 +4,9 @@ pub const system = .Xcb;
 connection: *c.xcb_connection_t = undefined,
 screen: *c.xcb_screen_t = undefined,
 window: c.xcb_window_t = undefined,
-renderer: Renderer = undefined,
-render_cb: ?*const fn (*Renderer) void = null,
-resize_cb: ?*const fn (width: u32, height: u32) void = null,
+// renderer: Renderer = undefined,
 
 opacity_atom: u32 = 0,
-
-xkb: Xkb = undefined,
-keyboard_cb: ?*const fn (utf32: u32, press: bool) void = null,
 
 wm_delete_window_atom: c.xcb_atom_t = 0,
 wm_name_atom: c.xcb_atom_t = 0,
@@ -176,9 +171,6 @@ pub fn open(self: *Window, allocator: Allocator) !void {
     }
 
     self.opacity_atom = get_atom(self.connection, "_NET_WM_WINDOW_OPACITY") orelse return;
-
-    self.xkb = try Xkb.init();
-    self.renderer = try Renderer.init(self, allocator);
 }
 
 /// set window opacity value from 0.0 to 1.0
@@ -237,19 +229,25 @@ pub fn pumpMessages(self: *Window) void {
             c.XCB_EXPOSE => {},
             c.XCB_KEY_PRESS => {
                 const key_press: *c.xcb_key_press_event_t = @ptrCast(event);
-                if (key_press.detail == 9)
-                    self.exit = true;
-                const sym = Xkb.c.xkb_state_key_get_one_sym(self.xkb.state, @intCast(key_press.detail));
-                const utf32 = Xkb.c.xkb_keysym_to_utf32(sym);
 
-                if (self.keyboard_cb) |cb| cb(utf32, true);
+                if (key_press.detail == 9)
+                    @as(*root.Window, @fieldParentPtr("w", self)).running = false;
+
+                // if (self.keyboard_cb) |cb| {
+                //     const buffer: [4]u8 = undefined;
+                //     const len = cb(self.keyboard_context, key_press.detail, true, buffer);
+                //     std.log.debug("input: {s}", .{buffer[0..len]});
+                // }
             },
             c.XCB_KEY_RELEASE => {
-                const key_release: *c.xcb_key_release_event_t = @ptrCast(event);
-                _ = Xkb.c.xkb_state_update_key(self.xkb.state, key_release.detail, Xkb.c.XKB_KEY_UP);
+                // const key_release: *c.xcb_key_release_event_t = @ptrCast(event);
+                // if (self.keyboard_cb) |cb| {
+                //     const buffer: [4]u8 = undefined;
+                //     _ = cb(self.keyboard_context, key_release.detail, false, buffer);
+                // }
             },
             c.XCB_DESTROY_NOTIFY => {
-                self.exit = true;
+                @as(*root.Window, @fieldParentPtr("w", self)).running = false;
             },
             c.XCB_CLIENT_MESSAGE => {
                 if (@as(*c.xcb_client_message_event_t, @ptrCast(event)).data.data32[0] == self.wm_delete_window_atom)
@@ -257,7 +255,8 @@ pub fn pumpMessages(self: *Window) void {
             },
             c.XCB_CONFIGURE_NOTIFY => {
                 const cfg: *c.xcb_configure_notify_event_t = @ptrCast(event);
-                self.resizeCallBack(@intCast(cfg.height), @intCast(cfg.width)) catch unreachable;
+                self.height = @intCast(cfg.height);
+                self.width = @intCast(cfg.width);
             },
             else => {},
         }
@@ -266,8 +265,9 @@ pub fn pumpMessages(self: *Window) void {
         std.c.free(event);
     }
 }
+
 pub fn close(self: *Window) void {
-    self.renderer.deinit();
+    // self.renderer.deinit();
 
     const cookie = c.xcb_destroy_window_checked(self.connection, self.window);
     if (c.xcb_request_check(self.connection, cookie)) |err| {
@@ -276,6 +276,13 @@ pub fn close(self: *Window) void {
     }
 
     c.xcb_disconnect(self.connection);
+}
+
+pub fn getHandles(self: *const Window) !root.WindowHandles {
+    return .{
+        .window = self.window,
+        .connection = self.connection,
+    };
 }
 
 fn get_argb_visual(screen: *c.xcb_screen_t) ?u32 {
@@ -304,7 +311,6 @@ fn get_atom(conn: *c.xcb_connection_t, atom_name: []const u8) ?c.xcb_atom_t {
 
 const std = @import("std");
 const Renderer = @import("renderer");
-const Xkb = @import("input").Xkb;
 
 const Allocator = std.mem.Allocator;
 
@@ -316,4 +322,4 @@ const c = @cImport({
     @cInclude("stdlib.h");
 });
 
-const Interface = @import("window").Window;
+const root = @import("root.zig");

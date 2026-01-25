@@ -1,6 +1,7 @@
 pub const Api = @import("build_options").@"window-system";
 
 const std = @import("std");
+const Renderer = @import("renderer");
 
 pub const WindowCreateOptions = struct {
     title: []const u8 = "zerotty",
@@ -29,7 +30,7 @@ pub const WindowHandles = switch (Api) {
     },
     .xlib => struct {
         window: c_ulong,
-        dpy: *anyopaque,
+        display: *anyopaque,
     },
     .glfw => struct {
         window: *anyopaque,
@@ -38,6 +39,8 @@ pub const WindowHandles = switch (Api) {
 
 pub const OpenGLContextCreateInfo = struct {};
 pub const GLESContextCreateInfo = struct {};
+
+pub const InputHandleCallbackFn = fn (*InputContext, u32, bool, []u8) usize;
 
 /// comptime polymorphism interface for window
 fn WindowInterface(WindowBackend: type) type {
@@ -48,16 +51,13 @@ fn WindowInterface(WindowBackend: type) type {
             backendAssert(WindowBackend);
         }
 
-        // pub const InputContext = void;
-        // pub const InputCallbackFn = fn (*InputContext, u21, bool) void;
-
+        running: bool,
         w: WindowBackend,
-        // input_ctx: InputContext,
 
         pub fn initAlloc(allocator: std.mem.Allocator, options: WindowCreateOptions) !*Self {
             const window = try allocator.create(Self);
-            window.* = WindowBackend.new(options.title, options.height, options.width);
-            window.open(allocator);
+            window.* = Self.new(options.title, options.height, options.width);
+            try window.open(allocator);
             return window;
         }
 
@@ -69,6 +69,7 @@ fn WindowInterface(WindowBackend: type) type {
         pub fn new(title: []const u8, height: u32, width: u32) Self {
             return .{
                 .w = WindowBackend.new(title, height, width),
+                .running = true,
             };
         }
 
@@ -87,6 +88,10 @@ fn WindowInterface(WindowBackend: type) type {
         pub fn close(self: *Self) void {
             self.w.close();
         }
+
+        pub fn getHandles(self: *Self) !WindowHandles {
+            return self.getHandles();
+        }
     };
 }
 
@@ -98,11 +103,12 @@ fn backendAssert(comptime T: type) void {
             "close",
             "pumpMessages",
             "setTitle",
+            "getHandles",
         };
 
         for (decls) |decl| {
             if (!@hasDecl(T, decl))
-                @compileError("Backend " ++ @typeName(T) ++ " must declare " ++ decl);
+                @compileError("Window backend " ++ @typeName(T) ++ " must declare " ++ decl);
         }
 
         const fields = [_][]const u8{
@@ -112,7 +118,7 @@ fn backendAssert(comptime T: type) void {
 
         for (fields) |field| {
             if (!@hasField(T, field))
-                @compileError("Backend must have " ++ field ++ " field");
+                @compileError("Window backend must have " ++ field ++ " field");
         }
     }
 }
@@ -129,15 +135,20 @@ const Backend = switch (Api) {
     .glfw => GLFW,
 };
 
-pub const Window = Backend;
+pub const InputContext = switch (Api) {
+    .xlib, .xcb => @import("input").Xkb,
+    else => void,
+};
 
-comptime {
-    _ = WindowInterface(Win32);
-    _ = WindowInterface(Xlib);
-    _ = WindowInterface(Xcb);
-    _ = WindowInterface(GLFW);
-}
+pub const Window = WindowInterface(Backend);
 
+// comptime {
+//     _ = WindowInterface(Win32);
+//     _ = WindowInterface(Xlib);
+//     _ = WindowInterface(Xcb);
+//     _ = WindowInterface(GLFW);
+// }
+//
 // const test_alloc = std.testing.allocator;
 //
 // test Win32 {

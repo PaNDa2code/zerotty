@@ -23,23 +23,23 @@ pub const SurfaceCreationInfo = union(enum) {
     },
     headless: void,
 
-    pub fn fromWindow(window: anytype) SurfaceCreationInfo {
-        return switch (@TypeOf(window.*).system) {
-            .Win32 => .{
-                .win32 = .{ .hwnd = @ptrCast(window.hwnd), .hinstance = @ptrCast(window.h_instance) },
+    pub fn fromWindowHandles(handles: window.WindowHandles) SurfaceCreationInfo {
+        return switch (window.Api) {
+            .win32 => .{
+                .win32 = .{ .hwnd = @ptrCast(handles.hwnd), .hinstance = @ptrCast(handles.h_instance) },
             },
-            .Xcb => .{
-                .xcb = .{ .connection = @ptrCast(window.connection), .window = @intCast(window.window) },
+            .xcb => .{
+                .xcb = .{ .connection = @ptrCast(handles.connection), .window = @intCast(handles.window) },
             },
-            .Xlib => .{
-                .xlib = .{ .window = window.w, .dpy = @ptrCast(window.display) },
+            .xlib => .{
+                .xlib = .{ .window = handles.w, .dpy = @ptrCast(handles.display) },
             },
-            .GLFW => .{
+            .glfw => .{
                 .glfw = .{
-                    .window = @ptrCast(window.window),
+                    .window = @ptrCast(handles.window),
                 },
             },
-            else => unreachable,
+            // else => unreachable,
         };
     }
 
@@ -120,6 +120,8 @@ pub fn createWindowSurface(
         else => unreachable,
     }
 }
+
+const window = @import("window");
 
 const c = @cImport({
     @cDefine("GLFW_INCLUDE_NONE", "");
