@@ -1,6 +1,9 @@
 //! Abstract renderer interface implemented by backends
 const Renderer = @This();
 
+const Cursor = @import("cursor").Cursor;
+const Grid = @import("grid").CellProgram;
+
 backend: Backend,
 fps: FPS,
 cursor: Cursor,
@@ -35,8 +38,8 @@ pub fn deinit(self: *Renderer) void {
     self.backend.deinit();
 }
 
-pub fn clearBuffer(self: *Renderer, color: ColorRGBAf32) void {
-    self.backend.clearBuffer(color);
+pub fn clearBuffer(self: *Renderer, clear_color: color.RGBA) void {
+    self.backend.clearBuffer(clear_color);
 }
 
 pub fn presentBuffer(self: *Renderer) void {
@@ -52,8 +55,8 @@ pub fn setCell(
     row: u32,
     col: u32,
     char_code: u32,
-    fg_color: ?ColorRGBAu8,
-    bg_color: ?ColorRGBAu8,
+    fg_color: ?color.RGBA,
+    bg_color: ?color.RGBA,
 ) !void {
     try self.backend.setCell(row, col, char_code, fg_color, bg_color);
 }
@@ -80,10 +83,9 @@ pub const Backend = switch (Api) {
 };
 
 pub const FPS = @import("common/FPS.zig");
-pub const Cursor = @import("../Cursor.zig");
-pub const Grid = @import("../Grid.zig");
-pub const Atlas = @import("../font/Atlas.zig");
-const Window = @import("../window/root.zig").Window;
+// pub const Cursor = @import("../Cursor.zig");
+// pub const Grid = @import("../Grid.zig");
+pub const Atlas = @import("font").Atlas;
+const Window = @import("window").Window;
 const Allocator = @import("std").mem.Allocator;
-const ColorRGBAu8 = @import("common/color.zig").ColorRGBAu8;
-const ColorRGBAf32 = @import("common/color.zig").ColorRGBAf32;
+const color = @import("color");

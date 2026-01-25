@@ -48,25 +48,78 @@ pub fn build(b: *Build) !void {
     var imports = std.ArrayList(struct { name: []const u8, module: *Build.Module }).empty;
     defer imports.deinit(b.allocator);
 
+    const input_module = b.createModule(.{
+        .root_source_file = b.path("src/input/root.zig"),
+    });
+
     const window_module = b.createModule(.{
         .root_source_file = b.path("src/window/root.zig"),
     });
     window_module.addImport("build_options", options_mod);
+    window_module.addImport("input", input_module);
 
     const pty_module = b.createModule(.{
         .root_source_file = b.path("src/pty/root.zig"),
     });
     pty_module.addImport("build_options", options_mod);
 
+    const color_module = b.createModule(.{
+        .root_source_file = b.path("src/color.zig"),
+    });
+
+    const grid_module = b.createModule(.{
+        .root_source_file = b.path("src/Grid.zig"),
+    });
+
+    const cursor_module = b.createModule(.{
+        .root_source_file = b.path("src/Cursor.zig"),
+    });
+
+    const dynamiclibrary_module = b.createModule(.{
+        .root_source_file = b.path("src/DynamicLibrary.zig"),
+    });
+
+    const debug_module = b.createModule(.{
+        .root_source_file = b.path("src/debug/ErrDebugInfo.zig"),
+    });
+
+    const io_module = b.createModule(.{
+        .root_source_file = b.path("src/io/root.zig"),
+    });
+
+    const math_module = b.createModule(.{
+        .root_source_file = b.path("src/renderer/common/math.zig"),
+    });
+
     const font_module = b.createModule(.{
         .root_source_file = b.path("src/font/root.zig"),
     });
     font_module.addImport("build_options", options_mod);
+    font_module.addImport("math", math_module);
+
+    const compiled_shaders = @import("build/shaders.zig").compiledShadersPathes(
+        b,
+        b.path("src/renderer/shaders"),
+        &.{ "cell.frag", "cell.vert" },
+        render_backend,
+    ) catch unreachable;
+
+    const assets_mod = b.createModule(.{
+        .root_source_file = b.path("assets/assets.zig"),
+    });
+    @import("build/shaders.zig").addCompiledShadersToModule(compiled_shaders, assets_mod);
 
     const renderer_module = b.createModule(.{
         .root_source_file = b.path("src/renderer/root.zig"),
     });
     renderer_module.addImport("build_options", options_mod);
+    renderer_module.addImport("font", font_module);
+    renderer_module.addImport("grid", grid_module);
+    renderer_module.addImport("cursor", cursor_module);
+    renderer_module.addImport("color", color_module);
+    renderer_module.addImport("window", window_module);
+    renderer_module.addImport("math", math_module);
+    renderer_module.addImport("assets", assets_mod);
 
     switch (target.result.os.tag) {
         .windows => {
@@ -88,6 +141,7 @@ pub fn build(b: *Build) !void {
         else => {},
     }
 
+    // Add backend-specific modules
     switch (render_backend) {
         .d3d11 => {},
         .opengl => {
@@ -109,8 +163,21 @@ pub fn build(b: *Build) !void {
                     try imports.append(b.allocator, .{ .name = "vulkan", .module = vulkan_mod });
                 }
             }
+
+            const core_module = b.createModule(.{
+                .root_source_file = b.path("src/renderer/vulkan/core/root.zig"),
+            });
+
+            const memory_module = b.createModule(.{
+                .root_source_file = b.path("src/renderer/vulkan/core/memory/root.zig"),
+            });
+
+            renderer_module.addImport("core", core_module);
+            renderer_module.addImport("memory", memory_module);
         },
     }
+
+    window_module.addImport("renderer", renderer_module);
 
     const vtparse = b.dependency("vtparse", .{
         .target = target,
@@ -124,32 +191,36 @@ pub fn build(b: *Build) !void {
         .optimize = optimize,
     });
     const truetype_mod = truetype.module("TrueType");
-    try imports.append(b.allocator, .{ .name = "TrueType", .module = truetype_mod });
 
-    const zigimg = b.dependency("zigimg", .{
+    const zigimg_dep = b.dependency("zigimg", .{
         .target = target,
         .optimize = optimize,
     });
-    const zigimg_mod = zigimg.module("zigimg");
-    try imports.append(b.allocator, .{ .name = "zigimg", .module = zigimg_mod });
+    const zigimg_mod = zigimg_dep.module("zigimg");
 
-    const compiled_shaders = @import("build/shaders.zig").compiledShadersPathes(
-        b,
-        b.path("src/renderer/shaders"),
-        &.{ "cell.frag", "cell.vert" },
-        render_backend,
-    ) catch unreachable;
+    font_module.addImport("TrueType", truetype_mod);
+    font_module.addImport("zigimg", zigimg_mod);
 
-    const assets_mod = b.createModule(.{
-        .root_source_file = b.path("assets/assets.zig"),
-    });
-    @import("build/shaders.zig").addCompiledShadersToModule(compiled_shaders, assets_mod);
+    window_module.addImport("zigimg", zigimg_mod);
+
     try imports.append(b.allocator, .{ .name = "assets", .module = assets_mod });
+
+    window_module.addImport("assets", assets_mod);
+    font_module.addImport("assets", assets_mod);
 
     try imports.append(b.allocator, .{ .name = "window", .module = window_module });
     try imports.append(b.allocator, .{ .name = "pty", .module = pty_module });
+    try imports.append(b.allocator, .{ .name = "color", .module = color_module });
+    try imports.append(b.allocator, .{ .name = "input", .module = input_module });
+    try imports.append(b.allocator, .{ .name = "grid", .module = grid_module });
+    try imports.append(b.allocator, .{ .name = "cursor", .module = cursor_module });
+    try imports.append(b.allocator, .{ .name = "dynamiclibrary", .module = dynamiclibrary_module });
+    try imports.append(b.allocator, .{ .name = "debug", .module = debug_module });
+    try imports.append(b.allocator, .{ .name = "io", .module = io_module });
+    try imports.append(b.allocator, .{ .name = "math", .module = math_module });
     try imports.append(b.allocator, .{ .name = "font", .module = font_module });
     try imports.append(b.allocator, .{ .name = "renderer", .module = renderer_module });
+
 
     const exe_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),

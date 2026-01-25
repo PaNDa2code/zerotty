@@ -1,4 +1,4 @@
-const Cursor = @This();
+pub const Cursor = @This();
 
 pub const Style = enum(u8) {
     block = 0,

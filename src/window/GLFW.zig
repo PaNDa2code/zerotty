@@ -125,7 +125,7 @@ const c = @cImport({
     @cDefine("GLFW_INCLUDE_NONE", "");
     @cInclude("GLFW/glfw3.h");
 });
-const Renderer = @import("../renderer/root.zig");
-const Xkb = @import("../input/Xkb.zig");
+const Renderer = @import("renderer");
+const Xkb = @import("input").Xkb;
 
 const Allocator = std.mem.Allocator;

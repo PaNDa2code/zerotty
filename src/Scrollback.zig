@@ -41,14 +41,31 @@ pub fn init(allocator: std.mem.Allocator) void {
     };
 }
 
-pub fn pushData(self: *Scrollback, utf8: []const u8) !void {}
+pub fn pushData(self: *Scrollback, utf8: []const u8) !void {
+    _ = self;
+    _ = utf8;
+}
 
-pub fn newLine(self: *Scrollback) !void {}
+pub fn newLine(self: *Scrollback) !void {
+    _ = self;
+}
 
-pub fn setStyle(self: *Scrollback, style: Style) !void {}
+pub fn setStyle(self: *Scrollback, style: Style) !void {
+    _ = self;
+    _ = style;
+}
 
-pub fn setFgColor(self: *Scrollback, color: @Vector(4, u8)) !void {}
+pub fn setFgColor(self: *Scrollback, color: @Vector(4, u8)) !void {
+    _ = self;
+    _ = color;
+}
 
-pub fn setBgColor(self: *Scrollback, color: @Vector(4, u8)) !void {}
+pub fn setBgColor(self: *Scrollback, color: @Vector(4, u8)) !void {
+    _ = self;
+    _ = color;
+}
 
-pub fn setFontStyle(self: *Scrollback, style: FontStyle) !void {}
+pub fn setFontStyle(self: *Scrollback, style: FontStyle) !void {
+    _ = self;
+    _ = style;
+}

@@ -221,7 +221,6 @@ pub fn updateVertexInstances(self: *Resources, cell_instances: []const vertex.In
 }
 
 pub fn updateGlyphData(self: *Resources, metrics: []const vertex.GlyphMetrics) !void {
-
     if (self.glyph_data_buffer.hostSlice(vertex.GlyphMetrics)) |glyph_data| {
         @memcpy(glyph_data[0..metrics.len], metrics);
     }

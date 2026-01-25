@@ -17,8 +17,8 @@ pub const GlyphMetrics = packed struct {
 };
 
 pub const GlyphStyle = packed struct {
-    fg_color: color.ColorRGBAf32,
-    bg_color: color.ColorRGBAf32,
+    fg_color: math.Vec4(f32),
+    bg_color: math.Vec4(f32),
 };
 
 pub const Uniforms = packed struct {
@@ -33,5 +33,5 @@ pub const Uniforms = packed struct {
     descender: f32,
 };
 
-const math = @import("../../common/math.zig");
-const color = @import("../../common/color.zig");
+const math = @import("math");
+const color = @import("color");

@@ -141,7 +141,7 @@ const assets = @import("assets");
 const zigimg = @import("zigimg");
 const Allocator = std.mem.Allocator;
 
-const math = @import("../renderer/common/math.zig");
+const math = @import("math");
 const Vec2 = math.Vec2;
 
 const TrueType = @import("TrueType");

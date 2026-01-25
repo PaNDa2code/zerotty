@@ -9,7 +9,7 @@ const IDXGIInfoQueue = dxgi.IDXGIInfoQueue;
 const IDXGIDevice = dxgi.IDXGIDevice;
 const ID3D11Device = d3d11.ID3D11Device;
 
-const HresultDebugInfo = @import("../../debug/HresultDebugInfo.zig");
+const HresultDebugInfo = @import("debug");
 const checkHresult = HresultDebugInfo.checkHresult;
 
 const DxgiDebugInterface = @This();

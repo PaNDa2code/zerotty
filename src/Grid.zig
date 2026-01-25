@@ -1,4 +1,4 @@
-const CellProgram = @This();
+pub const CellProgram = @This();
 
 pub const Cell = packed struct {
     packed_pos: u32,
@@ -51,10 +51,11 @@ pub fn set(self: *CellProgram, cell: Cell) !void {
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const ColorRGBAu8 = @import("renderer/common/color.zig").ColorRGBAu8;
-const ColorRGBAf32 = @import("renderer/common/color.zig").ColorRGBAf32;
-const math = @import("renderer/common/math.zig");
+const color = @import("color");
+const ColorRGBAu8 = color.RGBA;
+const ColorRGBAf32 = color.RGBA;
+const math = @import("math");
 const Vec2 = math.Vec2;
 
-const font = @import("font/root.zig");
+const font = @import("font");
 const Atlas = font.Atlas;

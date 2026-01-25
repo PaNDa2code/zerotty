@@ -179,11 +179,11 @@ pub fn deinit(self: *Backend) void {
     self.grid.free(allocator);
 }
 
-pub fn clearBuffer(self: *Backend, color: ColorRGBAf32) void {
+pub fn clearBuffer(self: *Backend, clear_color: color.RGBA) void {
     // Note: Clear color is now handled in renderGrid()
     // This function can be used to store the clear color for future use
     _ = self;
-    _ = color;
+    _ = clear_color;
 }
 
 pub fn resize(self: *Backend, width: u32, height: u32) !void {
@@ -338,8 +338,8 @@ pub fn setCell(
     row: u32,
     col: u32,
     char_code: u32,
-    fg_color: ?ColorRGBAu8,
-    bg_color: ?ColorRGBAu8,
+    fg_color: ?color.RGBA,
+    bg_color: ?color.RGBA,
 ) !void {
     std.log.debug("{any}", .{&.{ row, col, char_code, fg_color, bg_color }});
 
@@ -353,8 +353,8 @@ pub fn setCell(
     };
 
     const cell_style = vertex.GlyphStyle{
-        .fg_color = .White,
-        .bg_color = .Black,
+        .fg_color = .{ .x = 1, .y = 1, .z = 1, .w = 1 },
+        .bg_color = .{ .x = 0, .y = 0, .z = 0, .w = 1 },
     };
 
     try self.grid.set(.{
@@ -386,15 +386,14 @@ const vk = @import("vulkan");
 
 const core = @import("core/root.zig");
 
-const Window = @import("../../window/root.zig").Window;
+const Window = @import("window").Window;
 const RenderContext = @import("rendering/RenderContext.zig");
 const RenderPipeline = @import("rendering/RenderPipeline.zig");
 const RenderResources = @import("rendering/Resources.zig");
 const Allocator = std.mem.Allocator;
-const ColorRGBAu8 = @import("../common/color.zig").ColorRGBAu8;
-const ColorRGBAf32 = @import("../common/color.zig").ColorRGBAf32;
-// const DynamicLibrary = @import("../../DynamicLibrary.zig");
-const Grid = @import("../../Grid.zig");
-const Atlas = @import("../../font/Atlas.zig");
+const color = @import("color");
+const DynamicLibrary = @import("dynamiclibrary");
+const Grid = @import("grid");
+const Atlas = @import("font").Atlas;
 
 const vertex = @import("rendering/vertex.zig");

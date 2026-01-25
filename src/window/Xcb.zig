@@ -303,8 +303,8 @@ fn get_atom(conn: *c.xcb_connection_t, atom_name: []const u8) ?c.xcb_atom_t {
 }
 
 const std = @import("std");
-const Renderer = @import("../renderer/root.zig");
-const Xkb = @import("../input/Xkb.zig");
+const Renderer = @import("renderer");
+const Xkb = @import("input").Xkb;
 
 const Allocator = std.mem.Allocator;
 
@@ -315,3 +315,5 @@ const c = @cImport({
     @cInclude("X11/keysym.h");
     @cInclude("stdlib.h");
 });
+
+const Interface = @import("window").Window;

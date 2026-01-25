@@ -239,7 +239,7 @@ const LRESULT = win32fnd.LRESULT;
 const WPARAM = win32fnd.WPARAM;
 const LPARAM = win32fnd.LPARAM;
 
-const Renderer = @import("../renderer/root.zig");
+const Renderer = @import("renderer");
 
 const Allocator = std.mem.Allocator;
 

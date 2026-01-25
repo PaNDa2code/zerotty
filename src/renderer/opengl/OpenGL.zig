@@ -123,9 +123,14 @@ pub fn deinit(self: *OpenGLRenderer) void {
     self.grid.free();
 }
 
-pub fn clearBuffer(self: *OpenGLRenderer, color: ColorRGBA32) void {
+pub fn clearBuffer(self: *OpenGLRenderer, clear_color: color.RGBA) void {
     _ = self;
-    gl.ClearColor(color.r, color.g, color.b, color.a);
+    gl.ClearColor(
+        clear_color.r,
+        clear_color.g,
+        clear_color.b,
+        clear_color.a,
+    );
     gl.Clear(gl.COLOR_BUFFER_BIT);
 }
 
@@ -182,15 +187,15 @@ pub fn setCell(
     row: u32,
     col: u32,
     char_code: u32,
-    fg_color: ?ColorRGBAu8,
-    bg_color: ?ColorRGBAu8,
+    fg_color: ?color.RGBA,
+    bg_color: ?color.RGBA,
 ) !void {
     try self.grid.set(.{
         .row = row,
         .col = col,
         .char = char_code,
-        .fg_color = fg_color orelse .White,
-        .bg_color = bg_color orelse .Black,
+        .fg_color = fg_color orelse .white,
+        .bg_color = bg_color orelse .black,
         .glyph_info = self.atlas.glyph_lookup_map.get(char_code) orelse self.atlas.glyph_lookup_map.get(' ').?,
     });
 }
@@ -209,15 +214,14 @@ const builtin = @import("builtin");
 const gl = @import("gl");
 
 const shader_utils = @import("shader_utils.zig");
-const font = @import("../../font/root.zig");
-const Window = @import("../../window/root.zig").Window;
+const font = @import("font");
+const Window = @import("window").Window;
 const Atlas = font.Atlas;
-const ColorRGBA32 = @import("../common/color.zig").ColorRGBAf32;
-const ColorRGBAu8 = @import("../common/color.zig").ColorRGBAu8;
-const math = @import("../common/math.zig");
+const color = @import("color");
+const math = @import("math");
 const Vec2 = math.Vec2;
 const Vec4 = math.Vec4;
-const Grid = @import("../../Grid.zig");
+const Grid = @import("grid");
 const Cell = Grid.Cell;
 const BuffersManager = @import("BuffersManager.zig");
 const ShaderProgram = @import("Shader.zig");

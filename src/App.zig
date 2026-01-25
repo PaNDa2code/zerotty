@@ -112,7 +112,7 @@ pub fn loop(self: *App) void {
 var fps: f64 = 0;
 pub fn drawCallBack(renderer: *Renderer) void {
     evloop.poll(0) catch unreachable;
-    renderer.clearBuffer(.Black);
+    renderer.clearBuffer(color.RGBA.black);
     renderer.renaderGrid() catch {};
     renderer.presentBuffer();
 
@@ -215,17 +215,18 @@ pub fn exit(self: *App) void {
     self.io_event_loop.deinit(self.allocator);
 }
 
-const Window = @import("window/root.zig").Window;
+const Window = @import("window").Window;
 const Pty = @import("pty/root.zig").Pty;
 const CircularBuffer = @import("CircularBuffer.zig");
 const Scrollback = @import("Scrollback.zig");
 const ChildProcess = @import("ChildProcess.zig");
-const Renderer = @import("renderer/root.zig");
-const FPS = @import("renderer/common/FPS.zig");
+const Renderer = @import("renderer");
+const FPS = Renderer.FPS;
 const VTParser = vtparse.VTParser;
 const Allocator = std.mem.Allocator;
 
 const std = @import("std");
 const build_options = @import("build_options");
 const vtparse = @import("vtparse");
-const io = @import("io/root.zig");
+const io = @import("io");
+const color = @import("color");
