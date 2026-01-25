@@ -6,7 +6,7 @@ pub const UTF8CodePoint = enum(u21) {
     _,
 
     pub fn toInt(codepoint: UTF8CodePoint) u21 {
-        return @enumFromInt(codepoint);
+        return @intFromEnum(codepoint);
     }
 };
 

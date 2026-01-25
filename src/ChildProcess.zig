@@ -291,7 +291,7 @@ const win32thread = win32.system.threading;
 const win32fs = win32.storage.file_system;
 const win32mem = win32.system.memory;
 
-const Pty = @import("pty/root.zig").Pty;
+const Pty = @import("pty").Pty;
 
 const File = std.fs.File;
 const Allocator = std.mem.Allocator;

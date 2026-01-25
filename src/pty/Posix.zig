@@ -65,5 +65,5 @@ const PtyOptions = pty.PtyOptions;
 
 pub const Fd = posix.fd_t;
 
-const ChildProcess = @import("../ChildProcess.zig");
+const ChildProcess = @import("ChildProcess");
 const win32 = @import("win32");

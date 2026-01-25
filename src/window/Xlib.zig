@@ -118,7 +118,15 @@ pub fn close(self: *Window) void {
     _ = c.XCloseDisplay(@ptrCast(self.display));
 }
 
+pub fn getHandles(self: *const Window) !root.WindowHandles {
+    return .{
+        .window = self.w,
+        .display = self.display,
+    };
+}
+
 const std = @import("std");
+const root = @import("root.zig");
 const Renderer = @import("renderer");
 
 const Allocator = std.mem.Allocator;

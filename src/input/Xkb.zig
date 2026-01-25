@@ -95,7 +95,7 @@ pub fn updateKeyAndGetUTF8(self: *Xkb, keycode: u32, pressed: bool, buffer: []u8
 }
 
 pub fn updateKeyAndGetUTF8Slice(self: *Xkb, keycode: u32, pressed: bool, buffer: []u8) []const u8 {
-    const len = self.updateKeyAndGetUTF8(keycode, pressed, buffer, null);
+    const len = self.updateKeyAndGetUTF8(keycode, pressed, buffer);
     return buffer[0..len];
 }
 

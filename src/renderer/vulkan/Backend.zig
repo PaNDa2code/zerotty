@@ -392,7 +392,7 @@ const RenderPipeline = @import("rendering/RenderPipeline.zig");
 const RenderResources = @import("rendering/Resources.zig");
 const Allocator = std.mem.Allocator;
 const color = @import("color");
-const DynamicLibrary = @import("dynamiclibrary");
+const DynamicLibrary = @import("DynamicLibrary");
 const Grid = @import("grid");
 const Atlas = @import("font").Atlas;
 

@@ -4,6 +4,6 @@ pty: Pty,
 shell: ChildProcess, 
 scroll_buffer: Scrollback,
 
-const Pty = @import("pty/root.zig").Pty;
-const ChildProcess = @import("ChildProcess.zig");
+const Pty = @import("pty").Pty;
+const ChildProcess = @import("ChildProcess");
 const Scrollback = @import("Scrollback.zig");

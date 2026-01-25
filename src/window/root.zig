@@ -1,6 +1,9 @@
 pub const Api = @import("build_options").@"window-system";
 
 const std = @import("std");
+const builtin = @import("builtin");
+const debug_mode = builtin.mode == .Debug;
+
 const Renderer = @import("renderer");
 
 pub const WindowCreateOptions = struct {
@@ -142,31 +145,33 @@ pub const InputContext = switch (Api) {
 
 pub const Window = WindowInterface(Backend);
 
-// comptime {
-//     _ = WindowInterface(Win32);
-//     _ = WindowInterface(Xlib);
-//     _ = WindowInterface(Xcb);
-//     _ = WindowInterface(GLFW);
-// }
-//
-// const test_alloc = std.testing.allocator;
-//
-// test Win32 {
-//     const window = try WindowInterface(Win32).initAlloc(test_alloc);
-//     defer window.destroy(test_alloc);
-// }
-//
-// test Xcb {
-//     const window = try WindowInterface(Xcb).initAlloc(test_alloc);
-//     defer window.destroy(test_alloc);
-// }
-//
-// test Xlib {
-//     const window = try WindowInterface(Xlib).initAlloc(test_alloc);
-//     defer window.destroy(test_alloc);
-// }
-//
-// test GLFW {
-//     const window = try WindowInterface(GLFW).initAlloc(test_alloc);
-//     defer window.destroy(test_alloc);
-// }
+const test_alloc = std.testing.allocator;
+
+comptime {
+    if (debug_mode) {
+        _ = WindowInterface(Win32);
+        _ = WindowInterface(Xlib);
+        _ = WindowInterface(Xcb);
+        _ = WindowInterface(GLFW);
+    }
+}
+
+test Win32 {
+    const window = try WindowInterface(Win32).initAlloc(test_alloc);
+    defer window.destroy(test_alloc);
+}
+
+test Xcb {
+    const window = try WindowInterface(Xcb).initAlloc(test_alloc);
+    defer window.destroy(test_alloc);
+}
+
+test Xlib {
+    const window = try WindowInterface(Xlib).initAlloc(test_alloc);
+    defer window.destroy(test_alloc);
+}
+
+test GLFW {
+    const window = try WindowInterface(GLFW).initAlloc(test_alloc);
+    defer window.destroy(test_alloc);
+}

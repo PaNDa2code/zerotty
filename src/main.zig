@@ -34,7 +34,3 @@ export fn wWinMain() callconv(.winapi) i32 {
 }
 
 pub const UNICODE = true;
-
-test {
-    std.testing.refAllDecls(@import("test.zig"));
-}

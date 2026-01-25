@@ -225,7 +225,16 @@ pub fn poll(self: *Window) void {
     }
 }
 
+pub fn getHandles(self: *const Window) !root.WindowHandles {
+    return .{
+        .hwnd = self.hwnd,
+        .hinstance = self.h_instance,
+    };
+}
+
 const std = @import("std");
+const root = @import("root.zig");
+
 const win32 = @import("win32");
 const win32fnd = win32.foundation;
 const win32wm = win32.ui.windows_and_messaging;

@@ -1,14 +1,11 @@
 const Window = @This();
-pub const system = .GLFW;
 
-renderer: Renderer = undefined,
 render_cb: ?*const fn (*Renderer) void = null,
 resize_cb: ?*const fn (width: u32, height: u32) void = null,
 
 xkb: Xkb = undefined,
 keyboard_cb: ?*const fn (utf32: u32, press: bool) void = null,
 
-exit: bool = false,
 title: []const u8,
 height: u32,
 width: u32,
@@ -24,6 +21,7 @@ pub fn new(title: []const u8, height: u32, width: u32) Window {
 }
 
 pub fn open(self: *Window, allocator: Allocator) !void {
+
     if (@import("builtin").mode == .Debug)
         _ = c.glfwSetErrorCallback(callbacks.errorCallback);
 
@@ -78,6 +76,12 @@ pub fn close(self: *Window) void {
     c.glfwTerminate();
 }
 
+pub fn getHandles(self: *const Window) root.WindowHandles {
+    return .{
+        .window = self.window,
+    };
+}
+
 const callbacks = struct {
     fn key(glfw_window: ?*c.GLFWwindow, _key: c_int, scancode: c_int, action: c_int, mods: c_int) callconv(.c) void {
         _ = mods;
@@ -120,6 +124,8 @@ const callbacks = struct {
 };
 
 const std = @import("std");
+
+const root = @import("root.zig");
 
 const c = @cImport({
     @cDefine("GLFW_INCLUDE_NONE", "");
