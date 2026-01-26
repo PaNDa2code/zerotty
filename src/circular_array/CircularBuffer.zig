@@ -1,11 +1,38 @@
+//! A Circular Buffer implementation using double-mapped virtual memory.
+//!
+//! This data structure maps the same physical memory region to two adjacent virtual addresses.
+//! This allows read/write operations that wrap around the buffer boundary to be handled
+//! as contiguous memory operations, eliminating the need for split `memcpy` calls or
+//! complex boundary logic.
+//!
+//! # Memory Layout
+//!
+//!     VIRTUAL MEMORY (What the program sees)
+//!     +---------------------------+---------------------------+
+//!     |         VIEW 1            |         VIEW 2            |
+//!     |      [0 ... N-1]          |      [N ... 2N-1]         |
+//!     +---------------------------+---------------------------+
+//!                   |                           |
+//!                   |     (Map 1)               | (Map 2)
+//!           +-------+                           |
+//!           |                                   |
+//!           |+----------------------------------+
+//!           ||
+//!           vv
+//!           +---------------------------+
+//!           |     PHYSICAL MEMORY       |
+//!           |      (Actual RAM)         |
+//!           +---------------------------+
+//!
 const CircularBuffer = @This();
 
 pub const page_size = std.heap.pageSize();
 
-view_size: usize = 0,
-buffer: []align(page_size) u8 = undefined,
-start: usize = 0,
-len: usize = 0,
+single_map_size: usize = 0,
+full_view: []align(page_size) u8 = undefined,
+
+start: usize,
+len: usize,
 
 pub const CreateError = error{
     VMemoryReserveFailed,
@@ -111,9 +138,9 @@ fn initWindows(self: *CircularBuffer, requsted_size: usize) CreateError!void {
 
     errdefer _ = win32.system.memory.UnmapViewOfFile(view2);
 
-    self.buffer.ptr = @ptrCast(@alignCast(view1.?));
-    self.buffer.len = size * 2;
-    self.view_size = size;
+    self.full_view.ptr = @ptrCast(@alignCast(view1.?));
+    self.full_view.len = size * 2;
+    self.single_map_size = size;
 }
 
 fn initPosix(self: *CircularBuffer, requsted_size: usize) CreateError!void {
@@ -170,49 +197,49 @@ fn initPosix(self: *CircularBuffer, requsted_size: usize) CreateError!void {
 
     errdefer std.posix.munmap(view2);
 
-    self.buffer = view1.ptr[0 .. size * 2];
-    self.view_size = size;
+    self.full_view = view1.ptr[0 .. size * 2];
+    self.single_map_size = size;
 }
 
 fn deinitPosix(self: *CircularBuffer) void {
-    if (self.buffer.len == 0 or self.view_size == 0) return;
-    std.posix.munmap(@alignCast(self.buffer[0..self.view_size]));
-    std.posix.munmap(@alignCast(self.buffer[self.view_size..]));
-    self.buffer = &[_]u8{};
-    self.view_size = 0;
+    if (self.full_view.len == 0 or self.single_map_size == 0) return;
+    std.posix.munmap(@alignCast(self.full_view[0..self.single_map_size]));
+    std.posix.munmap(@alignCast(self.full_view[self.single_map_size..]));
+    self.full_view = &[_]u8{};
+    self.single_map_size = 0;
 }
 
 fn deinitWindows(self: *CircularBuffer) void {
-    if (self.buffer.len == 0 or self.view_size == 0) return;
-    _ = win32.system.memory.UnmapViewOfFile(self.buffer.ptr);
-    _ = win32.system.memory.UnmapViewOfFile(self.buffer[self.view_size..].ptr);
+    if (self.full_view.len == 0 or self.single_map_size == 0) return;
+    _ = win32.system.memory.UnmapViewOfFile(self.full_view.ptr);
+    _ = win32.system.memory.UnmapViewOfFile(self.full_view[self.single_map_size..].ptr);
 }
 
 fn writeCommit(self: *CircularBuffer, bytes_count: usize) void {
     self.len += bytes_count;
-    if (self.len > self.view_size) {
-        self.start = self.len - self.view_size;
-        self.len = self.view_size;
+    if (self.len > self.single_map_size) {
+        self.start = self.len - self.single_map_size;
+        self.len = self.single_map_size;
     }
 }
 
 pub fn write(self: *CircularBuffer, buffer: []const u8) usize {
-    const bytes = @min(self.view_size, buffer.len);
+    const bytes = @min(self.single_map_size, buffer.len);
     const write_start = self.start + self.len;
     const write_end = write_start + bytes;
-    @memcpy(self.buffer[write_start..write_end], buffer[0..bytes]);
+    @memcpy(self.full_view[write_start..write_end], buffer[0..bytes]);
     self.writeCommit(bytes);
     return bytes;
 }
 
 pub fn read(self: *CircularBuffer, buffer: []u8) usize {
     const bytes = @min(self.len, buffer.len);
-    @memcpy(buffer[0..bytes], self.buffer[self.start..]);
+    @memcpy(buffer[0..bytes], self.full_view[self.start..]);
     return bytes;
 }
 
 pub fn getReadableSlice(self: *const CircularBuffer) []const u8 {
-    return self.buffer[self.start..][0..self.len];
+    return self.full_view[self.start..][0..self.len];
 }
 
 test CircularBuffer {}
