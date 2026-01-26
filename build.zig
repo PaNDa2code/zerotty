@@ -83,6 +83,7 @@ pub fn build(b: *Build) !void {
     const font_mod = b.createModule(.{ .root_source_file = b.path("src/font/root.zig") });
     const assets_mod = b.createModule(.{ .root_source_file = b.path("assets/assets.zig") });
     const renderer_mod = b.createModule(.{ .root_source_file = b.path("src/renderer/root.zig") });
+    const circulararray_mod = b.createModule(.{ .root_source_file = b.path("src/circular_array/root.zig") });
 
     // -------------------------------------------------------------------------
     // Internal Module Wiring (Imports)
@@ -186,7 +187,6 @@ pub fn build(b: *Build) !void {
     // Application Assembly
     // -------------------------------------------------------------------------
 
-
     // Create Executable
     const exe_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
@@ -209,6 +209,7 @@ pub fn build(b: *Build) !void {
             .{ .name = "Renderer", .module = renderer_mod },
             .{ .name = "ChildProcess", .module = childprocess_mod },
             .{ .name = "DynamicLibrary", .module = dynamiclibrary_mod },
+            .{ .name = "circular_array", .module = circulararray_mod },
         },
     });
 

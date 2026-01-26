@@ -50,7 +50,7 @@ pub fn CircularArray(T: type) type {
         }
 
         pub fn slice(self: *const Self) []const T {
-            return self.slice_view[self.head..][0..self.capacity];
+            return self.slice_view[self.head..][0..self.len];
         }
     };
 }
