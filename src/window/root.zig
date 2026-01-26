@@ -46,7 +46,7 @@ pub const GLESContextCreateInfo = struct {};
 pub const InputHandleCallbackFn = fn (*InputContext, u32, bool, []u8) usize;
 
 /// comptime polymorphism interface for window
-fn WindowInterface(WindowBackend: type, InputCtx: type) type {
+fn WindowInterface(WindowBackend: type) type {
     return struct {
         const Self = @This();
 
@@ -56,8 +56,6 @@ fn WindowInterface(WindowBackend: type, InputCtx: type) type {
 
         running: bool,
         w: WindowBackend,
-
-        input_ctx: InputCtx,
 
         pub fn initAlloc(allocator: std.mem.Allocator, options: WindowCreateOptions) !*Self {
             const window = try allocator.create(Self);
@@ -79,9 +77,6 @@ fn WindowInterface(WindowBackend: type, InputCtx: type) type {
         }
 
         pub fn open(self: *Self, allocator: std.mem.Allocator) !void {
-            if (InputCtx != void)
-                self.input_ctx = try InputCtx.init();
-
             try self.w.open(allocator);
             self.running = true;
         }

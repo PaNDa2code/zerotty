@@ -32,6 +32,7 @@ pub const ansi = struct {
         underline: bool = false,
         strikethrough: bool = false,
         blink: bool = false,
+        _padding: u3 = 0,
     };
 
     pub const ColorState = struct {
