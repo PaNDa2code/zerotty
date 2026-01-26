@@ -28,7 +28,7 @@ pub fn CircularArray(T: type) type {
             self.buffer.deinit();
         }
 
-        pub fn push(self: *Self, element: T) !void {
+        pub fn push(self: *Self, element: T) void {
             self.slice_view[self.head + self.len] = element;
 
             if (self.len < self.capacity) {
@@ -39,6 +39,42 @@ pub fn CircularArray(T: type) type {
                     self.head = 0;
                 }
             }
+        }
+
+        /// pushes the elements to the end of the buffer and return the number
+        /// of overwritten elements of the start
+        pub fn pushSlice(self: *Self, elements: []const T) usize {
+            const copy_len = @min(self.capacity, elements.len);
+
+            const elements_start = if (elements.len > self.capacity)
+                elements.len - self.capacity
+            else
+                0;
+
+            const copy_dest = self.head + self.len;
+
+            @memcpy(
+                self.slice_view[copy_dest .. copy_dest + copy_len],
+                elements[elements_start..],
+            );
+
+            const available_space = self.capacity - self.len;
+            var overwritten: usize = 0;
+
+            if (copy_len > available_space) {
+                overwritten = copy_len - available_space;
+
+                self.len = self.capacity;
+                self.head += overwritten;
+
+                if (self.head >= self.capacity) {
+                    self.head -= self.capacity;
+                }
+            } else {
+                self.len += copy_len;
+            }
+
+            return overwritten;
         }
 
         pub fn get(self: *const Self, index: usize) T {
