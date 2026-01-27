@@ -94,7 +94,7 @@ fn WindowInterface(WindowBackend: type) type {
         }
 
         pub fn getHandles(self: *Self) WindowHandles {
-            return self.getHandles();
+            return self.w.getHandles();
         }
     };
 }
