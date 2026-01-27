@@ -21,7 +21,6 @@ pub fn new(title: []const u8, height: u32, width: u32) Window {
 }
 
 pub fn open(self: *Window, allocator: Allocator) !void {
-
     if (@import("builtin").mode == .Debug)
         _ = c.glfwSetErrorCallback(callbacks.errorCallback);
 

@@ -23,7 +23,7 @@ pub fn build(b: *Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const debug_mode = optimize == .Debug;
+    // const debug_mode = optimize == .Debug;
     const target_tag = target.result.os.tag;
     const is_native = target.query.isNativeOs();
     const is_gnu = target.result.isGnuLibC();
@@ -32,6 +32,7 @@ pub fn build(b: *Build) !void {
     // -------------------------------------------------------------------------
     // Build Options
     // -------------------------------------------------------------------------
+    const comptime_assertion = b.option(bool, "comptime-assertion", "") orelse false;
     const render_backend = b.option(RenderBackend, "render-backend", "") orelse DEFAULT_RENDER_BACKEND;
 
     const default_window_system: WindowSystem = switch (target_tag) {
@@ -46,12 +47,13 @@ pub fn build(b: *Build) !void {
         bool,
         "disable-renderer-debug",
         "Disable debugging for renderer backends (Vulkan validation layers, OpenGL debug callbacks)",
-    ) orelse !debug_mode;
+    ) orelse !comptime_assertion;
 
     const options = b.addOptions();
     options.addOption(RenderBackend, "render-backend", render_backend);
     options.addOption(WindowSystem, "window-system", window_system);
     options.addOption(bool, "renderer-debug", !disable_renderer_debug);
+    options.addOption(bool, "comptime_assertion", comptime_assertion);
     const options_mod = options.createModule();
 
     // -------------------------------------------------------------------------
@@ -124,16 +126,17 @@ pub fn build(b: *Build) !void {
     // -------------------------------------------------------------------------
 
     // Windows Dependencies
-    if (debug_mode or target_tag == .windows) {
+    if (comptime_assertion or target_tag == .windows) {
         if (b.lazyDependency("zigwin32", .{})) |dep| {
             const win32_mod = dep.module("win32");
             window_mod.addImport("win32", win32_mod);
             pty_mod.addImport("win32", win32_mod);
+            childprocess_mod.addImport("win32", win32_mod);
         }
     }
 
     // Linux Dependencies
-    if (debug_mode or target_tag == .linux) {
+    if (comptime_assertion or target_tag == .linux) {
         if (b.lazyDependency("zig_openpty", .{})) |dep| {
             const openpty_mod = dep.module("openpty");
             pty_mod.addImport("openpty", openpty_mod);
@@ -214,7 +217,46 @@ pub fn build(b: *Build) !void {
     });
 
     exe_mod.addImport("build_options", options_mod);
-    linkSystemLibraries(exe_mod, window_system, render_backend, target, b, linkage);
+    if (window_system == .xlib) {
+        exe_mod.linkSystemLibrary("X11", .{ .needed = true });
+        if (render_backend == .opengl) {
+            exe_mod.linkSystemLibrary("GL", .{});
+        }
+    }
+    if (window_system == .xlib) {
+        if (target.query.isNativeOs()) {
+            exe_mod.linkSystemLibrary("xcb", .{});
+            exe_mod.linkSystemLibrary("xkbcommon", .{});
+        } else {
+            if (b.lazyDependency("xcb", .{
+                .target = target,
+                .optimize = exe_mod.optimize.?,
+                .linkage = linkage,
+            })) |dep| {
+                exe_mod.linkLibrary(dep.artifact("xcb"));
+            }
+            if (b.lazyDependency("xkbcommon", .{
+                .target = target,
+                .optimize = exe_mod.optimize.?,
+                .@"xkb-config-root" = "/usr/share/X11/xkb",
+            })) |dep| {
+                exe_mod.linkLibrary(dep.artifact("xkbcommon"));
+            }
+        }
+    }
+
+    if (window_system == .glfw) {
+        if (b.lazyDependency("glfw_zig", .{
+            .target = target,
+            .optimize = exe_mod.optimize.?,
+        })) |dep| exe_mod.linkLibrary(dep.artifact("glfw"));
+
+        if (b.lazyDependency("xkbcommon", .{
+            .target = target,
+            .optimize = exe_mod.optimize.?,
+            .@"xkb-config-root" = "/usr/share/X11/xkb",
+        })) |dep| exe_mod.linkLibrary(dep.artifact("xkbcommon"));
+    }
 
     const exe = b.addExecutable(.{
         .name = "zerotty",
@@ -254,7 +296,6 @@ pub fn build(b: *Build) !void {
         // .imports = exe_imports.items,
     });
     test_mod.addImport("build_options", options_mod);
-    linkSystemLibraries(test_mod, window_system, render_backend, target, b, linkage);
 
     const unit_test = b.addTest(.{
         .name = "zerotty",
@@ -269,58 +310,6 @@ pub fn build(b: *Build) !void {
 // -------------------------------------------------------------------------
 // Helper Functions
 // -------------------------------------------------------------------------
-
-fn linkSystemLibraries(
-    module: *Build.Module,
-    window_system: WindowSystem,
-    render_backend: RenderBackend,
-    target: Build.ResolvedTarget,
-    b: *Build,
-    linkage: std.builtin.LinkMode,
-) void {
-    switch (window_system) {
-        .win32 => {},
-        .xlib => {
-            module.linkSystemLibrary("X11", .{ .needed = true });
-            if (render_backend == .opengl) {
-                module.linkSystemLibrary("GL", .{});
-            }
-        },
-        .xcb => {
-            if (target.query.isNativeOs()) {
-                module.linkSystemLibrary("xcb", .{});
-                module.linkSystemLibrary("xkbcommon", .{});
-            } else {
-                if (b.lazyDependency("xcb", .{
-                    .target = target,
-                    .optimize = module.optimize.?,
-                    .linkage = linkage,
-                })) |dep| {
-                    module.linkLibrary(dep.artifact("xcb"));
-                }
-                if (b.lazyDependency("xkbcommon", .{
-                    .target = target,
-                    .optimize = module.optimize.?,
-                    .@"xkb-config-root" = "/usr/share/X11/xkb",
-                })) |dep| {
-                    module.linkLibrary(dep.artifact("xkbcommon"));
-                }
-            }
-        },
-        .glfw => {
-            if (b.lazyDependency("glfw_zig", .{
-                .target = target,
-                .optimize = module.optimize.?,
-            })) |dep| module.linkLibrary(dep.artifact("glfw"));
-
-            if (b.lazyDependency("xkbcommon", .{
-                .target = target,
-                .optimize = module.optimize.?,
-                .@"xkb-config-root" = "/usr/share/X11/xkb",
-            })) |dep| module.linkLibrary(dep.artifact("xkbcommon"));
-        },
-    }
-}
 
 fn createOpenGLBindings(b: *Build, target: Build.ResolvedTarget) *Build.Module {
     const extensions: []const []const u8 = &.{

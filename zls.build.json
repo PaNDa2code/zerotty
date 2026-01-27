@@ -1,0 +1,5 @@
+{
+  "build_options": [
+    "comptime-assertion": "true"
+  ]
+}

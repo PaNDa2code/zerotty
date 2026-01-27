@@ -7,10 +7,6 @@ h_instance: HINSTANCE = undefined,
 title: []const u8,
 height: u32,
 width: u32,
-renderer: Renderer = undefined,
-render_cb: ?*const fn (*Renderer) void = null,
-resize_cb: ?*const fn (width: u32, height: u32) void = null,
-keyboard_cb: ?*const fn (utf32: u32, press: bool) void = null,
 
 pub fn new(title: []const u8, height: u32, width: u32) Window {
     return .{
@@ -74,21 +70,16 @@ pub fn open(self: *Window, allocator: Allocator) !void {
 
     self.hwnd = hwnd;
 
-    self.renderer = try Renderer.init(self, allocator);
-
     _ = win32wm.ShowWindow(hwnd, .{ .SHOWNORMAL = 1 });
 
     // self.setAcrylicBlur();
 }
 
-pub fn close(self: *Window) void {
-    self.renderer.deinit();
-}
+pub fn close(_: *Window) void {}
 
 pub fn resize(self: *Window, height: u32, width: u32) !void {
     self.height = height;
     self.width = width;
-    try self.renderer.resize(width, height);
 }
 
 pub fn setTitle(self: *Window, title: [:0]const u8) !void {
@@ -123,15 +114,9 @@ fn WindowProc(self: *Window, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARA
             if (wparam == @intFromEnum(win32.ui.input.keyboard_and_mouse.VK_ESCAPE)) {
                 win32wm.PostQuitMessage(0);
             }
-            if (self.keyboard_cb) |cb| {
-                cb(@intCast(wparam), true);
-            }
             return 0;
         },
         win32wm.WM_PAINT => {
-            if (self.render_cb) |render_cb| {
-                render_cb(&self.renderer);
-            }
             return 0;
         },
         // win32wm.WM_ENTERSIZEMOVE => {
@@ -148,7 +133,7 @@ fn WindowProc(self: *Window, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARA
             const width: u32 = @intCast(lp & 0xFFFF);
             const height: u32 = @intCast((lp >> 16) & 0xFFFF);
             self.resize(height, width) catch return -1;
-            if (self.resize_cb) |cb| cb(width, height);
+            // if (self.resize_cb) |cb| cb(width, height);
             return 0;
         },
         else => return win32wm.DefWindowProcW(hwnd, msg, wparam, lparam),
@@ -225,7 +210,7 @@ pub fn poll(self: *Window) void {
     }
 }
 
-pub fn getHandles(self: *const Window) !root.WindowHandles {
+pub fn getHandles(self: *const Window) root.WindowHandles {
     return .{
         .hwnd = self.hwnd,
         .hinstance = self.h_instance,
@@ -247,8 +232,6 @@ const HWND = win32fnd.HWND;
 const LRESULT = win32fnd.LRESULT;
 const WPARAM = win32fnd.WPARAM;
 const LPARAM = win32fnd.LPARAM;
-
-const Renderer = @import("renderer");
 
 const Allocator = std.mem.Allocator;
 

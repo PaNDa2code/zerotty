@@ -2,7 +2,8 @@ pub const Api = @import("build_options").@"window-system";
 
 const std = @import("std");
 const builtin = @import("builtin");
-const debug_mode = builtin.mode == .Debug;
+const build_options = @import("build_options");
+const comptime_assertion = build_options.comptime_assertion;
 
 const Renderer = @import("renderer");
 
@@ -149,7 +150,7 @@ pub const Window = WindowInterface(Backend);
 const test_alloc = std.testing.allocator;
 
 comptime {
-    if (debug_mode) {
+    if (comptime_assertion) {
         _ = WindowInterface(Win32);
         _ = WindowInterface(Xlib);
         _ = WindowInterface(Xcb);

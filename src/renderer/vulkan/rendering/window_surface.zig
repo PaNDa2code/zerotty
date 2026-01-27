@@ -26,7 +26,7 @@ pub const SurfaceCreationInfo = union(enum) {
     pub fn fromWindowHandles(handles: window.WindowHandles) SurfaceCreationInfo {
         return switch (window.Api) {
             .win32 => .{
-                .win32 = .{ .hwnd = @ptrCast(handles.hwnd), .hinstance = @ptrCast(handles.h_instance) },
+                .win32 = .{ .hwnd = @ptrCast(handles.hwnd), .hinstance = @ptrCast(handles.hinstance) },
             },
             .xcb => .{
                 .xcb = .{ .connection = @ptrCast(handles.connection), .window = @intCast(handles.window) },

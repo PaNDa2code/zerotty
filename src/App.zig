@@ -16,13 +16,12 @@ pub fn init(allocator: std.mem.Allocator) !App {
         .width = 800,
     });
 
-    var renderer = try Renderer.init(allocator, window.getHandles(), .{
+    const renderer = try Renderer.init(allocator, window.getHandles(), .{
         .surface_width = window.w.width,
         .surface_height = window.w.height,
         .grid_rows = 100,
         .grid_cols = 100,
     });
-    try renderer.renaderGrid();
 
     var io_event_loop = try io.EventLoop.init(allocator, 20);
 
@@ -33,7 +32,7 @@ pub fn init(allocator: std.mem.Allocator) !App {
     });
 
     const buf = try allocator.alloc(u8, 1024);
-    const master = std.fs.File{ .handle = terminal.pty.master };
+    const master = std.fs.File{ .handle = terminal.pty.master_read };
     try io_event_loop.read(master, buf, readPty, null);
 
     return .{
@@ -48,9 +47,14 @@ pub fn init(allocator: std.mem.Allocator) !App {
 }
 
 pub fn run(self: *App) !void {
+    // const thread = try std.Thread.spawn(.{}, renderLoop, .{
+    //     &self.renderer,
+    //     &self.window.running,
+    // });
+    // defer thread.detach();
+
     while (self.window.running) {
         self.window.poll();
-        try self.renderer.renaderGrid();
     }
 }
 
@@ -64,6 +68,12 @@ pub fn deinit(self: *App) void {
 fn readPty(event: *io.EventLoop.Event, len: usize, _: ?*anyopaque) io.EventLoop.CallbackAction {
     std.log.debug("pty => {s}", .{event.request.op_data.read[0..len]});
     return .retry;
+}
+
+fn renderLoop(renderer: *Renderer, running: *bool) !void {
+    while (running.*) {
+        try renderer.renaderGrid();
+    }
 }
 
 const std = @import("std");
