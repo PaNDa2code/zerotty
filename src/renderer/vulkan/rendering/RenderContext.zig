@@ -11,10 +11,10 @@ queue: core.Queue,
 allocator_adapter: *core.memory.AllocatorAdapter,
 device_allocator: *core.memory.DeviceAllocator,
 
-pub fn init(allocator: std.mem.Allocator, window: anytype) !RenderContext {
+pub fn init(allocator: std.mem.Allocator, window_handles: window.WindowHandles) !RenderContext {
     const allocator_adapter = try core.memory.AllocatorAdapter.init(allocator);
 
-    const surface_creation_info = SurfaceCreationInfo.fromWindow(window);
+    const surface_creation_info = SurfaceCreationInfo.fromWindowHandles(window_handles);
     const instance_extensions = try surface_creation_info.instanceExtensionsAlloc(allocator);
     defer allocator.free(instance_extensions);
 
@@ -79,6 +79,7 @@ const vk = @import("vulkan");
 
 const core = @import("../core/root.zig");
 
+const window = @import("window");
 const window_surface = @import("window_surface.zig");
 const SurfaceCreationInfo = window_surface.SurfaceCreationInfo;
 const createWindowSurface = window_surface.createWindowSurface;

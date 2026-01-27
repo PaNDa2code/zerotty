@@ -93,7 +93,7 @@ fn WindowInterface(WindowBackend: type) type {
             self.w.close();
         }
 
-        pub fn getHandles(self: *Self) !WindowHandles {
+        pub fn getHandles(self: *Self) WindowHandles {
             return self.getHandles();
         }
     };

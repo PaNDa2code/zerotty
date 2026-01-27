@@ -278,7 +278,7 @@ pub fn close(self: *Window) void {
     c.xcb_disconnect(self.connection);
 }
 
-pub fn getHandles(self: *const Window) !root.WindowHandles {
+pub fn getHandles(self: *const Window) root.WindowHandles {
     return .{
         .window = self.window,
         .connection = self.connection,

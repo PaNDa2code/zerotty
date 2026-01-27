@@ -30,31 +30,40 @@ copy_fence: vk.Fence,
 
 pub const log = std.log.scoped(.renderer);
 
-pub fn init(window: *Window, allocator: Allocator, grid_rows: u32, grid_cols: u32) !Backend {
+pub fn init(
+    allocator: Allocator,
+    window_handles: win.WindowHandles,
+    settings: root.RendererSettings,
+) !Backend {
     var self: Backend = undefined;
-    try self.setup(window, allocator, grid_rows, grid_cols);
+    try self.setup(window_handles, allocator, settings);
     return self;
 }
 
-pub fn setup(self: *Backend, window: *Window, allocator: Allocator, grid_rows: u32, grid_cols: u32) !void {
+pub fn setup(
+    self: *Backend,
+    window_handles: win.WindowHandles,
+    allocator: Allocator,
+    settings: root.RendererSettings,
+) !void {
     self.atlas = try Atlas.create(allocator, 45, 45, 0, 128);
     self.grid = try Grid.create(allocator, .{
-        .rows = grid_rows,
-        .cols = grid_cols,
+        .rows = settings.grid_rows,
+        .cols = settings.grid_cols,
     });
 
-    self.render_context = try RenderContext.init(allocator, window);
+    self.render_context = try RenderContext.init(allocator, window_handles);
     const device = self.render_context.device;
 
     // Initialize swapchain
     self.swapchain = try core.Swapchain.init(self.render_context.instance, device, allocator, self.render_context.surface, .{
-        .extent = .{ .height = window.height, .width = window.width },
+        .extent = .{ .height = settings.surface_height, .width = settings.surface_width },
     });
 
     self.render_targets = try core.RenderTarget.initFromSwapchain(&self.swapchain, allocator);
 
     // Initialize resources
-    const max_cells = grid_rows * grid_cols;
+    const max_cells = settings.grid_rows * settings.grid_cols;
 
     self.render_resources = try RenderResources.init(
         allocator,
@@ -111,8 +120,8 @@ pub fn setup(self: *Backend, window: *Window, allocator: Allocator, grid_rows: u
     self.copy_command_buffer = try self.command_pool.allocBuffer(.primary);
 
     // Store window dimensions
-    self.window_width = window.width;
-    self.window_height = window.height;
+    self.window_width = settings.surface_width;
+    self.window_height = settings.surface_height;
 
     try self.render_resources.uploadFontAtlas(
         &self.copy_command_buffer,
@@ -384,9 +393,11 @@ const build_options = @import("build_options");
 const os_tag = builtin.os.tag;
 const vk = @import("vulkan");
 
+const root = @import("../root.zig");
+
 const core = @import("core/root.zig");
 
-const Window = @import("window").Window;
+const win = @import("window");
 const RenderContext = @import("rendering/RenderContext.zig");
 const RenderPipeline = @import("rendering/RenderPipeline.zig");
 const RenderResources = @import("rendering/Resources.zig");

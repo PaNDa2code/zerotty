@@ -1,24 +1,32 @@
 //! Abstract renderer interface implemented by backends
 const Renderer = @This();
 
-const Cursor = @import("cursor").Cursor;
-const Grid = @import("grid").CellProgram;
-
 backend: Backend,
 fps: FPS,
 cursor: Cursor,
 grid: Grid,
 atlas: Atlas,
 
-pub fn init(window: *Window, allocator: Allocator) !Renderer {
+pub const RendererSettings = struct {
+    surface_height: u32,
+    surface_width: u32,
+    grid_rows: u32,
+    grid_cols: u32,
+};
+
+pub fn init(
+    allocator: Allocator,
+    window_handles: win.WindowHandles,
+    settings: RendererSettings,
+) !Renderer {
     const atlas = try Atlas.create(allocator, 20, 20, 0, 128);
 
     const grid = try Grid.create(allocator, .{
-        .rows = window.height / atlas.cell_height,
-        .cols = window.width / atlas.cell_width,
+        .rows = settings.grid_rows,
+        .cols = settings.grid_cols,
     });
 
-    const backend = try Backend.init(window, allocator, grid.rows, grid.cols);
+    const backend = try Backend.init(allocator, window_handles, settings);
     const cursor = try Cursor.init();
 
     return .{
@@ -83,9 +91,10 @@ pub const Backend = switch (Api) {
 };
 
 pub const FPS = @import("common/FPS.zig");
-// pub const Cursor = @import("../Cursor.zig");
-// pub const Grid = @import("../Grid.zig");
 pub const Atlas = @import("font").Atlas;
-const Window = @import("window").Window;
+const Cursor = @import("cursor").Cursor;
+const Grid = @import("grid").CellProgram;
+const win = @import("window");
+const Window = win.Window;
 const Allocator = @import("std").mem.Allocator;
 const color = @import("color");

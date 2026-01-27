@@ -3,6 +3,7 @@ const App = @This();
 allocator: std.mem.Allocator,
 
 window: *win.Window,
+renderer: Renderer,
 io_event_loop: io.EventLoop,
 
 terminal: Terminal,
@@ -12,6 +13,13 @@ pub fn init(allocator: std.mem.Allocator) !App {
         .title = "zerotty",
         .height = 600,
         .width = 800,
+    });
+
+    const renderer = try Renderer.init(allocator, window.getHandles(), .{
+        .surface_width = window.w.width,
+        .surface_height = window.w.height,
+        .grid_rows = 100,
+        .grid_cols = 100,
     });
 
     const io_event_loop = try io.EventLoop.init(allocator, 20);
@@ -25,6 +33,7 @@ pub fn init(allocator: std.mem.Allocator) !App {
     return .{
         .allocator = allocator,
         .window = window,
+        .renderer = renderer,
         .io_event_loop = io_event_loop,
 
         .terminal = terminal,
@@ -47,3 +56,4 @@ const std = @import("std");
 const io = @import("io");
 const win = @import("window");
 const Terminal = @import("Terminal.zig");
+const Renderer = @import("Renderer");
