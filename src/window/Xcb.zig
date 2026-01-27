@@ -1,15 +1,15 @@
 const Window = @This();
-pub const system = .Xcb;
 
 connection: *c.xcb_connection_t = undefined,
 screen: *c.xcb_screen_t = undefined,
 window: c.xcb_window_t = undefined,
-// renderer: Renderer = undefined,
 
 opacity_atom: u32 = 0,
 
 wm_delete_window_atom: c.xcb_atom_t = 0,
 wm_name_atom: c.xcb_atom_t = 0,
+
+xkb: input.Xkb = undefined,
 
 exit: bool = false,
 title: []const u8,
@@ -171,6 +171,8 @@ pub fn open(self: *Window, allocator: Allocator) !void {
     }
 
     self.opacity_atom = get_atom(self.connection, "_NET_WM_WINDOW_OPACITY") orelse return;
+
+    self.xkb = try input.Xkb.init();
 }
 
 /// set window opacity value from 0.0 to 1.0
@@ -179,7 +181,7 @@ pub fn setOpacity(self: *Window, value: f32) !void {
         return error.InvalidValue;
     }
 
-    const opacity: u32 = @intFromFloat(@as(f64, 0xFFFFFFFF) * value);
+    const opacity: u32 = @intFromFloat(@as(f64, 0xFFFFFFFF) * std.math.clamp(value, 0.0, 1.0));
     const opacity_cookie = c.xcb_change_property_checked(
         self.connection,
         c.XCB_PROP_MODE_REPLACE,
@@ -233,18 +235,14 @@ pub fn poll(self: *Window) void {
                 if (key_press.detail == 9)
                     @as(*root.Window, @fieldParentPtr("w", self)).running = false;
 
-                // if (self.keyboard_cb) |cb| {
-                //     const buffer: [4]u8 = undefined;
-                //     const len = cb(self.keyboard_context, key_press.detail, true, buffer);
-                //     std.log.debug("input: {s}", .{buffer[0..len]});
-                // }
+                var buf: [4]u8 = undefined;
+                const utf32 = self.xkb.updateKeyAndGetUTF32(key_press.detail, true);
+                const len = std.unicode.utf8Encode(@intCast(utf32), &buf) catch unreachable;
+                std.log.debug("input: {s}", .{buf[0..len]});
             },
             c.XCB_KEY_RELEASE => {
-                // const key_release: *c.xcb_key_release_event_t = @ptrCast(event);
-                // if (self.keyboard_cb) |cb| {
-                //     const buffer: [4]u8 = undefined;
-                //     _ = cb(self.keyboard_context, key_release.detail, false, buffer);
-                // }
+                const key_release: *c.xcb_key_release_event_t = @ptrCast(event);
+                self.xkb.updateKey(key_release.detail, false);
             },
             c.XCB_DESTROY_NOTIFY => {
                 @as(*root.Window, @fieldParentPtr("w", self)).running = false;
@@ -323,3 +321,5 @@ const c = @cImport({
 });
 
 const root = @import("root.zig");
+
+const input = @import("input");

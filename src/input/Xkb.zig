@@ -1,6 +1,7 @@
 const Xkb = @This();
 
 const root = @import("root.zig");
+const keyboard = root.keyboard;
 
 pub const c = @cImport({
     @cInclude("xkbcommon/xkbcommon.h");
@@ -59,23 +60,31 @@ pub fn deinit(self: *Xkb) void {
     c.xkb_context_unref(self.ctx);
 }
 
-pub fn getModifiers(self: *Xkb) root.Modifiers {
+pub fn getModifiers(self: *Xkb) keyboard.ModsState {
     const bitmask = c.xkb_state_serialize_mods(self.state, c.XKB_STATE_MODS_EFFECTIVE);
 
-    return .{
-        .ctrl = (bitmask & self.mods.ctrl) != 0,
-        .shift = (bitmask & self.mods.shift) != 0,
-        .alt = (bitmask & self.mods.alt) != 0,
-        .super = (bitmask & self.mods.super) != 0,
-    };
+    const ctrl = (bitmask & self.mods.ctrl) != 0;
+    const shift = (bitmask & self.mods.shift) != 0;
+    const alt = (bitmask & self.mods.alt) != 0;
+    const super = (bitmask & self.mods.super) != 0;
+
+    const mods = keyboard.ModsState.init(.{
+        .ctrl = ctrl,
+        .shift = shift,
+        .alt = alt,
+        .super = super,
+    });
+
+    return mods;
+}
+
+pub fn handleEvent(self: *Xkb, event: root.keyboard.KeyEvent) void {
+    self.updateKey(event.code, event.type == .press);
 }
 
 pub fn updateKey(self: *Xkb, keycode: u32, pressed: bool) void {
-    if (pressed) {
-        _ = c.xkb_state_update_key(self.state, keycode, c.XKB_KEY_DOWN);
-    } else {
-        _ = c.xkb_state_update_key(self.state, keycode, c.XKB_KEY_UP);
-    }
+    const direction = if (pressed) c.XKB_KEY_DOWN else c.XKB_KEY_UP;
+    _ = c.xkb_state_update_key(self.state, keycode, @intCast(direction));
 }
 
 pub fn keySym(self: *Xkb, keycode: u32) u32 {
@@ -84,7 +93,14 @@ pub fn keySym(self: *Xkb, keycode: u32) u32 {
 
 pub fn keysymToUTF8(self: *Xkb, keysym: u32, buffer: []u8) usize {
     _ = self;
-    return @intCast(c.xkb_keysym_to_utf8(keysym, buffer.ptr, buffer.len));
+    const len = c.xkb_keysym_to_utf8(keysym, buffer.ptr, buffer.len);
+    if (len < 0) return 0;
+    return @intCast(len);
+}
+
+pub fn keysymToUTF32(self: *Xkb, keysym: u32) u32 {
+    _ = self;
+    return c.xkb_keysym_to_utf32(keysym);
 }
 
 pub fn updateKeyAndGetUTF8(self: *Xkb, keycode: u32, pressed: bool, buffer: []u8) usize {
@@ -97,6 +113,13 @@ pub fn updateKeyAndGetUTF8(self: *Xkb, keycode: u32, pressed: bool, buffer: []u8
 pub fn updateKeyAndGetUTF8Slice(self: *Xkb, keycode: u32, pressed: bool, buffer: []u8) []const u8 {
     const len = self.updateKeyAndGetUTF8(keycode, pressed, buffer);
     return buffer[0..len];
+}
+
+pub fn updateKeyAndGetUTF32(self: *Xkb, keycode: u32, pressed: bool) u32 {
+    self.updateKey(keycode, pressed);
+    if (!pressed) return 0;
+    const keysym = self.keySym(keycode);
+    return self.keysymToUTF32(keysym);
 }
 
 pub fn isPrintableKey(self: *Xkb, keycode: u32) bool {

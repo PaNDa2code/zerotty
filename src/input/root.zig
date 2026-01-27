@@ -1,4 +1,5 @@
-pub const Keyboard = @import("keyboard.zig");
+pub const keyboard = @import("keyboard.zig");
+
 pub const Xkb = @import("Xkb.zig");
 
 pub const UTF8CodePoint = enum(u21) {
