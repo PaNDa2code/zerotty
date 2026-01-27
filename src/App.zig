@@ -32,7 +32,7 @@ pub fn init(allocator: std.mem.Allocator) !App {
     });
 
     const buf = try allocator.alloc(u8, 1024);
-    const master = std.fs.File{ .handle = terminal.pty.master_read };
+    const master = std.fs.File{ .handle = terminal.pty.master };
     try io_event_loop.read(master, buf, readPty, null);
 
     return .{
@@ -47,11 +47,11 @@ pub fn init(allocator: std.mem.Allocator) !App {
 }
 
 pub fn run(self: *App) !void {
-    // const thread = try std.Thread.spawn(.{}, renderLoop, .{
-    //     &self.renderer,
-    //     &self.window.running,
-    // });
-    // defer thread.detach();
+    const thread = try std.Thread.spawn(.{}, renderLoop, .{
+        &self.renderer,
+        &self.window.running,
+    });
+    defer thread.detach();
 
     while (self.window.running) {
         self.window.poll();

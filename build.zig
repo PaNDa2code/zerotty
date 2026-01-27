@@ -223,7 +223,8 @@ pub fn build(b: *Build) !void {
             exe_mod.linkSystemLibrary("GL", .{});
         }
     }
-    if (window_system == .xlib) {
+
+    if (window_system == .xcb) {
         if (target.query.isNativeOs()) {
             exe_mod.linkSystemLibrary("xcb", .{});
             exe_mod.linkSystemLibrary("xkbcommon", .{});
