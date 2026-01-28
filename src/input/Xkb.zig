@@ -126,3 +126,14 @@ pub fn isPrintableKey(self: *Xkb, keycode: u32) bool {
     const sym = self.keySym(keycode);
     return sym >= 32 and sym <= 0x10FFFF;
 }
+
+pub fn setMods(self: *Xkb, mods: root.Modifiers) void {
+    var mods_mask: u32 = 0;
+
+    mods_mask |= if (mods.alt) self.mods.alt else 0;
+    mods_mask |= if (mods.ctrl) self.mods.ctrl else 0;
+    mods_mask |= if (mods.shift) self.mods.shift else 0;
+    mods_mask |= if (mods.super) self.mods.super else 0;
+
+    _ = c.xkb_state_update_mask(self.state, mods_mask, 0, 0, 0, 0, 0);
+}
