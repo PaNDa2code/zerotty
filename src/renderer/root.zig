@@ -4,8 +4,6 @@ const Renderer = @This();
 backend: Backend,
 fps: FPS,
 cursor: Cursor,
-grid: Grid,
-atlas: Atlas,
 
 pub const RendererSettings = struct {
     surface_height: u32,
@@ -19,12 +17,6 @@ pub fn init(
     window_handles: win.WindowHandles,
     settings: RendererSettings,
 ) !Renderer {
-    const atlas = try Atlas.create(allocator, 20, 20, 0, 128);
-
-    const grid = try Grid.create(allocator, .{
-        .rows = settings.grid_rows,
-        .cols = settings.grid_cols,
-    });
 
     const backend = try Backend.init(allocator, window_handles, settings);
     const cursor = try Cursor.init();
@@ -33,8 +25,6 @@ pub fn init(
         .backend = backend,
         .fps = try FPS.init(),
         .cursor = cursor,
-        .grid = grid,
-        .atlas = atlas,
     };
 }
 

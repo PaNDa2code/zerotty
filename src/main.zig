@@ -11,8 +11,10 @@ pub fn main() !void {
     const allocator =
         if (builtin.mode == .Debug)
             debug_allocator.allocator()
+        else if (builtin.link_libc)
+            std.heap.c_allocator
         else
-            std.heap.c_allocator;
+            std.heap.smp_allocator;
 
     var app = try App.init(allocator);
     defer app.deinit();

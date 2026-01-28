@@ -18,6 +18,8 @@ in_flight_fences: []vk.Fence,
 image_available_semaphores: []vk.Semaphore,
 render_finished_semaphores: []vk.Semaphore,
 
+images_in_flight: []vk.Fence,
+
 // Command management
 command_pool: core.CommandPool,
 command_buffers: []core.CommandBuffer,
@@ -102,11 +104,13 @@ pub fn setup(
     self.current_frame = 0;
 
     self.in_flight_fences = try allocator.alloc(vk.Fence, self.max_frames_in_flight);
+    self.images_in_flight = try allocator.alloc(vk.Fence, self.max_frames_in_flight);
     self.image_available_semaphores = try allocator.alloc(vk.Semaphore, self.max_frames_in_flight);
     self.render_finished_semaphores = try allocator.alloc(vk.Semaphore, self.max_frames_in_flight);
 
     for (0..self.max_frames_in_flight) |i| {
         self.in_flight_fences[i] = try device.createFence(true);
+        self.images_in_flight[i] = .null_handle;
         self.image_available_semaphores[i] = try device.createSemaphore();
         self.render_finished_semaphores[i] = try device.createSemaphore();
     }
@@ -149,6 +153,7 @@ pub fn deinit(self: *Backend) void {
         device.vkd.destroySemaphore(device.handle, self.render_finished_semaphores[i], device.vk_allocator);
     }
     allocator.free(self.in_flight_fences);
+    allocator.free(self.images_in_flight);
     allocator.free(self.image_available_semaphores);
     allocator.free(self.render_finished_semaphores);
 
@@ -262,6 +267,22 @@ pub fn renaderGrid(self: *Backend) !void {
         break :blk result.image_index;
     };
 
+    if (self.images_in_flight[image_index] != .null_handle and
+        self.images_in_flight[image_index] != self.in_flight_fences[self.current_frame])
+    {
+        _ = try device.vkd.waitForFences(
+            device.handle,
+            1,
+            &.{self.images_in_flight[image_index]},
+            vk.Bool32.true,
+            std.math.maxInt(u64),
+        );
+    }
+
+    // Mark image as now using this frame's fence
+    self.images_in_flight[image_index] =
+        self.in_flight_fences[self.current_frame];
+
     // Reset fence for this frame
     _ = device.vkd.resetFences(device.handle, 1, &.{self.in_flight_fences[self.current_frame]}) catch {};
 
@@ -326,7 +347,7 @@ pub fn renaderGrid(self: *Backend) !void {
     try self.render_context.queue.submitOne(
         &self.command_buffers[self.current_frame],
         self.image_available_semaphores[self.current_frame],
-        self.render_finished_semaphores[self.current_frame],
+        self.render_finished_semaphores[image_index],
         .{ .color_attachment_output_bit = true },
         self.in_flight_fences[self.current_frame],
     );
@@ -334,7 +355,7 @@ pub fn renaderGrid(self: *Backend) !void {
     // Present to screen
     _ = try self.render_context.queue.presentOne(
         &self.swapchain,
-        self.render_finished_semaphores[self.current_frame],
+        self.render_finished_semaphores[image_index],
         image_index,
     );
 
