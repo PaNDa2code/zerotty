@@ -206,7 +206,7 @@ pub fn build(b: *Build) !void {
             .{ .name = "input", .module = input_mod },
             .{ .name = "window", .module = window_mod },
             .{ .name = "cursor", .module = cursor_mod },
-            .{ .name = "Renderer", .module = renderer_mod },
+            .{ .name = "renderer", .module = renderer_mod },
             .{ .name = "ChildProcess", .module = childprocess_mod },
             .{ .name = "DynamicLibrary", .module = dynamiclibrary_mod },
             .{ .name = "circular_array", .module = circulararray_mod },

@@ -81,4 +81,4 @@ const std = @import("std");
 const io = @import("io");
 const win = @import("window");
 const Terminal = @import("Terminal.zig");
-const Renderer = @import("Renderer");
+const Renderer = @import("renderer").Renderer;

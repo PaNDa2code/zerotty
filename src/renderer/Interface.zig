@@ -1,7 +1,7 @@
 const Interface = @This();
 
 pub const VTable = struct {
-    const Context = opaque {};
+    const Context = *anyopaque;
 
     const InitError = error{};
     const CacheGlyphsError = error{};
@@ -10,7 +10,7 @@ pub const VTable = struct {
     const CommitBatchError = error{};
     const DrawGlyphsError = error{};
 
-    init: *const fn (alloc: std.mem.Allocator) InitError!*anyopaque,
+    init: *const fn (alloc: std.mem.Allocator) InitError!*Context,
     deinit: *const fn (self: *Context) void,
 
     resize_surface: *const fn (self: *Context, width: u32, height: u32) void,
@@ -22,8 +22,9 @@ pub const VTable = struct {
     cache_glyphs: *const fn (self: *Context, dimensions: []const GlyphBitmap, bitmap_pool: []const u8) CacheGlyphsError!void,
 
     /// Clears the texture atlas in case of font resizeing or else.
-    reset_glyph_cache: *const fn (self: *anyopaque) void,
+    reset_glyph_cache: *const fn (self: *Context) void,
 
+    /// alternative for `reserve_batch` then `commit_batch`
     push_batch: *const fn (self: *Context, []const Instance) PushBatchError!void,
 
     /// reserve (or map) a CPU visable memory to write the instance data to.
@@ -36,6 +37,9 @@ pub const VTable = struct {
     /// draw current batch to the current frame
     draw: *const fn (self: *Context) DrawGlyphsError!void,
 
+    /// clears the aquired image background
+    clear: *const fn (self: *Context, color: RGBA) void,
+
     /// waits for the current frame resources to be released
     begin_frame: *const fn (self: *Context) void,
 
@@ -46,12 +50,34 @@ pub const VTable = struct {
     present: *const fn (self: *Context) void,
 };
 
-ptr: *anyopaque,
+inner: *anyopaque,
 vtable: VTable,
 
 const std = @import("std");
+const color = @import("color");
 const TrueType = @import("TrueType");
+
+const RGBA = color.RGBA;
 
 const GlyphBitmap = TrueType.GlyphBitmap;
 
-const Instance = struct {};
+const Instance = @import("vertex.zig").Instance;
+
+pub fn makeVTable(comptime Impl: type) VTable {
+    return .{
+        .init = Impl.init,
+        .deinit = Impl.deinit,
+        .resize_surface = Impl.resizeSurface,
+        .set_viewport = Impl.setViewport,
+        .cache_glyphs = Impl.cacheGlyphs,
+        .reset_glyph_cache = Impl.resetGlyphCache,
+        .push_batch = Impl.pushBatch,
+        .reserve_batch = Impl.reserveBatch,
+        .commit_batch = Impl.commitBatch,
+        .draw = Impl.draw,
+        .clear = Impl.clear,
+        .begin_frame = Impl.beginFrame,
+        .end_frame = Impl.endFrame,
+        .present = Impl.present,
+    };
+}

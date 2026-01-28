@@ -428,4 +428,4 @@ const DynamicLibrary = @import("DynamicLibrary");
 const Grid = @import("grid");
 const Atlas = @import("font").Atlas;
 
-const vertex = @import("rendering/vertex.zig");
+const vertex = root.vertex;

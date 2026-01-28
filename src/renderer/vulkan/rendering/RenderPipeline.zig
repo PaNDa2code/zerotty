@@ -141,7 +141,7 @@ const assets = @import("assets");
 
 const core = @import("../core/root.zig");
 
-const vertex = @import("vertex.zig");
+const vertex = @import("../../root.zig").vertex;
 
 const vertex_input = core.Pipeline.VertexInputDescriptionBuilder
     .addBinding(.{ .binding = 0, .stride = @sizeOf(vertex.Instance), .input_rate = .instance })

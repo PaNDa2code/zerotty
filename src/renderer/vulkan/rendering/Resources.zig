@@ -417,4 +417,4 @@ fn transitionImageLayout(
 const std = @import("std");
 const vk = @import("vulkan");
 const core = @import("../core/root.zig");
-const vertex = @import("vertex.zig");
+const vertex = @import("../../root.zig").vertex;
