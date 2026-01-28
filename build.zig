@@ -36,11 +36,7 @@ pub fn build(b: *Build) !void {
     const comptime_check = b.option(bool, "comptime-check", "") orelse false;
     const render_backend = b.option(RenderBackend, "render-backend", "") orelse DEFAULT_RENDER_BACKEND;
 
-    const default_window_system: WindowSystem = switch (target_tag) {
-        .windows => .win32,
-        .linux => if (DEFAULT_RENDER_BACKEND == .vulkan) .xcb else .xlib,
-        else => .glfw,
-    };
+    const default_window_system: WindowSystem = .glfw;
 
     const window_system = b.option(WindowSystem, "window-system", "") orelse default_window_system;
 
