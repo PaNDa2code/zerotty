@@ -33,7 +33,7 @@ pub fn build(b: *Build) !void {
     // Build Options
     // -------------------------------------------------------------------------
     const use_llvm = b.option(bool, "use-llvm", "") orelse false;
-    const comptime_assertion = b.option(bool, "comptime-assertion", "") orelse false;
+    const comptime_check = b.option(bool, "comptime-check", "") orelse false;
     const render_backend = b.option(RenderBackend, "render-backend", "") orelse DEFAULT_RENDER_BACKEND;
 
     const default_window_system: WindowSystem = switch (target_tag) {
@@ -48,13 +48,13 @@ pub fn build(b: *Build) !void {
         bool,
         "disable-renderer-debug",
         "Disable debugging for renderer backends (Vulkan validation layers, OpenGL debug callbacks)",
-    ) orelse !comptime_assertion;
+    ) orelse !comptime_check;
 
     const options = b.addOptions();
     options.addOption(RenderBackend, "render-backend", render_backend);
     options.addOption(WindowSystem, "window-system", window_system);
     options.addOption(bool, "renderer-debug", !disable_renderer_debug);
-    options.addOption(bool, "comptime_assertion", comptime_assertion);
+    options.addOption(bool, "comptime_check", comptime_check);
     const options_mod = options.createModule();
 
     // -------------------------------------------------------------------------
@@ -127,7 +127,7 @@ pub fn build(b: *Build) !void {
     // -------------------------------------------------------------------------
 
     // Windows Dependencies
-    if (comptime_assertion or target_tag == .windows) {
+    if (comptime_check or target_tag == .windows) {
         if (b.lazyDependency("zigwin32", .{})) |dep| {
             const win32_mod = dep.module("win32");
             window_mod.addImport("win32", win32_mod);
@@ -137,7 +137,7 @@ pub fn build(b: *Build) !void {
     }
 
     // Linux Dependencies
-    if (comptime_assertion or target_tag == .linux) {
+    if (comptime_check or target_tag == .linux) {
         if (b.lazyDependency("zig_openpty", .{})) |dep| {
             const openpty_mod = dep.module("openpty");
             pty_mod.addImport("openpty", openpty_mod);

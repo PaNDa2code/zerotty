@@ -3,7 +3,7 @@ pub const Api = @import("build_options").@"window-system";
 const std = @import("std");
 const builtin = @import("builtin");
 const build_options = @import("build_options");
-const comptime_assertion = build_options.comptime_assertion;
+const comptime_check = build_options.comptime_check;
 
 const Renderer = @import("renderer");
 
@@ -214,11 +214,11 @@ pub const Window = WindowInterface(Backend, MAX_EVENTS);
 const test_alloc = std.testing.allocator;
 
 comptime {
-    if (comptime_assertion) {
-        _ = WindowInterface(Win32);
-        _ = WindowInterface(Xlib);
-        _ = WindowInterface(Xcb);
-        _ = WindowInterface(GLFW);
+    if (comptime_check) {
+        _ = WindowInterface(Win32, MAX_EVENTS);
+        _ = WindowInterface(Xlib, MAX_EVENTS);
+        _ = WindowInterface(Xcb, MAX_EVENTS);
+        _ = WindowInterface(GLFW, MAX_EVENTS);
     }
 }
 
