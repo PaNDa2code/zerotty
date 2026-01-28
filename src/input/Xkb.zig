@@ -127,7 +127,7 @@ pub fn isPrintableKey(self: *Xkb, keycode: u32) bool {
     return sym >= 32 and sym <= 0x10FFFF;
 }
 
-pub fn setMods(self: *Xkb, mods: root.Modifiers) void {
+pub fn setMods(self: *Xkb, mods: keyboard.ModState) void {
     var mods_mask: u32 = 0;
 
     mods_mask |= if (mods.alt) self.mods.alt else 0;

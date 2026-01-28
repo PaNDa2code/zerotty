@@ -32,6 +32,7 @@ pub fn build(b: *Build) !void {
     // -------------------------------------------------------------------------
     // Build Options
     // -------------------------------------------------------------------------
+    const use_llvm = b.option(bool, "use-llvm", "") orelse false;
     const comptime_assertion = b.option(bool, "comptime-assertion", "") orelse false;
     const render_backend = b.option(RenderBackend, "render-backend", "") orelse DEFAULT_RENDER_BACKEND;
 
@@ -262,6 +263,7 @@ pub fn build(b: *Build) !void {
     const exe = b.addExecutable(.{
         .name = "zerotty",
         .root_module = exe_mod,
+        .use_llvm = use_llvm,
     });
 
     // Windows Specific EXE settings

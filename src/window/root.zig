@@ -46,8 +46,59 @@ pub const GLESContextCreateInfo = struct {};
 
 pub const InputHandleCallbackFn = fn (*InputContext, u32, bool, []u8) usize;
 
+pub const ResizeEvent = struct {
+    height: u32,
+    width: u32,
+    is_live: bool, // user is still resizing
+};
+
+pub const InputEvent = @import("input").InputEvent;
+
+pub const WindowEvent = union(enum) {
+    resize: ResizeEvent,
+    input: InputEvent,
+    focus: bool,
+    expose: bool,
+    close,
+    none,
+};
+
+pub fn Queue(T: type, default: T, max_slots: comptime_int) type {
+    return struct {
+        const Self = @This();
+
+        queue: [max_slots]T = [1]T{default} ** max_slots,
+        len: usize = 0,
+
+        pub const empty = Self{};
+
+        pub fn pop(self: *Self) ?T {
+            if (self.len == 0) return null;
+            const index = self.len;
+            self.len -= 1;
+            return self.queue[index];
+        }
+
+        pub const PushError = error{
+            OutOfMemory,
+            ReachedMaxSlots, // Recoverable
+        };
+
+        pub fn push(self: *Self, event: T) PushError!void {
+            if (self.len == max_slots)
+                return error.OutOfMemory;
+
+            self.queue[self.len] = event;
+            self.len += 1;
+
+            if (self.len == max_slots)
+                return error.ReachedMaxSlots;
+        }
+    };
+}
+
 /// comptime polymorphism interface for window
-fn WindowInterface(WindowBackend: type) type {
+fn WindowInterface(WindowBackend: type, max_events: comptime_int) type {
     return struct {
         const Self = @This();
 
@@ -57,6 +108,10 @@ fn WindowInterface(WindowBackend: type) type {
 
         running: bool,
         w: WindowBackend,
+
+        renderer_semaphore: std.Thread.Semaphore = .{},
+
+        queue: Queue(WindowEvent, .none, max_events) = .empty,
 
         pub fn initAlloc(allocator: std.mem.Allocator, options: WindowCreateOptions) !*Self {
             const window = try allocator.create(Self);
@@ -70,9 +125,9 @@ fn WindowInterface(WindowBackend: type) type {
             allocator.destroy(self);
         }
 
-        pub fn new(title: []const u8, height: u32, width: u32) Self {
+        pub fn new(title: []const u8, window_height: u32, window_width: u32) Self {
             return .{
-                .w = WindowBackend.new(title, height, width),
+                .w = WindowBackend.new(title, window_height, window_width),
                 .running = false,
             };
         }
@@ -96,6 +151,14 @@ fn WindowInterface(WindowBackend: type) type {
 
         pub fn getHandles(self: *Self) WindowHandles {
             return self.w.getHandles();
+        }
+
+        pub fn height(self: *const Self) u32 {
+            return self.w.height;
+        }
+
+        pub fn width(self: *const Self) u32 {
+            return self.w.width;
         }
     };
 }
@@ -145,7 +208,8 @@ pub const InputContext = switch (Api) {
     else => void,
 };
 
-pub const Window = WindowInterface(Backend);
+const MAX_EVENTS = 100;
+pub const Window = WindowInterface(Backend, MAX_EVENTS);
 
 const test_alloc = std.testing.allocator;
 

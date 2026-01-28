@@ -9,7 +9,7 @@ opacity_atom: u32 = 0,
 wm_delete_window_atom: c.xcb_atom_t = 0,
 wm_name_atom: c.xcb_atom_t = 0,
 
-xkb: input.Xkb = undefined,
+xkb: input.keyboard.Xkb = undefined,
 
 exit: bool = false,
 title: []const u8,
@@ -172,7 +172,7 @@ pub fn open(self: *Window, allocator: Allocator) !void {
 
     self.opacity_atom = get_atom(self.connection, "_NET_WM_WINDOW_OPACITY") orelse return;
 
-    self.xkb = try input.Xkb.init();
+    self.xkb = try .init();
 }
 
 /// set window opacity value from 0.0 to 1.0

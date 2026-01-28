@@ -15,8 +15,11 @@ pub fn init(allocator: std.mem.Allocator, window_handles: window.WindowHandles) 
     const allocator_adapter = try core.memory.AllocatorAdapter.init(allocator);
 
     const surface_creation_info = SurfaceCreationInfo.fromWindowHandles(window_handles);
-    const instance_extensions = try surface_creation_info.instanceExtensionsAlloc(allocator);
-    defer allocator.free(instance_extensions);
+
+    var arina = std.heap.ArenaAllocator.init(allocator);
+    defer arina.deinit();
+
+    const instance_extensions = try surface_creation_info.instanceExtensionsAlloc(arina.allocator());
 
     const instance = try allocator.create(core.Instance);
     instance.* = try core.Instance.init(

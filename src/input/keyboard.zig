@@ -13,7 +13,15 @@ pub const Mod = enum {
     num,
 };
 
-pub const ModsState = std.enums.EnumSet(Mod);
+
+pub const ModState = packed struct {
+    shift: bool = false,
+    ctrl: bool = false,
+    alt: bool = false,
+    super: bool = false,
+    caps: bool = false,
+    num: bool = false,
+};
 
 pub const KeyEventType = enum {
     press,
@@ -26,3 +34,5 @@ pub const KeyEvent = struct {
     state: KeyboardState,
     code: u32,
 };
+
+pub const Xkb = @import("Xkb.zig");

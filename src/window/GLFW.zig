@@ -1,7 +1,7 @@
 const Window = @This();
 
 keyboard_cb: ?*const fn (utf32: u32, press: bool) void = null,
-xkb: Xkb,
+xkb: Xkb = undefined,
 
 title: []const u8,
 height: u32,
@@ -50,6 +50,7 @@ pub fn open(self: *Window, allocator: Allocator) !void {
     _ = c.glfwSetWindowSizeCallback(self.window, callbacks.windowSize);
     _ = c.glfwSetWindowCloseCallback(self.window, callbacks.windowClose);
     _ = c.glfwSetKeyCallback(self.window, callbacks.key);
+    _ = c.glfwSetCharCallback(self.window, callbacks.char);
 
     c.glfwShowWindow(self.window);
 }
@@ -65,7 +66,7 @@ pub fn poll(_: *Window) void {
 }
 
 pub fn close(self: *Window) void {
-    self.renderer.deinit();
+    self.xkb.deinit();
     c.glfwTerminate();
 }
 
@@ -77,28 +78,20 @@ pub fn getHandles(self: *const Window) root.WindowHandles {
 
 const callbacks = struct {
     fn key(glfw_window: ?*c.GLFWwindow, _key: c_int, scancode: c_int, action: c_int, mods: c_int) callconv(.c) void {
+        _ = mods;
+        _ = action;
+        _ = scancode;
         const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
-
-        std.log.debug("key: {} {}", .{
-            scancode,
-            if (action == c.GLFW_PRESS) "down" else "up",
-        });
-
-        window.xkb.setMods(.{
-            .alt = mods & c.GLFW_MOD_ALT != 0,
-            .ctrl = mods & c.GLFW_MOD_CONTROL != 0,
-            .shift = mods & c.GLFW_MOD_SHIFT != 0,
-            .super = mods & c.GLFW_MOD_SUPER != 0,
-        });
-
-        var buffer: [4]u8 = undefined;
-        const len = window.xkb.updateKeyAndGetUTF8(scancode, action == c.GLFW_PRESS, buffer[0..]);
-        std.log.debug("input: {s}", buffer[0..len]);
-
         if (_key == c.GLFW_KEY_ESCAPE) {
-            @as(*root.Window, @fieldParentPtr("w", window)).running = false;
+            @as(*root.Window, @alignCast(@fieldParentPtr("w", window))).running = false;
             return;
         }
+    }
+
+    fn char(_: ?*c.GLFWwindow, codepoint: c_uint) callconv(.c) void {
+        var utf8: [4]u8 = undefined;
+        const len = std.unicode.utf8Encode(@intCast(codepoint), &utf8) catch unreachable;
+        std.log.debug("input: {s}", .{utf8[0..len]});
     }
 
     fn windowSize(glfw_window: ?*c.GLFWwindow, width: c_int, height: c_int) callconv(.c) void {
@@ -109,7 +102,7 @@ const callbacks = struct {
 
     fn windowClose(glfw_window: ?*c.GLFWwindow) callconv(.c) void {
         const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
-        window.exit = true;
+        @as(*root.Window, @alignCast(@fieldParentPtr("w", window))).running = false;
     }
 
     fn errorCallback(code: c_int, description: [*c]const u8) callconv(.c) void {
@@ -125,6 +118,6 @@ const c = @cImport({
     @cDefine("GLFW_INCLUDE_NONE", "");
     @cInclude("GLFW/glfw3.h");
 });
-const Xkb = @import("input").Xkb;
+const Xkb = @import("input").keyboard.Xkb;
 
 const Allocator = std.mem.Allocator;
