@@ -233,7 +233,7 @@ pub fn poll(self: *Window) void {
                 const key_press: *c.xcb_key_press_event_t = @ptrCast(event);
 
                 if (key_press.detail == 9)
-                    @as(*root.Window, @fieldParentPtr("w", self)).running = false;
+                    @as(*root.Window, @alignCast(@fieldParentPtr("w", self))).running = false;
 
                 var buf: [4]u8 = undefined;
                 const utf32 = self.xkb.updateKeyAndGetUTF32(key_press.detail, true);
@@ -245,7 +245,7 @@ pub fn poll(self: *Window) void {
                 self.xkb.updateKey(key_release.detail, false);
             },
             c.XCB_DESTROY_NOTIFY => {
-                @as(*root.Window, @fieldParentPtr("w", self)).running = false;
+                @as(*root.Window, @alignCast(@fieldParentPtr("w", self))).running = false;
             },
             c.XCB_CLIENT_MESSAGE => {
                 if (@as(*c.xcb_client_message_event_t, @ptrCast(event)).data.data32[0] == self.wm_delete_window_atom)
