@@ -6,6 +6,7 @@ grid: Grid,
 
 pub const TerminalSettings = struct {
     shell_path: []const u8 = "",
+    shell_args: []const []const u8 = &.{},
     rows: u32,
     cols: u32,
 };
@@ -19,6 +20,7 @@ pub fn init(allocator: std.mem.Allocator, settings: TerminalSettings) !Terminal 
 
     var shell = ChildProcess{
         .exe_path = settings.shell_path,
+        .args = settings.shell_args,
     };
     try shell.start(allocator, &pty);
 

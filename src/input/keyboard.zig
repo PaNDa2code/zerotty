@@ -31,7 +31,7 @@ pub const KeyEventType = enum {
 
 pub const KeyEvent = struct {
     type: KeyEventType,
-    state: KeyboardState,
+    mods: ModState,
     code: u32,
 };
 

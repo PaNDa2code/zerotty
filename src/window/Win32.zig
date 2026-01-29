@@ -8,6 +8,8 @@ title: []const u8,
 height: u32,
 width: u32,
 
+event_queue: *root.EventQueue = undefined,
+
 pub fn new(title: []const u8, height: u32, width: u32) Window {
     return .{
         .title = title,
@@ -98,21 +100,24 @@ fn WindowProcSetup(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) callcon
 
     return self.WindowProc(hwnd, msg, wparam, lparam);
 }
+
 fn WindowProcWrapper(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) callconv(.winapi) LRESULT {
     const self: *Window = @ptrFromInt(@as(usize, @bitCast(win32wm.GetWindowLongPtrW(hwnd, .P_USERDATA))));
     return self.WindowProc(hwnd, msg, wparam, lparam);
 }
+
 fn WindowProc(self: *Window, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) LRESULT {
     switch (msg) {
         win32wm.WM_DESTROY => {
-            self.exit = true;
             win32wm.PostQuitMessage(0);
+            self.event_queue.push(.close) catch unreachable;
             return 0;
         },
         // win32wm.WM_KEYDOWN, win32wm.WM_SYSKEYDOWN => {
         win32wm.WM_CHAR => {
             if (wparam == @intFromEnum(win32.ui.input.keyboard_and_mouse.VK_ESCAPE)) {
                 win32wm.PostQuitMessage(0);
+                self.event_queue.push(.close) catch unreachable;
             }
             return 0;
         },
@@ -132,8 +137,18 @@ fn WindowProc(self: *Window, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARA
             const lp: usize = @as(usize, @bitCast(lparam));
             const width: u32 = @intCast(lp & 0xFFFF);
             const height: u32 = @intCast((lp >> 16) & 0xFFFF);
-            self.resize(height, width) catch return -1;
-            // if (self.resize_cb) |cb| cb(width, height);
+            self.height = height;
+            self.width = width;
+
+            self.event_queue.push(.{
+                .resize = .{
+                    .width = width,
+                    .height = height,
+
+                    .is_live = false,
+                },
+            }) catch unreachable;
+
             return 0;
         },
         else => return win32wm.DefWindowProcW(hwnd, msg, wparam, lparam),

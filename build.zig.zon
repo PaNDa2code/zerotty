@@ -70,8 +70,8 @@
             .lazy = true,
         },
         .glfw_zig = .{
-            .url = "git+https://github.com/tiawl/glfw.zig#cb3d4a29e5151218ac8cca6f4b1750703c7cd31b",
-            .hash = "glfw_zig-1.0.0-NrvYo8bXGQDNplF8UkNbZbjoTEXXwSu7aKICMnlJiuhl",
+            .url = "git+https://github.com/tiawl/glfw.zig#437459944a37470d743438a77baee754d30471fc",
+            .hash = "glfw_zig-1.0.0-NrvYo-PXGQBHXHdzK3udR329ezIrC4k8Di1R3wWt7GjS",
             .lazy = true,
         },
     },

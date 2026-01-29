@@ -25,8 +25,14 @@ pub fn init(allocator: std.mem.Allocator) !App {
 
     var io_event_loop = try io.EventLoop.init(allocator, 20);
 
-    const terminal = try Terminal.init(allocator, .{
+    const terminal = try Terminal.init(allocator, if (os_tag == .linux) .{
         .shell_path = "/bin/bash",
+        .shell_args = &.{ "bash", "--norc", "--noprofile" },
+        .rows = 100,
+        .cols = 100,
+    } else if (os_tag == .windows) .{
+        .shell_path = "cmd.exe",
+        .shell_args = &.{"cmd"},
         .rows = 100,
         .cols = 100,
     });
@@ -46,13 +52,24 @@ pub fn init(allocator: std.mem.Allocator) !App {
 }
 
 pub fn run(self: *App) !void {
+    var running = true;
+
     const thread = try std.Thread.spawn(.{}, renderLoop, .{
         &self.renderer,
-        &self.window.running,
+        &running,
     });
 
-    while (self.window.running) {
+    while (running) {
         self.window.poll();
+        try self.io_event_loop.poll(0);
+
+        while (self.window.nextEvent()) |event| {
+            std.log.debug("event: {any}", .{event});
+            if (event == .close) {
+                running = false;
+                break;
+            }
+        }
     }
 
     thread.join();
@@ -78,7 +95,10 @@ fn renderLoop(renderer: *Renderer, running: *bool) !void {
 }
 
 const std = @import("std");
+const builtin = @import("builtin");
 const io = @import("io");
 const win = @import("window");
 const Terminal = @import("Terminal.zig");
 const Renderer = @import("renderer").Renderer;
+
+const os_tag = builtin.os.tag;

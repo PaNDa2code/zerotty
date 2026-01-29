@@ -214,31 +214,25 @@ pub fn build(b: *Build) !void {
     });
 
     exe_mod.addImport("build_options", options_mod);
+
     if (window_system == .xlib) {
-        exe_mod.linkSystemLibrary("X11", .{ .needed = true });
+        window_mod.linkSystemLibrary("X11", .{ .needed = true });
         if (render_backend == .opengl) {
-            exe_mod.linkSystemLibrary("GL", .{});
+            renderer_mod.linkSystemLibrary("GL", .{});
         }
     }
 
     if (window_system == .xcb) {
         if (target.query.isNativeOs()) {
-            exe_mod.linkSystemLibrary("xcb", .{});
-            exe_mod.linkSystemLibrary("xkbcommon", .{});
+            window_mod.linkSystemLibrary("xcb", .{});
+            window_mod.linkSystemLibrary("xkbcommon", .{});
         } else {
             if (b.lazyDependency("xcb", .{
                 .target = target,
-                .optimize = exe_mod.optimize.?,
+                .optimize = optimize,
                 .linkage = linkage,
             })) |dep| {
-                exe_mod.linkLibrary(dep.artifact("xcb"));
-            }
-            if (b.lazyDependency("xkbcommon", .{
-                .target = target,
-                .optimize = exe_mod.optimize.?,
-                .@"xkb-config-root" = "/usr/share/X11/xkb",
-            })) |dep| {
-                exe_mod.linkLibrary(dep.artifact("xkbcommon"));
+                window_mod.linkLibrary(dep.artifact("xcb"));
             }
         }
     }
@@ -246,12 +240,19 @@ pub fn build(b: *Build) !void {
     if (window_system == .glfw) {
         if (b.lazyDependency("glfw_zig", .{
             .target = target,
-            .optimize = exe_mod.optimize.?,
-        })) |dep| exe_mod.linkLibrary(dep.artifact("glfw"));
+            .optimize = optimize,
+        })) |dep| {
+            const glfw_lib = dep.artifact("glfw");
 
+            window_mod.linkLibrary(glfw_lib);
+            renderer_mod.linkLibrary(glfw_lib);
+        }
+    }
+
+    if (target_tag == .linux) {
         if (b.lazyDependency("xkbcommon", .{
             .target = target,
-            .optimize = exe_mod.optimize.?,
+            .optimize = optimize,
             .@"xkb-config-root" = "/usr/share/X11/xkb",
         })) |dep| exe_mod.linkLibrary(dep.artifact("xkbcommon"));
     }

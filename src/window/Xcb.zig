@@ -16,6 +16,8 @@ title: []const u8,
 height: u32,
 width: u32,
 
+event_queue: *root.EventQueue = undefined,
+
 const log = std.log.scoped(.window);
 
 pub fn new(title: []const u8, height: u32, width: u32) Window {
@@ -232,29 +234,58 @@ pub fn poll(self: *Window) void {
             c.XCB_KEY_PRESS => {
                 const key_press: *c.xcb_key_press_event_t = @ptrCast(event);
 
-                if (key_press.detail == 9)
-                    @as(*root.Window, @alignCast(@fieldParentPtr("w", self))).running = false;
+                if (key_press.detail == 9) {
+                    self.event_queue.push(.close) catch unreachable;
+                    return;
+                }
 
-                var buf: [4]u8 = undefined;
-                const utf32 = self.xkb.updateKeyAndGetUTF32(key_press.detail, true);
-                const len = std.unicode.utf8Encode(@intCast(utf32), &buf) catch unreachable;
-                std.log.debug("input: {s}", .{buf[0..len]});
+                const window_event = root.WindowEvent{
+                    .input = .{
+                        .keyboard = .{
+                            .type = .press,
+                            .code = @intCast(key_press.detail),
+                        },
+                    },
+                };
+
+                self.event_queue.push(window_event) catch unreachable;
             },
             c.XCB_KEY_RELEASE => {
                 const key_release: *c.xcb_key_release_event_t = @ptrCast(event);
-                self.xkb.updateKey(key_release.detail, false);
+
+                const window_event = root.WindowEvent{
+                    .input = .{
+                        .keyboard = .{
+                            .type = .release,
+                            .code = @intCast(key_release.detail),
+                        },
+                    },
+                };
+
+                self.event_queue.push(window_event) catch unreachable;
             },
             c.XCB_DESTROY_NOTIFY => {
-                @as(*root.Window, @alignCast(@fieldParentPtr("w", self))).running = false;
+                self.event_queue.push(.close) catch unreachable;
             },
             c.XCB_CLIENT_MESSAGE => {
                 if (@as(*c.xcb_client_message_event_t, @ptrCast(event)).data.data32[0] == self.wm_delete_window_atom)
-                    self.exit = true;
+                    self.event_queue.push(.close) catch unreachable;
             },
             c.XCB_CONFIGURE_NOTIFY => {
                 const cfg: *c.xcb_configure_notify_event_t = @ptrCast(event);
                 self.height = @intCast(cfg.height);
                 self.width = @intCast(cfg.width);
+
+                const window_event = root.WindowEvent{
+                    .resize = .{
+                        .height = @intCast(cfg.height),
+                        .width = @intCast(cfg.width),
+
+                        .is_live = false,
+                    },
+                };
+
+                self.event_queue.push(window_event) catch unreachable;
             },
             else => {},
         }

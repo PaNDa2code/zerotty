@@ -5,8 +5,6 @@ const builtin = @import("builtin");
 const build_options = @import("build_options");
 const comptime_check = build_options.comptime_check;
 
-const Renderer = @import("renderer");
-
 pub const WindowCreateOptions = struct {
     title: []const u8 = "zerotty",
     height: u32,
@@ -74,31 +72,28 @@ pub fn Queue(T: type, default: T, max_slots: comptime_int) type {
 
         pub fn pop(self: *Self) ?T {
             if (self.len == 0) return null;
-            const index = self.len;
             self.len -= 1;
-            return self.queue[index];
+            return self.queue[self.len];
         }
 
         pub const PushError = error{
-            OutOfMemory,
-            ReachedMaxSlots, // Recoverable
+            QueueIsFull,
         };
 
         pub fn push(self: *Self, event: T) PushError!void {
             if (self.len == max_slots)
-                return error.OutOfMemory;
+                return error.QueueIsFull;
 
             self.queue[self.len] = event;
             self.len += 1;
-
-            if (self.len == max_slots)
-                return error.ReachedMaxSlots;
         }
     };
 }
 
+pub const EventQueue = Queue(WindowEvent, .none, MAX_EVENTS);
+
 /// comptime polymorphism interface for window
-fn WindowInterface(WindowBackend: type, max_events: comptime_int) type {
+fn WindowInterface(WindowBackend: type) type {
     return struct {
         const Self = @This();
 
@@ -111,7 +106,7 @@ fn WindowInterface(WindowBackend: type, max_events: comptime_int) type {
 
         renderer_semaphore: std.Thread.Semaphore = .{},
 
-        queue: Queue(WindowEvent, .none, max_events) = .empty,
+        event_queue: EventQueue = .empty,
 
         pub fn initAlloc(allocator: std.mem.Allocator, options: WindowCreateOptions) !*Self {
             const window = try allocator.create(Self);
@@ -134,7 +129,6 @@ fn WindowInterface(WindowBackend: type, max_events: comptime_int) type {
 
         pub fn open(self: *Self, allocator: std.mem.Allocator) !void {
             try self.w.open(allocator);
-            self.running = true;
         }
 
         pub fn setTitle(self: *Self, title: []const u8) !void {
@@ -142,6 +136,7 @@ fn WindowInterface(WindowBackend: type, max_events: comptime_int) type {
         }
 
         pub fn poll(self: *Self) void {
+            self.w.event_queue = &self.event_queue;
             self.w.poll();
         }
 
@@ -159,6 +154,10 @@ fn WindowInterface(WindowBackend: type, max_events: comptime_int) type {
 
         pub fn width(self: *const Self) u32 {
             return self.w.width;
+        }
+
+        pub fn nextEvent(self: *Self) ?WindowEvent {
+            return self.event_queue.pop();
         }
     };
 }
@@ -182,11 +181,12 @@ fn backendAssert(comptime T: type) void {
         const fields = [_][]const u8{
             "width",
             "height",
+            "event_queue",
         };
 
         for (fields) |field| {
             if (!@hasField(T, field))
-                @compileError("Window backend must have " ++ field ++ " field");
+                @compileError("Window backend " ++ @typeName(T) ++ " must have " ++ field ++ " field");
         }
     }
 }
@@ -208,36 +208,17 @@ pub const InputContext = switch (Api) {
     else => void,
 };
 
-const MAX_EVENTS = 100;
-pub const Window = WindowInterface(Backend, MAX_EVENTS);
+const MAX_EVENTS = 500;
+
+pub const Window = WindowInterface(Backend);
 
 const test_alloc = std.testing.allocator;
 
 comptime {
     if (comptime_check) {
-        _ = WindowInterface(Win32, MAX_EVENTS);
-        _ = WindowInterface(Xlib, MAX_EVENTS);
-        _ = WindowInterface(Xcb, MAX_EVENTS);
-        _ = WindowInterface(GLFW, MAX_EVENTS);
+        _ = WindowInterface(Win32);
+        _ = WindowInterface(Xlib);
+        _ = WindowInterface(Xcb);
+        _ = WindowInterface(GLFW);
     }
-}
-
-test Win32 {
-    const window = try WindowInterface(Win32).initAlloc(test_alloc);
-    defer window.destroy(test_alloc);
-}
-
-test Xcb {
-    const window = try WindowInterface(Xcb).initAlloc(test_alloc);
-    defer window.destroy(test_alloc);
-}
-
-test Xlib {
-    const window = try WindowInterface(Xlib).initAlloc(test_alloc);
-    defer window.destroy(test_alloc);
-}
-
-test GLFW {
-    const window = try WindowInterface(GLFW).initAlloc(test_alloc);
-    defer window.destroy(test_alloc);
 }
