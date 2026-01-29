@@ -76,7 +76,6 @@ pub fn build(b: *Build) !void {
     const grid_mod = b.createModule(.{ .root_source_file = b.path("src/Grid.zig") });
     const cursor_mod = b.createModule(.{ .root_source_file = b.path("src/Cursor.zig") });
     const dynamiclibrary_mod = b.createModule(.{ .root_source_file = b.path("src/DynamicLibrary.zig") });
-    const debug_mod = b.createModule(.{ .root_source_file = b.path("src/debug/ErrDebugInfo.zig") });
     const io_mod = b.createModule(.{ .root_source_file = b.path("src/io/root.zig") });
     const math_mod = b.createModule(.{ .root_source_file = b.path("src/renderer/common/math.zig") });
     const font_mod = b.createModule(.{ .root_source_file = b.path("src/font/root.zig") });
@@ -201,7 +200,6 @@ pub fn build(b: *Build) !void {
             .{ .name = "grid", .module = grid_mod },
             .{ .name = "math", .module = math_mod },
             .{ .name = "font", .module = font_mod },
-            .{ .name = "debug", .module = debug_mod },
             .{ .name = "color", .module = color_mod },
             .{ .name = "input", .module = input_mod },
             .{ .name = "window", .module = window_mod },
