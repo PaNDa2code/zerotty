@@ -59,7 +59,7 @@ pub const Grid = struct {
 
     pub fn appendCell(self: *Grid, cell: Cell) !void {
         self.backing_store[self.cells_head..][self.cells_count] = cell;
-        self.rows_list.items[self.rows_list.items.len].cells_len += 1;
+        self.rows_list.items[self.rows_list.items.len - 1].cells_len += 1;
     }
 
     pub fn appendRow(self: *Grid) !void {

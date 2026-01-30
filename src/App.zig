@@ -7,7 +7,7 @@ renderer: Renderer,
 io_event_loop: io.EventLoop,
 
 buf: []u8,
-terminal: Terminal,
+terminal: *Terminal,
 
 pub fn init(allocator: std.mem.Allocator) !App {
     const window = try win.Window.initAlloc(allocator, .{
@@ -25,7 +25,9 @@ pub fn init(allocator: std.mem.Allocator) !App {
 
     var io_event_loop = try io.EventLoop.init(allocator, 20);
 
-    const terminal = try Terminal.init(allocator, if (os_tag == .linux) .{
+    const terminal = try allocator.create(Terminal);
+
+    terminal.* = try Terminal.init(allocator, if (os_tag == .linux) .{
         .shell_path = "/bin/bash",
         .shell_args = &.{ "bash", "--norc", "--noprofile" },
         .rows = 100,
@@ -38,7 +40,7 @@ pub fn init(allocator: std.mem.Allocator) !App {
     });
 
     const buf = try allocator.alloc(u8, 1024);
-    try io_event_loop.read(terminal.shell.stdout.?, buf, readPty, null);
+    try io_event_loop.read(terminal.shell.stdout.?, buf, ptyReadCallback, terminal);
 
     return .{
         .allocator = allocator,
@@ -52,6 +54,8 @@ pub fn init(allocator: std.mem.Allocator) !App {
 }
 
 pub fn run(self: *App) !void {
+    self.terminal.vtparser.user_data = self.terminal;
+
     var running = true;
 
     const thread = try std.Thread.spawn(.{}, renderLoop, .{
@@ -81,10 +85,14 @@ pub fn deinit(self: *App) void {
     self.io_event_loop.deinit(self.allocator);
     self.terminal.deinit(self.allocator);
     self.allocator.free(self.buf);
+
+    self.allocator.destroy(self.terminal);
 }
 
-fn readPty(event: *io.EventLoop.Event, len: usize, _: ?*anyopaque) io.EventLoop.CallbackAction {
-    std.log.debug("pty => {s}", .{event.request.op_data.read[0..len]});
+fn ptyReadCallback(event: *io.EventLoop.Event, len: usize, user_data: ?*anyopaque) io.EventLoop.CallbackAction {
+    const buffer = event.request.op_data.read[0..len];
+    const terminal: *Terminal = @ptrCast(@alignCast(user_data));
+    terminal.vtparser.parse(buffer);
     return .retry;
 }
 
