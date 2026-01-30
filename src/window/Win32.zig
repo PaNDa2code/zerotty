@@ -8,6 +8,8 @@ title: []const u8,
 height: u32,
 width: u32,
 
+resizing: bool = false,
+
 event_queue: *root.EventQueue = undefined,
 
 pub fn new(title: []const u8, height: u32, width: u32) Window {
@@ -113,27 +115,36 @@ fn WindowProc(self: *Window, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARA
             self.event_queue.push(.close) catch unreachable;
             return 0;
         },
-        // win32wm.WM_KEYDOWN, win32wm.WM_SYSKEYDOWN => {
         win32wm.WM_CHAR => {
             if (wparam == @intFromEnum(win32.ui.input.keyboard_and_mouse.VK_ESCAPE)) {
                 win32wm.PostQuitMessage(0);
                 self.event_queue.push(.close) catch unreachable;
             }
+
+            self.event_queue.push(.{
+                .input = .{
+                    .utf8_codepoint = @intCast(wparam),
+                },
+            }) catch unreachable;
+
             return 0;
         },
         win32wm.WM_PAINT => {
             return 0;
         },
-        // win32wm.WM_ENTERSIZEMOVE => {
-        //     return win32wm.SendMessageW(hwnd, win32wm.WM_SETREDRAW, 0, 0);
-        // },
-        // win32wm.WM_EXITSIZEMOVE => {
-        //     return win32wm.SendMessageW(hwnd, win32wm.WM_SETREDRAW, 1, 0);
-        // },
         win32wm.WM_ERASEBKGND => {
             return 0;
         },
-        win32wm.WM_SIZING, win32wm.WM_SIZE => {
+
+        win32wm.WM_ENTERSIZEMOVE => {
+            self.resizing = true;
+            return 0;
+        },
+        win32wm.WM_EXITSIZEMOVE => {
+            self.resizing = false;
+            return 0;
+        },
+        win32wm.WM_SIZE => {
             const lp: usize = @as(usize, @bitCast(lparam));
             const width: u32 = @intCast(lp & 0xFFFF);
             const height: u32 = @intCast((lp >> 16) & 0xFFFF);
@@ -144,8 +155,25 @@ fn WindowProc(self: *Window, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARA
                 .resize = .{
                     .width = width,
                     .height = height,
+                    .is_live = self.resizing,
+                },
+            }) catch unreachable;
 
-                    .is_live = false,
+            return 0;
+        },
+        win32wm.WM_SIZING => {
+            const rect: *win32fnd.RECT = @ptrFromInt(@as(usize, @bitCast(lparam)));
+            const width: u32 = @intCast(rect.right - rect.left);
+            const height: u32 = @intCast(rect.bottom - rect.top);
+
+            self.width = width;
+            self.height = height;
+
+            self.event_queue.push(.{
+                .resize = .{
+                    .width = width,
+                    .height = height,
+                    .is_live = true,
                 },
             }) catch unreachable;
 
@@ -214,7 +242,11 @@ pub fn messageLoop(self: *Window) void {
 pub fn poll(self: *Window) void {
     var msg: win32wm.MSG = undefined;
 
-    if (win32wm.PeekMessageW(&msg, null, 0, 0, .{ .REMOVE = 1 }) != 0) {
+    var counter: usize = 0;
+    while (counter < root.POLL_LIMIT) : (counter += 1) {
+        if (win32wm.PeekMessageW(&msg, null, 0, 0, .{ .REMOVE = 1 }) == 0)
+            break;
+
         if (msg.message == win32wm.WM_QUIT) {
             self.exit = true;
             return;

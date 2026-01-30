@@ -60,7 +60,10 @@ pub fn setTitle(self: *Window, title: []const u8) !void {
 }
 
 pub fn poll(_: *Window) void {
-    c.glfwPollEvents();
+    var counter: usize = 0;
+    while (counter < root.POLL_LIMIT) : (counter += 1) {
+        c.glfwPollEvents();
+    }
 }
 
 pub fn close(_: *Window) void {

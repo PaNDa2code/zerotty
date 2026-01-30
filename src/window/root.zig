@@ -208,7 +208,8 @@ pub const InputContext = switch (Api) {
     else => void,
 };
 
-const MAX_EVENTS = 500;
+pub const MAX_EVENTS = 100;
+pub const POLL_LIMIT = MAX_EVENTS;
 
 pub const Window = WindowInterface(Backend);
 

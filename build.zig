@@ -222,6 +222,7 @@ pub fn build(b: *Build) !void {
 
     if (window_system == .xcb) {
         if (target.query.isNativeOs()) {
+            window_mod.resolved_target = target;
             window_mod.linkSystemLibrary("xcb", .{});
             window_mod.linkSystemLibrary("xkbcommon", .{});
         } else {

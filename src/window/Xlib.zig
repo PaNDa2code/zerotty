@@ -65,10 +65,12 @@ pub fn messageLoop(self: *Window) void {
 pub fn poll(self: *Window) void {
     _ = c.XSelectInput(self.display, self.w, c.ExposureMask | c.StructureNotifyMask | c.KeyPressMask);
 
-    var event: c.XEvent = undefined;
-    const pending = c.XPending(self.display);
-    var i: c_int = 0;
-    while (i < pending) : (i += 1) {
+    const pending = @min(root.POLL_LIMIT, c.XPending(self.display));
+
+    var counter: c_int = 0;
+
+    while (counter < pending) : (counter += 1) {
+        var event: c.XEvent = undefined;
         _ = c.XNextEvent(self.display, &event);
 
         switch (event.type) {

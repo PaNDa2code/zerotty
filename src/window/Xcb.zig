@@ -8,6 +8,7 @@ opacity_atom: u32 = 0,
 
 wm_delete_window_atom: c.xcb_atom_t = 0,
 wm_name_atom: c.xcb_atom_t = 0,
+wm_state_hidden_atom: c.xcb_atom_t = 0,
 
 xkb: input.keyboard.Xkb = undefined,
 
@@ -41,7 +42,11 @@ pub fn open(self: *Window, allocator: Allocator) !void {
     self.window = window_id;
 
     // https://stackoverflow.com/questions/43218127/x11-xlib-xcb-creating-a-window-requires-border-pixel-if-specifying-colormap-wh
-    const value_mask: u32 = c.XCB_CW_BACK_PIXEL | c.XCB_CW_EVENT_MASK | c.XCB_CW_COLORMAP | c.XCB_CW_BORDER_PIXEL;
+    const value_mask: u32 =
+        c.XCB_CW_BACK_PIXEL |
+        c.XCB_CW_BORDER_PIXEL |
+        c.XCB_CW_EVENT_MASK |
+        c.XCB_CW_COLORMAP;
 
     const visual = get_argb_visual(self.screen) orelse return error.NoVisual;
 
@@ -60,12 +65,20 @@ pub fn open(self: *Window, allocator: Allocator) !void {
         return error.ColorMapCreationFailed;
     }
 
+    const event_mask =
+        c.XCB_EVENT_MASK_EXPOSURE |
+        c.XCB_EVENT_MASK_STRUCTURE_NOTIFY |
+        c.XCB_EVENT_MASK_KEY_PRESS |
+        c.XCB_EVENT_MASK_KEY_RELEASE |
+        c.XCB_EVENT_MASK_BUTTON_PRESS |
+        c.XCB_EVENT_MASK_BUTTON_RELEASE |
+        c.XCB_EVENT_MASK_POINTER_MOTION |
+        c.XCB_EVENT_MASK_FOCUS_CHANGE;
+
     const value_list = [_]u32{
         0,
         0,
-        c.XCB_EVENT_MASK_EXPOSURE |
-            c.XCB_EVENT_MASK_KEY_PRESS |
-            c.XCB_EVENT_MASK_STRUCTURE_NOTIFY,
+        event_mask,
         colormap_id,
     };
 
@@ -144,6 +157,8 @@ pub fn open(self: *Window, allocator: Allocator) !void {
 
     const wm_protocols_atom = get_atom(self.connection, "WM_PROTOCOLS") orelse unreachable;
     self.wm_delete_window_atom = get_atom(self.connection, "WM_DELETE_WINDOW") orelse unreachable;
+
+    self.wm_state_hidden_atom = get_atom(self.connection, "_NET_WM_STATE_HIDDEN") orelse unreachable;
 
     _ = c.xcb_change_property(
         self.connection,
@@ -226,17 +241,26 @@ pub fn setTitle(self: *Window, title: []const u8) !void {
 }
 
 pub fn poll(self: *Window) void {
-    while (c.xcb_poll_for_event(self.connection)) |event| {
+    var counter: usize = 0;
+    while (counter < root.POLL_LIMIT) : (counter += 1) {
+        const event: *c.xcb_generic_event_t = c.xcb_poll_for_event(self.connection) orelse break;
+        defer std.c.free(event);
+
         const response_type = event.*.response_type & 0x7F;
 
         switch (response_type) {
-            c.XCB_EXPOSE => {},
+            c.XCB_MAP_NOTIFY => {
+                self.event_queue.push(.{ .expose = true }) catch unreachable;
+            },
+            c.XCB_UNMAP_NOTIFY => {
+                self.event_queue.push(.{ .expose = false }) catch unreachable;
+            },
             c.XCB_KEY_PRESS => {
                 const key_press: *c.xcb_key_press_event_t = @ptrCast(event);
 
                 if (key_press.detail == 9) {
                     self.event_queue.push(.close) catch unreachable;
-                    return;
+                    break;
                 }
 
                 const window_event = root.WindowEvent{
@@ -266,10 +290,13 @@ pub fn poll(self: *Window) void {
             },
             c.XCB_DESTROY_NOTIFY => {
                 self.event_queue.push(.close) catch unreachable;
+                break;
             },
             c.XCB_CLIENT_MESSAGE => {
-                if (@as(*c.xcb_client_message_event_t, @ptrCast(event)).data.data32[0] == self.wm_delete_window_atom)
+                if (@as(*c.xcb_client_message_event_t, @ptrCast(event)).data.data32[0] == self.wm_delete_window_atom) {
                     self.event_queue.push(.close) catch unreachable;
+                    break;
+                }
             },
             c.XCB_CONFIGURE_NOTIFY => {
                 const cfg: *c.xcb_configure_notify_event_t = @ptrCast(event);
@@ -287,17 +314,18 @@ pub fn poll(self: *Window) void {
 
                 self.event_queue.push(window_event) catch unreachable;
             },
+            c.XCB_PROPERTY_NOTIFY => {
+                const notify: *c.xcb_property_notify_event_t = @ptrCast(event);
+
+                if (notify.atom == self.wm_state_hidden_atom)
+                    self.event_queue.push(.{ .expose = false }) catch unreachable;
+            },
             else => {},
         }
-
-        // Free the event after processing
-        std.c.free(event);
     }
 }
 
 pub fn close(self: *Window) void {
-    // self.renderer.deinit();
-
     const cookie = c.xcb_destroy_window_checked(self.connection, self.window);
     if (c.xcb_request_check(self.connection, cookie)) |err| {
         log.debug("xcb_destroy_window_checked: {}", .{err.*.error_code});
