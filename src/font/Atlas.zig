@@ -145,3 +145,5 @@ const math = @import("math");
 const Vec2 = math.Vec2;
 
 const TrueType = @import("TrueType");
+const freetype = @import("mach-freetype");
+const harfbuzz = @import("mach-harfbuzz");

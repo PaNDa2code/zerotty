@@ -8,6 +8,9 @@
     .minimum_zig_version = "0.15.1",
 
     .dependencies = .{
+        .mach_freetype = .{
+            .path = "./libs/mach-freetype",
+        },
         .vtparse = .{
             .path = "./libs/vtparse",
         },

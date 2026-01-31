@@ -62,6 +62,10 @@ pub fn build(b: *Build) !void {
     const truetype_dep = b.dependency("TrueType", .{ .target = target, .optimize = optimize });
     const truetype_mod = truetype_dep.module("TrueType");
 
+    const machfreetype_dep = b.dependency("mach_freetype", .{ .target = target, .optimize = optimize });
+    const machfreetype_mod = machfreetype_dep.module("mach-freetype");
+    const machharfbuzz_mod = machfreetype_dep.module("mach-harfbuzz");
+
     const zigimg_dep = b.dependency("zigimg", .{ .target = target, .optimize = optimize });
     const zigimg_mod = zigimg_dep.module("zigimg");
 
@@ -104,6 +108,8 @@ pub fn build(b: *Build) !void {
     font_mod.addImport("build_options", options_mod);
     font_mod.addImport("math", math_mod);
     font_mod.addImport("TrueType", truetype_mod);
+    font_mod.addImport("mach-freetype", machfreetype_mod);
+    font_mod.addImport("mach-harfbuzz", machharfbuzz_mod);
     font_mod.addImport("zigimg", zigimg_mod);
     font_mod.addImport("assets", assets_mod);
 

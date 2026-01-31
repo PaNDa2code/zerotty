@@ -68,9 +68,7 @@ pub const Grid = struct {
         self.rows_list.appendAssumeCapacity(.{
             .cells_offset = self.cells_count,
             .cells_len = 0,
-            .flags = .{
-                .wrapped = true,
-            },
+            .flags = .{},
         });
     }
 

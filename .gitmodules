@@ -1,6 +1,6 @@
 [submodule "libs/vtparse"]
 	path = libs/vtparse
 	url = https://github.com/panda2code/vtparse
-[submodule "libs/freetype"]
-	path = libs/freetype
-  url = https://github.com/panda2code/zig_freetype2
+[submodule "libs/mach-freetype"]
+  path = libs/mach-freetype
+  url = https://github.com/panda2code/mach-freetype
