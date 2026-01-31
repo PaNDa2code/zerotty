@@ -9,10 +9,10 @@
 
     .dependencies = .{
         .mach_freetype = .{
-            .path = "./libs/mach-freetype",
+            .path = "./external/mach-freetype",
         },
         .vtparse = .{
-            .path = "./libs/vtparse",
+            .path = "./external/vtparse",
         },
         .TrueType = .{
             .url = "https://codeberg.org/andrewrk/TrueType/archive/c1d4b62157ca47f6d551c45a1c485b799c6dbf0a.tar.gz",

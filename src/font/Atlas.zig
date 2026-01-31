@@ -95,6 +95,8 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
         line_height = @max(line_height, dims.height);
     }
 
+    try shape("Hello");
+
     if (builtin.mode == .Debug)
         try saveAtlas(allocator, "temp/atlas.png", pixels, tex_width, tex_height);
 
@@ -135,6 +137,37 @@ pub fn saveAtlas(
     try image.writeToFilePath(allocator, filename, &buff, .{ .png = .{} });
 }
 
+fn shape(string: []const u8) !void {
+    const font_bytes = assets.fonts.@"FiraCodeNerdFontMono-Regular.ttf";
+
+    const font_size = 13;
+    const ft_lib = try ft.Library.init();
+    const ft_face = try ft_lib.createFaceMemory(font_bytes, 0);
+    const hb_face = hb.Face.fromFreetypeFace(ft_face);
+    const hb_font = hb.Font.init(hb_face);
+
+    try ft_face.setPixelSizes(0, font_size);
+    hb_font.setScale(font_size * 64, font_size * 64);
+
+    const buffer = hb.Buffer.init() orelse
+        return error.OutOfMemory;
+    defer buffer.deinit();
+
+    buffer.addUTF8(string, 0, null);
+    buffer.guessSegmentProps();
+
+    hb_font.shape(buffer, null);
+
+    const infos = buffer.getGlyphInfos();
+    const positions = buffer.getGlyphPositions() orelse
+        return error.OutOfMemory;
+
+    for (infos, positions) |info, position| {
+        std.log.debug("infos = {any}", .{info});
+        std.log.debug("position = {any}", .{position});
+    }
+}
+
 const std = @import("std");
 const builtin = @import("builtin");
 const assets = @import("assets");
@@ -145,5 +178,5 @@ const math = @import("math");
 const Vec2 = math.Vec2;
 
 const TrueType = @import("TrueType");
-const freetype = @import("mach-freetype");
-const harfbuzz = @import("mach-harfbuzz");
+const ft = @import("mach-freetype");
+const hb = @import("mach-harfbuzz");
