@@ -32,7 +32,7 @@ pub fn build(b: *Build) !void {
     // -------------------------------------------------------------------------
     // Build Options
     // -------------------------------------------------------------------------
-    const use_llvm = b.option(bool, "use-llvm", "") orelse false;
+    const use_llvm = b.option(bool, "use_llvm", "") orelse false;
     const comptime_check = b.option(bool, "comptime-check", "") orelse false;
     const render_backend = b.option(RenderBackend, "render-backend", "") orelse DEFAULT_RENDER_BACKEND;
 
@@ -62,7 +62,11 @@ pub fn build(b: *Build) !void {
     const truetype_dep = b.dependency("TrueType", .{ .target = target, .optimize = optimize });
     const truetype_mod = truetype_dep.module("TrueType");
 
-    const machfreetype_dep = b.dependency("mach_freetype", .{ .target = target, .optimize = optimize });
+    const machfreetype_dep = b.dependency("mach_freetype", .{
+        .target = target,
+        .optimize = optimize,
+        .use_llvm = use_llvm,
+    });
     const machfreetype_mod = machfreetype_dep.module("mach-freetype");
     const machharfbuzz_mod = machfreetype_dep.module("mach-harfbuzz");
 
