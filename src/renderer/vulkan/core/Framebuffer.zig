@@ -9,14 +9,15 @@ pub const InitError = vk.DeviceWrapper.CreateFramebufferError;
 pub fn init(
     device: *const Device,
     render_pass: *const RenderPass,
-    render_target: *const RenderTarget,
+    image_views: []vk.ImageView,
+    extent: vk.Extent2D,
 ) InitError!Framebuffer {
     const framebuffer_info = vk.FramebufferCreateInfo{
         .render_pass = render_pass.handle,
-        .attachment_count = @intCast(render_target.image_views.len),
-        .p_attachments = render_target.image_views.ptr,
-        .width = render_target.extent.width,
-        .height = render_target.extent.height,
+        .attachment_count = @intCast(image_views.len),
+        .p_attachments = image_views.ptr,
+        .width = extent.width,
+        .height = extent.height,
         .layers = 1,
     };
 
@@ -26,7 +27,11 @@ pub fn init(
         device.vk_allocator,
     );
 
-    return .{ .handle = handle, .extent = render_target.extent };
+    return .{ .handle = handle, .extent = extent };
+}
+
+pub fn deinit(self: *const Framebuffer, device: Device) void {
+    device.vkd.destroyFramebuffer(device.handle, self.handle, device.vk_allocator);
 }
 
 const std = @import("std");

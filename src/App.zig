@@ -58,11 +58,6 @@ pub fn run(self: *App) !void {
 
     var running = true;
 
-    const thread = try std.Thread.spawn(.{}, renderLoop, .{
-        &self.renderer,
-        &running,
-    });
-
     while (running) {
         self.window.poll();
         try self.io_event_loop.poll(0);
@@ -75,8 +70,6 @@ pub fn run(self: *App) !void {
             }
         }
     }
-
-    thread.join();
 }
 
 pub fn deinit(self: *App) void {
@@ -94,12 +87,6 @@ fn ptyReadCallback(event: *io.EventLoop.Event, len: usize, user_data: ?*anyopaqu
     const terminal: *Terminal = @ptrCast(@alignCast(user_data));
     terminal.vtparser.parse(buffer);
     return .retry;
-}
-
-fn renderLoop(renderer: *Renderer, running: *bool) !void {
-    while (running.*) {
-        try renderer.renaderGrid();
-    }
 }
 
 const std = @import("std");

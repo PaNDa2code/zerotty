@@ -1,3 +1,4 @@
+/// Deprecated;
 const RenderTarget = @This();
 
 image_views: []vk.ImageView,
@@ -8,7 +9,7 @@ extent: vk.Extent2D,
 pub const InitError = std.mem.Allocator.Error ||
     vk.DeviceWrapper.CreateImageViewError;
 
-pub fn init(
+pub fn initFromImages(
     device: *const Device,
     allocator: std.mem.Allocator,
     images: []vk.Image,
@@ -61,7 +62,7 @@ pub fn initFromSwapchain(
     const targets = try allocator.alloc(RenderTarget, swapchain.images.len);
 
     for (0..swapchain.images.len) |i| {
-        targets[i] = try init(
+        targets[i] = try initFromImages(
             swapchain.device,
             allocator,
             swapchain.images[i .. i + 1],

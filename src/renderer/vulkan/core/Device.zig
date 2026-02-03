@@ -98,6 +98,12 @@ pub fn waitFence(self: *const Device, fence: vk.Fence, timeout: u64) WaitFenceEr
     };
 }
 
+pub const ResetFenceError = vk.DeviceWrapper.ResetFencesError;
+
+pub fn resetFence(self: *const Device, fence: vk.Fence) ResetFenceError!void {
+    try self.vkd.resetFences(self.handle, 1, &.{fence});
+}
+
 pub const CreateSemaphoreError = vk.DeviceWrapper.CreateSemaphoreError;
 
 pub fn createSemaphore(self: *const Device) CreateSemaphoreError!vk.Semaphore {

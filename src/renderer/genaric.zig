@@ -1,6 +1,6 @@
 const std = @import("std");
 const win = @import("window");
-const root = @import("renderer");
+const root = @import("root.zig");
 const vertex = @import("vertex.zig");
 
 const OpenGL = @import("OpenGL.zig");

@@ -117,7 +117,7 @@ pub fn beginRenderPass(
     if (self.level == .secondary)
         return error.OperationNotAllowedOnSecondary;
 
-    var default_clear_values = [_]vk.ClearValue{
+    const default_clear_values = [_]vk.ClearValue{
         .{ .color = .{ .float_32 = .{ 0.0, 0.0, 0.0, 1.0 } } },
     };
 
