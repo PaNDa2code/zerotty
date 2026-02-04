@@ -1,4 +1,12 @@
-pub const Atlas = @import("Atlas.zig");
+const std = @import("std");
+const maxInt = std.math.maxInt;
+const minInt = std.math.minInt;
+
+
+pub const max_atlas_dim = maxInt(u12);
+pub const max_glyph_dim = maxInt(u8);
+pub const max_bearing = maxInt(i8);
+pub const min_bearing = minInt(i8);
 
 pub const GlyphAtlasEntry = packed struct(u64) {
     // postion
@@ -21,16 +29,4 @@ pub const GlyphID = packed struct(u64) {
     index: GlyphIndex,
 };
 
-test Atlas {
-    const std = @import("std");
-    const allocator = std.testing.allocator;
-
-    var atlas = try Atlas.create(
-        allocator,
-        30,
-        20,
-        0x2500,
-        0x257F,
-    );
-    defer atlas.deinit(allocator);
-}
+pub const Cache = @import("Cache.zig");
