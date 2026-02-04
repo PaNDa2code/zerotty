@@ -8,6 +8,8 @@ pub const SamplerOptions = struct {
     mipmap_mode: vk.SamplerMipmapMode = .linear,
 };
 
+pub const InitError = vk.DeviceWrapper.CreateSamplerError;
+
 pub fn init(device: *const Device, options: SamplerOptions) !Sampler {
     const sampler_info = vk.SamplerCreateInfo{
         .mag_filter = options.filter,
