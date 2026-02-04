@@ -24,7 +24,8 @@ pub fn open(self: *Window, allocator: Allocator) !void {
 
     _ = c.glfwInit();
 
-    c.glfwWindowHint(c.GLFW_CLIENT_API, c.GLFW_NO_API);
+    if (render_backend != .opengl)
+        c.glfwWindowHint(c.GLFW_CLIENT_API, c.GLFW_NO_API);
 
     const title = try allocator.dupeZ(u8, self.title);
     defer allocator.free(title);
@@ -51,6 +52,9 @@ pub fn open(self: *Window, allocator: Allocator) !void {
     _ = c.glfwSetCharCallback(self.window, callbacks.char);
 
     c.glfwShowWindow(self.window);
+
+    if (render_backend == .opengl)
+        c.glfwMakeContextCurrent(self.window);
 }
 
 pub fn setTitle(self: *Window, title: []const u8) !void {
@@ -148,8 +152,12 @@ const std = @import("std");
 
 const root = @import("root.zig");
 
+const render_backend = @import("build_options").@"render-backend"; 
+
 const c = @cImport({
-    @cDefine("GLFW_INCLUDE_NONE", "");
+    if (render_backend != .opengl)
+        @cDefine("GLFW_INCLUDE_NONE", "");
+
     @cInclude("GLFW/glfw3.h");
 });
 

@@ -80,7 +80,7 @@ pub fn deinit(self: *RenderContext) void {
 const std = @import("std");
 const vk = @import("vulkan");
 
-const core = @import("../core/root.zig");
+const core = @import("core");
 
 const window = @import("window");
 const window_surface = @import("window_surface.zig");

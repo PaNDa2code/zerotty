@@ -18,7 +18,7 @@ pub fn GenaricRenderer(Impl: type) type {
             window_handles: win.WindowHandles,
             settings: root.RendererSettings,
         ) InitError!Self {
-            const inner = try Impl.init(alloc, window_handles, settings);
+            const inner = try Impl.init(alloc, window_handles, .{}, settings);
             return .{
                 .inner = inner,
             };
@@ -28,7 +28,9 @@ pub fn GenaricRenderer(Impl: type) type {
             self.inner.deinit();
         }
 
-        // pub fn resizeSurface(self: *Self, width: u32, height: u32) !void {}
+        pub fn resizeSurface(self: *Self, width: u32, height: u32) !void {
+            try self.inner.resizeSurface(width, height);
+        }
         // pub fn setViewport(self: *Self, x: u32, y: u32, width: u32, height: u32) !void {}
         // pub fn cacheGlyphs(self: *Self, dimensions: []const GlyphBitmap, bitmap_pool: []const u8) !void {}
         // pub fn resetGlyphCache(self: *Self) !void {}
@@ -37,9 +39,15 @@ pub fn GenaricRenderer(Impl: type) type {
         // pub fn commitBatch(self: *Self, count: usize) !void {}
         // pub fn draw(self: *Self) !void {}
         // pub fn clear(self: *Self, bg_color: color.RGBA) void {}
-        // pub fn beginFrame(self: *Self) void {}
-        // pub fn endFrame(self: *Self) void {}
-        // pub fn presnt(self: *Self) void {}
+        pub fn beginFrame(self: *Self) !void {
+            try self.inner.beginFrame();
+        }
+        pub fn endFrame(self: *Self) !void {
+            try self.inner.endFrame();
+        }
+        pub fn presnt(self: *Self) !void {
+            try self.inner.presnt();
+        }
     };
 }
 

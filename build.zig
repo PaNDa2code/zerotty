@@ -126,6 +126,7 @@ pub fn build(b: *Build) !void {
     renderer_mod.addImport("window", window_mod);
     renderer_mod.addImport("math", math_mod);
     renderer_mod.addImport("assets", assets_mod);
+    renderer_mod.addImport("DynamicLibrary", dynamiclibrary_mod);
 
     // -------------------------------------------------------------------------
     // Conditional System Dependencies
@@ -136,6 +137,8 @@ pub fn build(b: *Build) !void {
         if (b.lazyDependency("zigwin32", .{})) |dep| {
             const win32_mod = dep.module("win32");
             window_mod.addImport("win32", win32_mod);
+            renderer_mod.addImport("win32", win32_mod);
+            dynamiclibrary_mod.addImport("win32", win32_mod);
             pty_mod.addImport("win32", win32_mod);
             childprocess_mod.addImport("win32", win32_mod);
         }
@@ -170,6 +173,12 @@ pub fn build(b: *Build) !void {
             renderer_mod.addImport("gl", gl_mod);
         },
         .vulkan => {
+            const core_mod = b.createModule(.{ .root_source_file = b.path("src/renderer/vulkan/core/root.zig") });
+            const memory_mod = b.createModule(.{ .root_source_file = b.path("src/renderer/vulkan/core/memory/root.zig") });
+
+            renderer_mod.addImport("core", core_mod);
+            renderer_mod.addImport("memory", memory_mod);
+
             const vulkan_headers = b.lazyDependency("vulkan_headers", .{});
 
             // Resolve Vulkan dependency based on headers presence
@@ -180,15 +189,11 @@ pub fn build(b: *Build) !void {
 
             if (vulkan_headers != null) {
                 if (vulkan_dep) |dep| {
-                    renderer_mod.addImport("vulkan", dep.module("vulkan-zig"));
+                    const mod = dep.module("vulkan-zig");
+                    core_mod.addImport("vulkan", mod);
+                    renderer_mod.addImport("vulkan", mod);
                 }
             }
-
-            const core_mod = b.createModule(.{ .root_source_file = b.path("src/renderer/vulkan/core/root.zig") });
-            const memory_mod = b.createModule(.{ .root_source_file = b.path("src/renderer/vulkan/core/memory/root.zig") });
-
-            renderer_mod.addImport("core", core_mod);
-            renderer_mod.addImport("memory", memory_mod);
         },
     }
 

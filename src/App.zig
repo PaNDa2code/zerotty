@@ -69,6 +69,10 @@ pub fn run(self: *App) !void {
                 break;
             }
         }
+
+        try self.renderer.beginFrame();
+        try self.renderer.endFrame();
+        try self.renderer.presnt();
     }
 }
 

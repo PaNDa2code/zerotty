@@ -160,7 +160,7 @@ pub fn deinit(self: *const SwapChain, allocator: std.mem.Allocator) void {
 
 pub const AcquireNextImageError = vk.DeviceWrapper.AcquireNextImageKHRError;
 
-pub const AcquireNextImageResult = union(vk.Result) {
+pub const AcquireNextImageResult = union(enum) {
     success: u32,
     timeout,
     not_ready,
@@ -181,7 +181,7 @@ pub fn acquireNextImage(
         fence,
     );
 
-    return switch (res) {
+    return switch (res.result) {
         .success => .{ .success = res.image_index },
         .timeout => .timeout,
         .not_ready => .not_ready,

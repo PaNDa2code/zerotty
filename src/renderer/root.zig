@@ -19,3 +19,5 @@ const BackendImpl = switch (Api) {
 };
 
 pub const Renderer = genaric.GenaricRenderer(BackendImpl);
+
+pub const vertex = @import("vertex.zig");

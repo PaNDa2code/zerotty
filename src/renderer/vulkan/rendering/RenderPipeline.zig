@@ -139,7 +139,7 @@ const std = @import("std");
 const vk = @import("vulkan");
 const assets = @import("assets");
 
-const core = @import("../core/root.zig");
+const core = @import("core");
 
 const vertex = @import("../../root.zig").vertex;
 

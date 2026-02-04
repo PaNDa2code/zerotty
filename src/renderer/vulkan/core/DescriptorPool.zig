@@ -58,7 +58,7 @@ pub fn deinit(self: *const DescriptorPool) void {
 
 pub const AllocDescriptorError = vk.DeviceWrapper.AllocateDescriptorSetsError;
 
-pub fn allocDescriptorSets(
+pub fn allocDescriptorSet(
     self: *const DescriptorPool,
     descriptor_set_layout: *const DescriptorSetLayout,
 ) AllocDescriptorError!vk.DescriptorSet {

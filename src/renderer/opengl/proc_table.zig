@@ -11,18 +11,18 @@ const opengl_lib_name = switch (os) {
     else => {},
 };
 
-const glGetProcAddress = switch (os) {
-    .windows => @import("WGLContext.zig"),
-    .linux => @import("GLXContext.zig"),
-    else => {},
-}.glGetProcAddress;
+// const glGetProcAddress = switch (os) {
+//     .windows => @import("WGLContext.zig"),
+//     .linux => @import("GLXContext.zig"),
+//     else => {},
+// }.glGetProcAddress;
 
 const Loader = struct {
     gl_lib: DynamicLibrary,
-    glGetProcAddress: *const fn ([*:0]const u8) callconv(.c) isize = @ptrCast(&glGetProcAddress),
+    glGetProcAddress: ?*const fn ([*:0]const u8) callconv(.c) isize,
 
     pub fn getProcAddress(self: *const Loader, name: [*:0]const u8) ?*const anyopaque {
-        const address = self.glGetProcAddress(name);
+        const address = 0; //self.glGetProcAddress(name);
         return switch (address) {
             -1...3 => self.gl_lib.getProcAddress(name),
             else => @ptrFromInt(@as(usize, @bitCast(address))),
@@ -30,13 +30,13 @@ const Loader = struct {
     }
 };
 
-pub fn createProcTable(allocator: std.mem.Allocator) !*ProcTable {
+pub fn createProcTable(allocator: std.mem.Allocator, glGetProcAddress: anytype) !*ProcTable {
     const proc_table = try allocator.create(ProcTable);
 
     const gl_lib = DynamicLibrary.init(opengl_lib_name) catch
         @panic("can't load OpenGL library");
 
-    if (!proc_table.init(Loader{ .gl_lib = gl_lib }))
+    if (!proc_table.init(Loader{ .gl_lib = gl_lib, .glGetProcAddress = @ptrCast(glGetProcAddress) }))
         @panic("opengl proc table loading failed");
 
     return proc_table;

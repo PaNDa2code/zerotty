@@ -9,6 +9,8 @@ pub const WindowCreateOptions = struct {
     title: []const u8 = "zerotty",
     height: u32,
     width: u32,
+
+    window_requirements: WindowRequirements = .{},
 };
 
 pub const RenderCreateInfo = struct {
@@ -37,6 +39,15 @@ pub const WindowHandles = switch (Api) {
     .glfw => struct {
         window: *anyopaque,
     },
+};
+
+pub const WindowRequirements = struct {
+    color_bits: u8 = 32,
+    depth_bits: u8 = 24,
+    stencil_bits: u8 = 8,
+    alpha_bits: u8 = 8,
+    double_buffer: bool = true,
+    samples: u8 = 0,
 };
 
 pub const OpenGLContextCreateInfo = struct {};

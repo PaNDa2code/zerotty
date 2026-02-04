@@ -10,8 +10,12 @@ pub const CreateOpenGLContextError = error{
 
 var ctxErrorOccurred: std.atomic.Value(bool) = .init(false);
 
-pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLContext {
-    const display: *c.glx.Display = @ptrCast(window.display);
+/// Deprecated;
+pub fn createOpenGLContext(
+    handles: win.WindowHandles,
+    _: win.WindowRequirements,
+) CreateOpenGLContextError!OpenGLContext {
+    const display: *c.glx.Display = @ptrCast(handles.display);
 
     var glx_major: i32 = 0;
     var glx_minor: i32 = 0;
@@ -48,13 +52,13 @@ pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLConte
     swa.background_pixel = 0;
     swa.event_mask = c.x11.CWColormap | c.x11.CWBorderPixel | c.x11.CWBackPixel | c.x11.CWEventMask;
 
-    window.w = c.x11.XCreateWindow(
+    const w = c.x11.XCreateWindow(
         @ptrCast(display),
         root,
         0,
         0,
-        window.width,
-        window.height,
+        500,
+        500,
         0,
         vi.*.depth,
         c.glx.InputOutput,
@@ -63,11 +67,11 @@ pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLConte
         &swa,
     );
 
-    if (window.w == 0)
+    if (w == 0)
         @panic("Failed to create Xlib Window");
 
-    _ = c.x11.XMapWindow(@ptrCast(display), window.w);
-    _ = c.x11.XSelectInput(@ptrCast(display), window.w, c.x11.ExposureMask | c.x11.KeyPressMask);
+    _ = c.x11.XMapWindow(@ptrCast(display), w);
+    _ = c.x11.XSelectInput(@ptrCast(display), w, c.x11.ExposureMask | c.x11.KeyPressMask);
 
     const glx_exts_ptr: [*:0]const u8 = c.glx.glXQueryExtensionsString(@ptrCast(display), c.x11.DefaultScreen(display));
     const glx_exts_slice = std.mem.span(glx_exts_ptr);
@@ -103,11 +107,11 @@ pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLConte
     _ = c.x11.XSync(@ptrCast(display), 0);
     _ = c.x11.XSetErrorHandler(old_handler);
 
-    _ = c.glx.glXMakeCurrent(@ptrCast(display), window.w, glx_context);
+    _ = c.glx.glXMakeCurrent(@ptrCast(display), w, glx_context);
 
     return .{
         .display = @ptrCast(display),
-        .drawable = window.w,
+        .drawable = w,
         .context = glx_context,
         .glXSwapIntervalsEXT = glXSwapIntervalsEXT,
         .glXSwapBuffers = glXSwapBuffers,
@@ -242,7 +246,7 @@ extern "GL" fn glXGetProcAddress(procName: [*:0]const u8) callconv(.c) ?*const a
 pub const glGetProcAddress = glXGetProcAddress;
 
 const OpenGLContext = @This();
-const Window = @import("window").Window;
+const win = @import("window");
 
 const GLX_CONTEXT_MAJOR_VERSION_ARB = 0x2091;
 const GLX_CONTEXT_MINOR_VERSION_ARB = 0x2092;

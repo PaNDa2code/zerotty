@@ -22,7 +22,7 @@ pub fn init(
     buffer_infos: *const std.AutoHashMap(u32, std.ArrayList(vk.DescriptorBufferInfo)),
     image_infos: *const std.AutoHashMap(u32, std.ArrayList(vk.DescriptorImageInfo)),
 ) InitError!DescriptorSet {
-    const handle = try pool.allocDescriptorSets(layout);
+    const handle = try pool.allocDescriptorSet(layout);
 
     var self = DescriptorSet{
         .handle = handle,
@@ -43,10 +43,13 @@ pub const ResetError = error{};
 
 pub fn reset(
     self: *DescriptorSet,
-    buffer_infos: *const std.AutoHashMap(u32, std.ArrayList(vk.DescriptorBufferInfo)),
-    image_infos: *const std.AutoHashMap(u32, std.ArrayList(vk.DescriptorImageInfo)),
+    buffer_infos: ?*const std.AutoHashMap(u32, std.ArrayList(vk.DescriptorBufferInfo)),
+    image_infos: ?*const std.AutoHashMap(u32, std.ArrayList(vk.DescriptorImageInfo)),
 ) !void {
-    if (buffer_infos.count() != 0 and image_infos.count() != 0) {
+    self.image_infos.clearRetainingCapacity();
+    self.buffer_infos.clearRetainingCapacity();
+
+    if (buffer_infos != null and image_infos != null) {
         self.image_infos = image_infos;
         self.buffer_infos = buffer_infos;
     }

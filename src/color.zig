@@ -47,20 +47,20 @@ pub const ansi = struct {
         //  16...231 => 6x6x6 color cube
         // 232...255 => 24 shades of grayscale
         _,
+    };
 
-        pub const Flags = packed struct(u8) {
-            bold: bool = false,
-            italic: bool = false,
-            underline: bool = false,
-            strikethrough: bool = false,
-            blink: bool = false,
-            _padding: u3 = 0,
-        };
+    pub const Flags = packed struct(u8) {
+        bold: bool = false,
+        italic: bool = false,
+        underline: bool = false,
+        strikethrough: bool = false,
+        blink: bool = false,
+        _padding: u3 = 0,
+    };
 
-        pub const ColorState = struct {
-            fg: RGBA,
-            bg: RGBA,
-        };
+    pub const ColorState = struct {
+        fg: RGBA,
+        bg: RGBA,
     };
 
     /// returns the default ansi color value
