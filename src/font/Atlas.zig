@@ -28,7 +28,11 @@ pub const CreateError = TrueType.GlyphBitmapError || Allocator.Error || SaveAtla
 // TODO: glyphs are not placed correctly on the baseline
 pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32, to: u32) CreateError!Atlas {
     const glyphs_count = to - from;
-    const ttf = try TrueType.load(assets.fonts.@"FiraCodeNerdFontMono-Regular.ttf");
+
+    const font_buffer = try assets_manager.getAlloc(allocator, "FiraCodeNerdFontMono-Regular.ttf");
+    defer allocator.free(font_buffer);
+
+    const ttf = try TrueType.load(font_buffer);
     const scale = ttf.scaleForPixelHeight(@floatFromInt(cell_height));
 
     var buffer = try std.ArrayList(u8).initCapacity(allocator, cell_height * cell_width);
@@ -170,7 +174,8 @@ fn shape(string: []const u8) !void {
 
 const std = @import("std");
 const builtin = @import("builtin");
-const assets = @import("assets");
+const AssetsManager = @import("AssetsManager");
+const assets_manager = &AssetsManager.instance;
 const zigimg = @import("zigimg");
 const Allocator = std.mem.Allocator;
 

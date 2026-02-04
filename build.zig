@@ -90,6 +90,24 @@ pub fn build(b: *Build) !void {
     const assets_mod = b.createModule(.{ .root_source_file = b.path("assets/assets.zig") });
     const renderer_mod = b.createModule(.{ .root_source_file = b.path("src/renderer/root.zig") });
     const circulararray_mod = b.createModule(.{ .root_source_file = b.path("src/circular_array/root.zig") });
+    const assetsmanager_mod = b.createModule(.{ .root_source_file = b.path("src/AssetsManager.zig") });
+
+    const assets_compress_run = b.addSystemCommand(&.{
+        "tar",
+        "-I",
+        "zstd --ultra -22 --long=27 -T0",
+        "-cf",
+    });
+
+    assets_compress_run.setCwd(b.path("assets"));
+
+    const assets_archive_path = assets_compress_run.addOutputFileArg("assets.tar.zst");
+
+    assets_compress_run.addDirectoryArg(b.path("assets/fonts"));
+
+    assetsmanager_mod.addAnonymousImport("assets.tar.zst", .{
+        .root_source_file = assets_archive_path,
+    });
 
     // -------------------------------------------------------------------------
     // Internal Module Wiring (Imports)
@@ -116,6 +134,7 @@ pub fn build(b: *Build) !void {
     font_mod.addImport("mach-harfbuzz", machharfbuzz_mod);
     font_mod.addImport("zigimg", zigimg_mod);
     font_mod.addImport("assets", assets_mod);
+    font_mod.addImport("AssetsManager", assetsmanager_mod);
 
     // Renderer imports
     renderer_mod.addImport("build_options", options_mod);
@@ -223,6 +242,7 @@ pub fn build(b: *Build) !void {
             .{ .name = "ChildProcess", .module = childprocess_mod },
             .{ .name = "DynamicLibrary", .module = dynamiclibrary_mod },
             .{ .name = "circular_array", .module = circulararray_mod },
+            .{ .name = "AssetsManager", .module = assetsmanager_mod },
         },
     });
 

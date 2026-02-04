@@ -27,6 +27,11 @@ pub fn init(allocator: std.mem.Allocator) !App {
 
     const terminal = try allocator.create(Terminal);
 
+    AssetsManager.instance = try AssetsManager.init(
+        allocator,
+        AssetsManager.assets_archive,
+    );
+
     terminal.* = try Terminal.init(allocator, if (os_tag == .linux) .{
         .shell_path = "/bin/bash",
         .shell_args = &.{ "bash", "--norc", "--noprofile" },
@@ -93,6 +98,8 @@ pub fn deinit(self: *App) void {
     self.allocator.free(self.buf);
 
     self.allocator.destroy(self.terminal);
+
+    AssetsManager.instance.deinit(self.allocator);
 }
 
 fn ptyReadCallback(event: *io.EventLoop.Event, len: usize, user_data: ?*anyopaque) io.EventLoop.CallbackAction {
@@ -107,6 +114,7 @@ const builtin = @import("builtin");
 const io = @import("io");
 const win = @import("window");
 const Terminal = @import("Terminal.zig");
+const AssetsManager = @import("AssetsManager");
 const Renderer = @import("renderer").Renderer;
 
 const os_tag = builtin.os.tag;
