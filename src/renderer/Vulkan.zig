@@ -36,7 +36,11 @@ pub fn init(
         },
     );
 
-    self.frames = try Frames.init(self.render_context.device, allocator, 2);
+    self.frames = try Frames.init(
+        self.render_context.device,
+        allocator,
+        self.swapchain.images.len,
+    );
 
     return self;
 }
