@@ -67,6 +67,13 @@ pub fn init(allocator: std.mem.Allocator, window_handles: window.WindowHandles) 
 pub fn deinit(self: *RenderContext) void {
     const allocator = self.allocator_adapter.allocator;
 
+    if (self.surface != .null_handle)
+        self.instance.vki.destroySurfaceKHR(
+            self.instance.handle,
+            self.surface,
+            self.instance.vk_allocator,
+        );
+
     self.device.deinit();
     self.instance.deinit();
 

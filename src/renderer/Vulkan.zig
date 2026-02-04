@@ -81,6 +81,8 @@ pub fn deinit(self: *Vulkan) void {
 
     const images_count = self.swapchain.images.len;
 
+    device.waitIdle() catch {};
+
     for (0..images_count) |i| {
         self.targets[i].deinit(device);
     }

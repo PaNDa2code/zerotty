@@ -118,6 +118,8 @@ pub fn deinit(self: *Frames, device: *const core.Device, allocator: std.mem.Allo
     self.descriptor_layout.deinit(device);
 
     for (self.resources) |frame| {
+        device.destroyFence(frame.in_flight_fence);
+
         frame.descriptor_pool.deinit();
         frame.command_pool.deinit();
         frame.vertex_buffer.deinit(null);
