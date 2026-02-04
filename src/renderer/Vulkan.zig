@@ -20,16 +20,14 @@ pub fn init(
     window_handles: win.WindowHandles,
     _: win.WindowRequirements,
     settings: root.RendererSettings,
-) InitError!*Vulkan {
-    const self = try allocator.create(Vulkan);
+) InitError!Vulkan {
+    const render_context = try RenderContext.init(allocator, window_handles);
 
-    self.render_context = try RenderContext.init(allocator, window_handles);
-
-    self.swapchain = try core.Swapchain.init(
-        self.render_context.instance,
-        self.render_context.device,
+    const swapchain = try core.Swapchain.init(
+        render_context.instance,
+        render_context.device,
         allocator,
-        self.render_context.surface,
+        render_context.surface,
         .{
             .image_count = 2,
             .extent = .{
@@ -39,32 +37,41 @@ pub fn init(
         },
     );
 
-    const images_count = self.swapchain.images.len;
+    const images_count = swapchain.images.len;
 
-    self.frames = try Frames.init(
-        self.render_context.device,
+    const frames = try Frames.init(
+        render_context.device,
         allocator,
         2,
-        self.swapchain.images.len,
+        swapchain.images.len,
     );
 
-    self.render_pipeline = try RenderPipeline.init(
+    const render_pipeline = try RenderPipeline.init(
         allocator,
-        self.render_context.device,
+        render_context.device,
         .{
-            .image_attachemnt_format = self.swapchain.surface_format.format,
-            .extent = self.swapchain.extent,
+            .image_attachemnt_format = swapchain.surface_format.format,
+            .extent = swapchain.extent,
         },
-        .{ .descriptor_set_layouts = &.{self.frames.descriptor_layout} },
+        .{ .descriptor_set_layouts = &.{frames.descriptor_layout} },
     );
 
-    self.targets = try allocator.alloc(Target, images_count);
+    const targets = try allocator.alloc(Target, images_count);
 
     for (0..images_count) |i| {
-        self.targets[i] = Target.init(self.swapchain.image_views[i]);
+        targets[i] = Target.init(swapchain.image_views[i]);
     }
 
-    return self;
+    return .{
+        .render_context = render_context,
+        .render_pipeline = render_pipeline,
+        .swapchain = swapchain,
+        .frames = frames,
+        .targets = targets,
+        .current_image = 0,
+        .current_frame = null,
+        .bg_color = .black,
+    };
 }
 
 pub fn deinit(self: *Vulkan) void {
@@ -72,14 +79,26 @@ pub fn deinit(self: *Vulkan) void {
     const allocator = self.render_context.allocator_adapter.allocator;
     // const device_allocator = self.render_context.device_allocator;
 
+    const images_count = self.swapchain.images.len;
+
+    for (0..images_count) |i| {
+        self.targets[i].deinit(device);
+    }
+    allocator.free(self.targets);
+
+    self.frames.deinit(device, allocator);
+
     self.render_pipeline.deinit(device, allocator);
+    self.swapchain.deinit(allocator);
     self.render_context.deinit();
 }
 
 pub fn beginFrame(self: *Vulkan) !void {
-    self.current_frame = try self.frames.frameBegin(self.render_context.device, &self.swapchain);
-    const cmd = &self.current_frame.?.main_cmd;
-    const image_index = self.current_frame.?.image_index;
+    const frame = try self.frames.frameBegin(self.render_context.device, &self.swapchain);
+    self.current_frame = frame;
+
+    const cmd = &frame.main_cmd;
+    const image_index = frame.image_index;
 
     try cmd.begin(.{ .one_time_submit_bit = true });
 
@@ -101,8 +120,14 @@ pub fn beginFrame(self: *Vulkan) !void {
 }
 
 pub fn endFrame(self: *Vulkan) !void {
-    try self.current_frame.?.main_cmd.end();
+    if (self.current_frame) |frame| {
+        try frame.main_cmd.endRenderPass();
+        try frame.main_cmd.end();
+    } else return error.FrameDidNotStart;
+
     try self.frames.endFrame();
+
+    self.current_frame = null;
 }
 
 pub fn presnt(self: *Vulkan) !void {
@@ -124,7 +149,9 @@ pub fn setViewport(self: *Vulkan, x: u32, y: u32, width: u32, height: u32) !void
         .max_depth = 1,
     };
 
-    try self.current_frame.?.main_cmd.setViewPort(&viewport);
+    if (self.current_frame) |frame| {
+        try frame.main_cmd.setViewPort(&viewport);
+    }
 }
 
 const std = @import("std");

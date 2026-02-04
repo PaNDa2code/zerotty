@@ -30,7 +30,7 @@ pub fn init(
     return .{ .handle = handle, .extent = extent };
 }
 
-pub fn deinit(self: *const Framebuffer, device: Device) void {
+pub fn deinit(self: *const Framebuffer, device: *const Device) void {
     device.vkd.destroyFramebuffer(device.handle, self.handle, device.vk_allocator);
 }
 

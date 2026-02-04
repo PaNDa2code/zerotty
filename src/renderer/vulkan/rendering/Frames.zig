@@ -106,6 +106,33 @@ pub fn init(
     };
 }
 
+pub fn deinit(self: *Frames, device: *const core.Device, allocator: std.mem.Allocator) void {
+    for (self.image_available) |sem| {
+        device.destroySemaphore(sem);
+    }
+
+    for (self.render_finished) |sem| {
+        device.destroySemaphore(sem);
+    }
+
+    self.descriptor_layout.deinit(device);
+
+    for (self.resources) |frame| {
+        frame.descriptor_pool.deinit();
+        frame.command_pool.deinit();
+        frame.vertex_buffer.deinit(null);
+        frame.uniform_buffer.deinit(null);
+
+        allocator.destroy(frame.descriptor_set.buffer_infos);
+        allocator.destroy(frame.descriptor_set.image_infos);
+    }
+
+    allocator.free(self.images_in_flight);
+    allocator.free(self.render_finished);
+    allocator.free(self.image_available);
+    allocator.free(self.resources);
+}
+
 pub fn frameBegin(
     self: *Frames,
     device: *const core.Device,
@@ -135,8 +162,6 @@ pub fn frameBegin(
     self.images_in_flight[image_index] = frame.in_flight_fence;
 
     try frame.command_pool.reset(false);
-
-    frame.main_cmd = try frame.command_pool.allocBuffer(.primary);
 
     frame.image_index = image_index;
     return frame;

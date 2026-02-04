@@ -36,6 +36,7 @@ pub fn frameBuffer(
 }
 
 pub fn deinit(self: *const Target, device: *const core.Device) void {
+    device.vkd.destroyImageView(device.handle, self.image_view, device.vk_allocator);
     self.frame_buffer.deinit(device);
 }
 

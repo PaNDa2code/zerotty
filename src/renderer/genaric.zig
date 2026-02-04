@@ -11,7 +11,7 @@ pub fn GenaricRenderer(Impl: type) type {
     return struct {
         const Self = @This();
 
-        inner: *Impl,
+        inner: Impl,
 
         pub const InitError = Impl.InitError;
         pub fn init(

@@ -190,6 +190,7 @@ pub fn deinit(self: *const SwapChain, allocator: std.mem.Allocator) void {
     );
 
     allocator.free(self.images);
+    allocator.free(self.image_views);
 }
 
 pub const AcquireNextImageError = vk.DeviceWrapper.AcquireNextImageKHRError;
