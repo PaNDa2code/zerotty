@@ -4,8 +4,6 @@ pub const FrameResources = struct {
     command_pool: core.CommandPool,
     command_buffer: core.CommandBuffer,
 
-    image_available: vk.Semaphore,
-    render_finished: vk.Semaphore,
     in_flight_fence: vk.Fence,
 
     vertex_buffer: core.Buffer,
@@ -13,6 +11,8 @@ pub const FrameResources = struct {
 
     descriptor_pool: core.DescriptorPool,
     descriptor_set: core.DescriptorSet,
+
+    image_index: u32,
 };
 
 descriptor_layout: core.DescriptorSetLayout,
@@ -20,8 +20,31 @@ descriptor_layout: core.DescriptorSetLayout,
 resources: []FrameResources,
 current_frame: usize = 0,
 
-pub fn init(device: *const core.Device, allocator: std.mem.Allocator, max_frames_in_flight: usize) !Frames {
+images_in_flight: []vk.Fence,
+
+image_available: []vk.Semaphore,
+render_finished: []vk.Semaphore,
+
+pub fn init(
+    device: *const core.Device,
+    allocator: std.mem.Allocator,
+    max_frames_in_flight: usize,
+    images_count: usize,
+) !Frames {
     const resources = try allocator.alloc(FrameResources, max_frames_in_flight);
+
+    const image_available = try allocator.alloc(vk.Semaphore, max_frames_in_flight);
+    for (0..max_frames_in_flight) |i| {
+        image_available[i] = try device.createSemaphore();
+    }
+
+    const render_finished = try allocator.alloc(vk.Semaphore, images_count);
+    for (0..images_count) |i| {
+        render_finished[i] = try device.createSemaphore();
+    }
+
+    const images_in_flight = try allocator.alloc(vk.Fence, images_count);
+    @memset(images_in_flight, .null_handle);
 
     const descriptor_set_layout = try core.DescriptorSetLayout.Builder
         .addBinding(0, .uniform_buffer, 1, .{ .vertex_bit = true })
@@ -35,8 +58,6 @@ pub fn init(device: *const core.Device, allocator: std.mem.Allocator, max_frames
     for (0..max_frames_in_flight) |i| {
         resources[i].command_pool = try core.CommandPool.init(device, 0);
         resources[i].command_buffer = try resources[i].command_pool.allocBuffer(.primary);
-        resources[i].image_available = try device.createSemaphore();
-        resources[i].render_finished = try device.createSemaphore();
         resources[i].in_flight_fence = try device.createFence(true);
 
         resources[i].vertex_buffer = try core.Buffer.init(
@@ -78,20 +99,44 @@ pub fn init(device: *const core.Device, allocator: std.mem.Allocator, max_frames
     return .{
         .resources = resources,
         .descriptor_layout = descriptor_set_layout,
+        .images_in_flight = images_in_flight,
+
+        .image_available = image_available,
+        .render_finished = render_finished,
     };
 }
 
 pub fn frameBegin(
     self: *Frames,
     device: *const core.Device,
+    swapchain: *const core.Swapchain,
 ) !*FrameResources {
     const frame = &self.resources[self.current_frame];
+
+    const image_available = self.image_available[self.current_frame];
 
     _ = try device.waitFence(frame.in_flight_fence, std.math.maxInt(u64));
     _ = try device.resetFence(frame.in_flight_fence);
 
+    const acquire_result = try swapchain.acquireNextImage(
+        std.math.maxInt(u64),
+        image_available,
+        .null_handle,
+    );
+
+    const image_index = acquire_result.success;
+
+    const image_fence = self.images_in_flight[image_index];
+    if (image_fence != .null_handle and
+        image_fence != frame.in_flight_fence)
+    {
+        _ = try device.waitFence(image_fence, std.math.maxInt(u64));
+    }
+    self.images_in_flight[image_index] = frame.in_flight_fence;
+
     try frame.command_pool.reset(false);
 
+    frame.image_index = image_index;
     return frame;
 }
 
@@ -104,23 +149,27 @@ pub fn submit(
     graphics_queue: *const core.Queue,
     present_queue: ?*const core.Queue,
     swapchain: *const core.Swapchain,
-    image_index: u32,
 ) !void {
     const frame = &self.resources[self.current_frame];
 
+    const image_index = frame.image_index;
+    const image_available = self.image_available[self.current_frame];
+    const render_finished = self.render_finished[frame.image_index];
+    const in_flight_fence = frame.in_flight_fence;
+
     try graphics_queue.submitOne(
         &frame.command_buffer,
-        frame.image_available,
-        frame.render_finished,
+        image_available,
+        render_finished,
         .{ .color_attachment_output_bit = true },
-        frame.in_flight_fence,
+        in_flight_fence,
     );
 
     var queue = present_queue orelse graphics_queue;
 
     _ = try queue.presentOne(
         swapchain,
-        frame.render_finished,
+        render_finished,
         image_index,
     );
 

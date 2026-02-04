@@ -1,6 +1,7 @@
 const std = @import("std");
 const win = @import("window");
 const root = @import("root.zig");
+const color = @import("color");
 const vertex = @import("vertex.zig");
 
 const OpenGL = @import("OpenGL.zig");
@@ -38,7 +39,9 @@ pub fn GenaricRenderer(Impl: type) type {
         // pub fn reserveBatch(self: *Self, count: usize) ![]vertex.Instance {}
         // pub fn commitBatch(self: *Self, count: usize) !void {}
         // pub fn draw(self: *Self) !void {}
-        // pub fn clear(self: *Self, bg_color: color.RGBA) void {}
+        pub fn clear(self: *Self, bg_color: color.RGBA) void {
+            self.inner.clear(bg_color);
+        }
         pub fn beginFrame(self: *Self) !void {
             try self.inner.beginFrame();
         }

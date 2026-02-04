@@ -12,6 +12,8 @@ swapchain: core.Swapchain,
 current_frame: ?*Frames.FrameResources,
 current_image: u32,
 
+bg_color: color.RGBA,
+
 pub fn init(
     allocator: std.mem.Allocator,
     window_handles: win.WindowHandles,
@@ -39,7 +41,18 @@ pub fn init(
     self.frames = try Frames.init(
         self.render_context.device,
         allocator,
+        2,
         self.swapchain.images.len,
+    );
+
+    self.render_pipeline = try RenderPipeline.init(
+        allocator,
+        self.render_context.device,
+        .{
+            .image_attachemnt_format = self.swapchain.surface_format.format,
+            .extent = self.swapchain.extent,
+        },
+        .{ .descriptor_set_layouts = &.{self.frames.descriptor_layout} },
     );
 
     return self;
@@ -55,24 +68,10 @@ pub fn deinit(self: *Vulkan) void {
 }
 
 pub fn beginFrame(self: *Vulkan) !void {
-    self.current_frame = try self.frames.frameBegin(self.render_context.device);
-    const acquire_result = self.swapchain.acquireNextImage(
-        std.math.maxInt(u64),
-        self.current_frame.?.image_available,
-        .null_handle,
-    );
+    self.current_frame = try self.frames.frameBegin(self.render_context.device, &self.swapchain);
+    const cmd = &self.current_frame.?.command_buffer;
 
-    self.current_image = blk: {
-        const result = acquire_result catch |err| switch (err) {
-            error.OutOfDateKHR => {
-                return;
-            },
-            else => return err,
-        };
-        break :blk result.success;
-    };
-
-    try self.current_frame.?.command_buffer.begin(.{ .one_time_submit_bit = true });
+    try cmd.begin(.{ .one_time_submit_bit = true });
 }
 
 pub fn endFrame(self: *Vulkan) !void {
@@ -82,7 +81,11 @@ pub fn endFrame(self: *Vulkan) !void {
 
 pub fn presnt(self: *Vulkan) !void {
     const queue = self.render_context.queue;
-    try self.frames.submit(&queue, null, &self.swapchain, self.current_image);
+    try self.frames.submit(&queue, null, &self.swapchain);
+}
+
+pub fn clear(self: *Vulkan, bg_color: color.RGBA) void {
+    self.bg_color = bg_color;
 }
 
 const std = @import("std");
@@ -90,6 +93,7 @@ const std = @import("std");
 const root = @import("root.zig");
 const core = @import("core");
 const win = @import("window");
+const color = @import("color");
 
 const RenderContext = @import("vulkan/rendering/RenderContext.zig");
 const RenderPipeline = @import("vulkan/rendering/RenderPipeline.zig");

@@ -71,6 +71,7 @@ pub fn run(self: *App) !void {
         }
 
         try self.renderer.beginFrame();
+        self.renderer.clear(.black);
         try self.renderer.endFrame();
         try self.renderer.presnt();
     }
