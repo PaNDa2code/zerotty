@@ -2,7 +2,7 @@ const Frames = @This();
 
 pub const FrameResources = struct {
     command_pool: core.CommandPool,
-    command_buffer: core.CommandBuffer,
+    main_cmd: core.CommandBuffer,
 
     in_flight_fence: vk.Fence,
 
@@ -57,7 +57,7 @@ pub fn init(
 
     for (0..max_frames_in_flight) |i| {
         resources[i].command_pool = try core.CommandPool.init(device, 0);
-        resources[i].command_buffer = try resources[i].command_pool.allocBuffer(.primary);
+        resources[i].main_cmd = try resources[i].command_pool.allocBuffer(.primary);
         resources[i].in_flight_fence = try device.createFence(true);
 
         resources[i].vertex_buffer = try core.Buffer.init(
@@ -136,6 +136,8 @@ pub fn frameBegin(
 
     try frame.command_pool.reset(false);
 
+    frame.main_cmd = try frame.command_pool.allocBuffer(.primary);
+
     frame.image_index = image_index;
     return frame;
 }
@@ -158,7 +160,7 @@ pub fn submit(
     const in_flight_fence = frame.in_flight_fence;
 
     try graphics_queue.submitOne(
-        &frame.command_buffer,
+        &frame.main_cmd,
         image_available,
         render_finished,
         .{ .color_attachment_output_bit = true },

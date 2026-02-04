@@ -32,7 +32,9 @@ pub fn GenaricRenderer(Impl: type) type {
         pub fn resizeSurface(self: *Self, width: u32, height: u32) !void {
             try self.inner.resizeSurface(width, height);
         }
-        // pub fn setViewport(self: *Self, x: u32, y: u32, width: u32, height: u32) !void {}
+        pub fn setViewport(self: *Self, x: u32, y: u32, width: u32, height: u32) !void {
+            try self.inner.setViewport(x, y, width, height);
+        }
         // pub fn cacheGlyphs(self: *Self, dimensions: []const GlyphBitmap, bitmap_pool: []const u8) !void {}
         // pub fn resetGlyphCache(self: *Self) !void {}
         // pub fn pushBatch(self: *Self) !void {}

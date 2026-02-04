@@ -1,30 +1,38 @@
 const Target = @This();
 
-image: core.Image,
-frame_buffer: core.Framebuffer,
+image_view: vk.ImageView,
 
-pub fn init(frame_buffer: core.Framebuffer) Target {
+frame_buffer: core.Framebuffer = .{
+    .handle = .null_handle,
+    .extent = undefined,
+},
+
+pub fn init(image_view: vk.ImageView) Target {
     return .{
-        .frame_buffer = frame_buffer,
+        .image_view = image_view,
     };
 }
 
-pub fn initFromImageView(
-    device: *const core.Device,
+pub fn frameBuffer(
+    self: *Target,
     render_pass: *const core.RenderPass,
-    image_view: vk.ImageView,
     extent: vk.Extent2D,
-) Target {
-    const frame_buffer = try core.Framebuffer.init(
-        device,
+) !core.Framebuffer {
+    if (self.frame_buffer.handle != .null_handle and
+        self.frame_buffer.extent.height == extent.height and
+        self.frame_buffer.extent.width == extent.width)
+    {
+        return self.frame_buffer;
+    }
+
+    self.frame_buffer = try core.Framebuffer.init(
+        render_pass.device,
         render_pass,
-        &.{image_view},
+        &.{self.image_view},
         extent,
     );
 
-    return .{
-        .frame_buffer = frame_buffer,
-    };
+    return self.frame_buffer;
 }
 
 pub fn deinit(self: *const Target, device: *const core.Device) void {

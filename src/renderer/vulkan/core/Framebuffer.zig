@@ -9,7 +9,7 @@ pub const InitError = vk.DeviceWrapper.CreateFramebufferError;
 pub fn init(
     device: *const Device,
     render_pass: *const RenderPass,
-    image_views: []vk.ImageView,
+    image_views: []const vk.ImageView,
     extent: vk.Extent2D,
 ) InitError!Framebuffer {
     const framebuffer_info = vk.FramebufferCreateInfo{

@@ -173,13 +173,12 @@ pub const RGBA = packed struct(u32) {
     pub fn fromRGBHexString(color: []const u8) RGBA {
         assert(color.len == 7 and color[0] == '#');
 
-        var int: u32 = 0;
+        var int: u32 = 0xFF << 24;
 
         inline for (color[1..7]) |c| {
-            int = (int << 4) | hexToU8(c);
+            int <<= 4;
+            int |= (@as(u32, c) & 0xF) + (@as(u32, c) >> 6) * 9;
         }
-
-        int = (int << 8) | 0xFF; // set alpha byte
 
         return RGBA.fromInt(int);
     }

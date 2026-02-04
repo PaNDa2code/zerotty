@@ -8,6 +8,7 @@ render_pipeline: RenderPipeline,
 frames: Frames,
 
 swapchain: core.Swapchain,
+targets: []Target,
 
 current_frame: ?*Frames.FrameResources,
 current_image: u32,
@@ -38,6 +39,8 @@ pub fn init(
         },
     );
 
+    const images_count = self.swapchain.images.len;
+
     self.frames = try Frames.init(
         self.render_context.device,
         allocator,
@@ -55,6 +58,12 @@ pub fn init(
         .{ .descriptor_set_layouts = &.{self.frames.descriptor_layout} },
     );
 
+    self.targets = try allocator.alloc(Target, images_count);
+
+    for (0..images_count) |i| {
+        self.targets[i] = Target.init(self.swapchain.image_views[i]);
+    }
+
     return self;
 }
 
@@ -69,13 +78,30 @@ pub fn deinit(self: *Vulkan) void {
 
 pub fn beginFrame(self: *Vulkan) !void {
     self.current_frame = try self.frames.frameBegin(self.render_context.device, &self.swapchain);
-    const cmd = &self.current_frame.?.command_buffer;
+    const cmd = &self.current_frame.?.main_cmd;
+    const image_index = self.current_frame.?.image_index;
 
     try cmd.begin(.{ .one_time_submit_bit = true });
+
+    const clear_values = [_]vk.ClearValue{
+        .{ .color = .{ .float_32 = self.bg_color.floatArray() } },
+    };
+
+    const framebuffer = try self.targets[image_index].frameBuffer(
+        &self.render_pipeline.renderpass,
+        self.swapchain.extent,
+    );
+
+    try cmd.beginRenderPass(
+        &self.render_pipeline.renderpass,
+        framebuffer,
+        &clear_values,
+        .@"inline",
+    );
 }
 
 pub fn endFrame(self: *Vulkan) !void {
-    try self.current_frame.?.command_buffer.end();
+    try self.current_frame.?.main_cmd.end();
     try self.frames.endFrame();
 }
 
@@ -88,9 +114,24 @@ pub fn clear(self: *Vulkan, bg_color: color.RGBA) void {
     self.bg_color = bg_color;
 }
 
+pub fn setViewport(self: *Vulkan, x: u32, y: u32, width: u32, height: u32) !void {
+    const viewport = vk.Viewport{
+        .x = @floatFromInt(x),
+        .y = @floatFromInt(y),
+        .width = @floatFromInt(width),
+        .height = @floatFromInt(height),
+        .min_depth = 0,
+        .max_depth = 1,
+    };
+
+    try self.current_frame.?.main_cmd.setViewPort(&viewport);
+}
+
 const std = @import("std");
+const vk = @import("vulkan");
 
 const root = @import("root.zig");
+
 const core = @import("core");
 const win = @import("window");
 const color = @import("color");
@@ -99,3 +140,4 @@ const RenderContext = @import("vulkan/rendering/RenderContext.zig");
 const RenderPipeline = @import("vulkan/rendering/RenderPipeline.zig");
 // const RenderResources = @import("vulkan/rendering/Resources.zig");
 const Frames = @import("vulkan/rendering/Frames.zig");
+const Target = @import("vulkan/rendering/Target.zig");

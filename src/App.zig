@@ -71,6 +71,14 @@ pub fn run(self: *App) !void {
         }
 
         try self.renderer.beginFrame();
+
+        try self.renderer.setViewport(
+            0,
+            0,
+            self.window.width(),
+            self.window.height(),
+        );
+
         self.renderer.clear(.black);
         try self.renderer.endFrame();
         try self.renderer.presnt();
