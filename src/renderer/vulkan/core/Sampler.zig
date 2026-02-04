@@ -2,20 +2,26 @@ const Sampler = @This();
 
 handle: vk.Sampler,
 
-pub fn init(device: *const Device) !Sampler {
+pub const SamplerOptions = struct {
+    filter: vk.Filter = .linear,
+    address_mode: vk.SamplerAddressMode = .repeat,
+    mipmap_mode: vk.SamplerMipmapMode = .linear,
+};
+
+pub fn init(device: *const Device, options: SamplerOptions) !Sampler {
     const sampler_info = vk.SamplerCreateInfo{
-        .mag_filter = .linear,
-        .min_filter = .linear,
-        .address_mode_u = .repeat,
-        .address_mode_v = .repeat,
-        .address_mode_w = .repeat,
+        .mag_filter = options.filter,
+        .min_filter = options.filter,
+        .address_mode_u = options.address_mode,
+        .address_mode_v = options.address_mode,
+        .address_mode_w = options.address_mode,
         .anisotropy_enable = .false,
         .max_anisotropy = 1.0,
         .border_color = .int_opaque_black,
         .unnormalized_coordinates = .false,
         .compare_enable = .false,
         .compare_op = .always,
-        .mipmap_mode = .linear,
+        .mipmap_mode = options.mipmap_mode,
         .max_lod = 0.0,
         .min_lod = 0.0,
         .mip_lod_bias = 0.0,
