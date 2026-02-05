@@ -63,6 +63,9 @@ pub fn run(self: *App) !void {
 
     var running = true;
 
+    var timer = try std.time.Timer.start();
+    var frames: usize = 0;
+
     while (running) {
         self.window.poll();
         try self.io_event_loop.poll(0);
@@ -87,6 +90,21 @@ pub fn run(self: *App) !void {
         self.renderer.clear(.black);
         try self.renderer.endFrame();
         try self.renderer.presnt();
+
+        frames += 1;
+
+        const diff = timer.read();
+
+        if (diff >= std.time.ns_per_s) {
+            const secands = @as(f64, @floatFromInt(diff)) * (1.0 / 1_000_000_0000.0);
+            const fps = @as(f64, @floatFromInt(frames)) / secands;
+
+            var buf: [255]u8 = undefined;
+            const title = try std.fmt.bufPrint(&buf, "zerotty - FPS: {:.02}", .{fps});
+            try self.window.setTitle(title);
+
+            timer.reset();
+        }
     }
 }
 
@@ -118,3 +136,5 @@ const AssetsManager = @import("AssetsManager");
 const Renderer = @import("renderer").Renderer;
 
 const os_tag = builtin.os.tag;
+
+const heap = @import("heap.zig");
