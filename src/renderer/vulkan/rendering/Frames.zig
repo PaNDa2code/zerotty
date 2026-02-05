@@ -13,6 +13,19 @@ pub const FrameResources = struct {
     descriptor_set: core.DescriptorSet,
 
     image_index: u32,
+
+    // pub fn bindTexture(
+    //     self: *FrameResources,
+    //     allocator: std.mem.Allocator,
+    //     texture: *Texture,
+    //     binding: u32,
+    //     index: u32,
+    // ) !void {
+    //     const descriptor_info = texture.image.getDescriptorImageInfo(texture.sampler);
+    //     const entry = try self.descriptor_set.image_infos.getOrPutValue(binding, .empty);
+    //
+    //     try entry.value_ptr.insert(allocator, index, descriptor_info);
+    // }
 };
 
 descriptor_layout: core.DescriptorSetLayout,

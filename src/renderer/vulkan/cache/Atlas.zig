@@ -1,6 +1,5 @@
 const Atlas = @This();
 
-
 textures: std.ArrayList(Texture),
 glyphs_entries: std.AutoArrayHashMap(font.GlyphID, font.GlyphAtlasEntry),
 

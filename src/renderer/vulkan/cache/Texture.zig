@@ -52,6 +52,10 @@ pub fn deinit(self: *const Texture, device_allocator: *memory.DeviceAllocator) v
     self.sampler.deinit(device_allocator.device);
 }
 
+pub fn descriptorInfo(self: *const Texture) vk.DescriptorImageInfo {
+    return self.image.getDescriptorImageInfo(self.sampler);
+}
+
 const std = @import("std");
 const vk = @import("vulkan");
 const core = @import("core");

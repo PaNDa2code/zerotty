@@ -193,6 +193,14 @@ pub fn getDescriptorImageInfo(self: *const Image, sampler: Sampler) vk.Descripto
     };
 }
 
+pub fn getDescriptorImageInfoWithLayout(self: *const Image, sampler: Sampler, layout: vk.ImageLayout) vk.DescriptorImageInfo {
+    return .{
+        .sampler = sampler.handle,
+        .image_view = self.view,
+        .image_layout = layout,
+    };
+}
+
 pub fn deinit(self: *const Image, device_allocator: *DeviceAllocator) void {
     const device = device_allocator.device;
 
