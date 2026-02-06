@@ -136,5 +136,3 @@ const AssetsManager = @import("AssetsManager");
 const Renderer = @import("renderer").Renderer;
 
 const os_tag = builtin.os.tag;
-
-const heap = @import("heap.zig");
