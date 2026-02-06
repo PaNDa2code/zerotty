@@ -26,6 +26,7 @@ pub const Packer = struct {
 
     /// Finds the first available space in existing shelves
     /// or creates a new one (First-Fit strategy).
+    /// Time complexity: O(N)
     pub fn findEmptyRectangle(
         self: *Packer,
         allocator: std.mem.Allocator,
@@ -38,7 +39,7 @@ pub const Packer = struct {
 
             if (!is_last and height > shelf.height or
                 shelf.current_width + width > self.max_width or
-                (is_last and height_tracker + @max(height, shelf.height) > shelf.max_height))
+                (is_last and height_tracker + height > self.max_height))
             {
                 height_tracker += shelf.height;
                 continue;
