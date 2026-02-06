@@ -84,6 +84,24 @@ pub fn deinit(self: *RenderContext) void {
     allocator.destroy(self.device_allocator);
 }
 
+pub fn getSurfaceExtent(self: *RenderContext, width: u32, height: u32) !vk.Extent2D {
+    const caps = try self.instance.vki.getPhysicalDeviceSurfaceCapabilitiesKHR(
+        self.device.physical_device.handle,
+        self.surface,
+    );
+
+    var extent: vk.Extent2D = undefined;
+
+    if (caps.current_extent.width != std.math.maxInt(u32)) {
+        extent = caps.current_extent;
+    } else {
+        extent.width = std.math.clamp(width, caps.min_image_extent.width, caps.max_image_extent.width);
+        extent.height = std.math.clamp(height, caps.min_image_extent.height, caps.max_image_extent.height);
+    }
+
+    return extent;
+}
+
 const std = @import("std");
 const vk = @import("vulkan");
 

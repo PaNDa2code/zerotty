@@ -96,7 +96,11 @@ pub fn deinit(self: *Vulkan) void {
 }
 
 pub fn beginFrame(self: *Vulkan) !void {
-    const frame = try self.frames.frameBegin(self.render_context.device, &self.swapchain);
+    const frame = self.frames.frameBegin(self.render_context.device, &self.swapchain) catch |err| blk: {
+        if (err == error.OutOfDateKHR)
+            try self.resizeSurface(0, 0);
+        break :blk try self.frames.frameBegin(self.render_context.device, &self.swapchain);
+    };
     self.current_frame = frame;
 
     const cmd = &frame.main_cmd;
@@ -153,6 +157,28 @@ pub fn setViewport(self: *Vulkan, x: u32, y: u32, width: u32, height: u32) !void
 
     if (self.current_frame) |frame| {
         try frame.main_cmd.setViewPort(&viewport);
+    }
+}
+
+pub fn resizeSurface(self: *Vulkan, width: u32, height: u32) !void {
+    try self.render_context.device.waitIdle();
+
+    const new_extent = try self.render_context.getSurfaceExtent(width, height);
+
+    if (self.swapchain.extent.width == new_extent.width and
+        self.swapchain.extent.height == new_extent.height)
+    {
+        return;
+    }
+
+    try self.swapchain.recreate(
+        self.render_context.allocator_adapter.allocator,
+        new_extent,
+    );
+
+    for (0..self.swapchain.images.len) |i| {
+        self.targets[i].deinit(self.render_context.device);
+        self.targets[i] = Target.init(self.swapchain.image_views[i]);
     }
 }
 

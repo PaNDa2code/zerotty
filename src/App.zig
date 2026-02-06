@@ -72,9 +72,19 @@ pub fn run(self: *App) !void {
 
         while (self.window.nextEvent()) |event| {
             std.log.debug("event: {any}", .{event});
-            if (event == .close) {
-                running = false;
-                break;
+
+            switch (event) {
+                .close => {
+                    running = false;
+                    break;
+                },
+                .resize => |size| {
+                    try self.renderer.resizeSurface(
+                        size.width,
+                        size.height,
+                    );
+                },
+                else => {},
             }
         }
 
@@ -100,7 +110,7 @@ pub fn run(self: *App) !void {
             const fps = @as(f64, @floatFromInt(frames)) / secands;
 
             var buf: [255]u8 = undefined;
-            const title = try std.fmt.bufPrint(&buf, "zerotty - FPS: {:.02}", .{fps});
+            const title = try std.fmt.bufPrintZ(&buf, "zerotty - FPS: {:.02}", .{fps});
             try self.window.setTitle(title);
 
             timer.reset();

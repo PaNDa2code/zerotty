@@ -58,7 +58,7 @@ pub const InputHandleCallbackFn = fn (*InputContext, u32, bool, []u8) usize;
 pub const ResizeEvent = struct {
     height: u32,
     width: u32,
-    is_live: bool, // user is still resizing
+    is_live: bool = false, // user is still resizing
 };
 
 pub const InputEvent = @import("input").InputEvent;
@@ -142,7 +142,7 @@ fn WindowInterface(WindowBackend: type) type {
             try self.w.open(allocator);
         }
 
-        pub fn setTitle(self: *Self, title: []const u8) !void {
+        pub fn setTitle(self: *Self, title: [:0]const u8) !void {
             try self.w.setTitle(title);
         }
 

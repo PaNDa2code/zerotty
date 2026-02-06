@@ -46,7 +46,7 @@ pub fn open(self: *Window, allocator: Allocator) !void {
     self.height = @intCast(fb_h);
 
     _ = c.glfwSetWindowUserPointer(self.window, self);
-    _ = c.glfwSetWindowSizeCallback(self.window, callbacks.windowSize);
+    _ = c.glfwSetFramebufferSizeCallback(self.window, callbacks.framebufferSize);
     _ = c.glfwSetWindowCloseCallback(self.window, callbacks.windowClose);
     _ = c.glfwSetKeyCallback(self.window, callbacks.key);
     _ = c.glfwSetCharCallback(self.window, callbacks.char);
@@ -120,7 +120,7 @@ const callbacks = struct {
         window.event_queue.push(event) catch unreachable;
     }
 
-    fn windowSize(glfw_window: ?*c.GLFWwindow, width: c_int, height: c_int) callconv(.c) void {
+    fn framebufferSize(glfw_window: ?*c.GLFWwindow, width: c_int, height: c_int) callconv(.c) void {
         const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
 
         window.height = @intCast(height);

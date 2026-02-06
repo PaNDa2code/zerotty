@@ -166,7 +166,11 @@ pub fn frameBegin(
         .null_handle,
     );
 
-    const image_index = acquire_result.success;
+    const image_index =
+        switch (acquire_result) {
+            .success, .suboptimal_khr => |index| index,
+            else => unreachable,
+        };
 
     const image_fence = self.images_in_flight[image_index];
     if (image_fence != .null_handle and

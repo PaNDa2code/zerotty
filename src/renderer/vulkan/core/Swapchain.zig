@@ -199,7 +199,7 @@ pub const AcquireNextImageResult = union(enum) {
     success: u32,
     timeout,
     not_ready,
-    suboptimal_khr,
+    suboptimal_khr: u32,
 };
 
 pub fn acquireNextImage(
@@ -220,7 +220,7 @@ pub fn acquireNextImage(
         .success => .{ .success = res.image_index },
         .timeout => .timeout,
         .not_ready => .not_ready,
-        .suboptimal_khr => .suboptimal_khr,
+        .suboptimal_khr => .{ .suboptimal_khr = res.image_index },
         else => unreachable,
     };
 }
