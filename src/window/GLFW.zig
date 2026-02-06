@@ -50,6 +50,7 @@ pub fn open(self: *Window, allocator: Allocator) !void {
     _ = c.glfwSetWindowCloseCallback(self.window, callbacks.windowClose);
     _ = c.glfwSetKeyCallback(self.window, callbacks.key);
     _ = c.glfwSetCharCallback(self.window, callbacks.char);
+    _ = c.glfwSetWindowIconifyCallback(self.window, callbacks.iconify);
 
     c.glfwShowWindow(self.window);
 
@@ -141,6 +142,11 @@ const callbacks = struct {
     fn windowClose(glfw_window: ?*c.GLFWwindow) callconv(.c) void {
         const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
         window.event_queue.push(.close) catch unreachable;
+    }
+
+    fn iconify(glfw_window: ?*c.GLFWwindow, iconified: c_int) callconv(.c) void {
+        const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
+        window.event_queue.push(.{ .expose = iconified == c.GLFW_TRUE }) catch unreachable;
     }
 
     fn errorCallback(code: c_int, description: [*c]const u8) callconv(.c) void {
