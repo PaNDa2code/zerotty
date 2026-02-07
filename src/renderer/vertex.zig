@@ -33,5 +33,13 @@ pub const Uniforms = packed struct {
     descender: f32,
 };
 
+pub const TextUniform = packed struct {
+    screen_to_clip_scale: math.Vec2(f32),
+    screen_to_clip_offset: math.Vec2(f32),
+    inv_atlas_size: math.Vec2(f32), // 1 / atlas_size
+    cell_size: math.Vec2(f32),
+    baseline: f32,
+};
+
 const math = @import("math");
 const color = @import("color");
