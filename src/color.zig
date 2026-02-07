@@ -134,18 +134,17 @@ pub const RGBA = packed struct(u32) {
 
     pub fn mix(lhs: RGBA, rhs: RGBA, s: f32) RGBA {
         const t = clamp(s, 0.0, 1.0);
-        return .{
-            .r = lerpu8(lhs.r, rhs.r, t),
-            .g = lerpu8(lhs.g, rhs.g, t),
-            .b = lerpu8(lhs.b, rhs.b, t),
-            .a = lerpu8(lhs.a, rhs.a, t),
-        };
+        return @bitCast(lerpVec(lhs.getVec(), rhs.getVec(), t));
     }
 
-    fn lerpu8(a: u8, b: u8, t: f32) u8 {
-        const af: f32 = @floatFromInt(a);
-        const bf: f32 = @floatFromInt(b);
-        return @intFromFloat(@mulAdd(f32, bf - af, t, af));
+    fn lerpVec(a: @Vector(4, u8), b: @Vector(4, u8), t: f32) @Vector(4, u8) {
+        const af: @Vector(4, f32) = @floatFromInt(a);
+        const bf: @Vector(4, f32) = @floatFromInt(b);
+        return @intFromFloat(@mulAdd(@Vector(4, f32), bf - af, @splat(t), af));
+    }
+
+    fn getVec(self: RGBA) @Vector(4, u8) {
+        return @bitCast(self);
     }
 
     pub fn fromInt(value: u32) RGBA {
@@ -157,14 +156,9 @@ pub const RGBA = packed struct(u32) {
     }
 
     pub fn floatArray(self: RGBA) [4]f32 {
-        const m = 1.0 / 255.0;
-
-        return [4]f32{
-            @as(f32, @floatFromInt(self.r)) * m,
-            @as(f32, @floatFromInt(self.g)) * m,
-            @as(f32, @floatFromInt(self.b)) * m,
-            @as(f32, @floatFromInt(self.a)) * m,
-        };
+        const m: @Vector(4, f32) = @splat(1.0 / 255.0);
+        const vec: @Vector(4, f32) = @floatFromInt(self.getVec());
+        return @bitCast(vec * m);
     }
 
     /// convert hex rgb string like `#00eeff` to RGBA
