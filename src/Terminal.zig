@@ -5,6 +5,8 @@ shell: ChildProcess,
 grid: Grid,
 vtparser: vt.VTParser,
 
+color_palette: color.ansi.Palette = .default,
+
 current_style: struct {
     fg_color: color.RGBA = .white,
     bg_color: color.RGBA = .black,
@@ -69,7 +71,7 @@ fn vtparserCallback(state: *const vt.ParserData, to_action: vt.Action, char: u8,
         else => {},
     }
 
-    std.log.debug("{} {}", .{ to_action, char });
+    std.log.scoped(.vtparser).debug("{} {}", .{ to_action, char });
 }
 
 fn handleSGR(term: *Terminal, state: *const vt.ParserData) void {
@@ -92,7 +94,7 @@ fn handleSGR(term: *Terminal, state: *const vt.ParserData) void {
 
             // 30...37 => term.current_style.fg_color = ansiFg(p),
             // 40...47 => term.current_style.bg_color = ansiBg(p),
-            //
+
             // 90...97 => term.current_style.fg_color = ansiBrightFg(p),
             // 100...107 => term.current_style.bg_color = ansiBrightBg(p),
 

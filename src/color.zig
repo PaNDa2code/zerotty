@@ -14,16 +14,15 @@ pub const ansi = struct {
             self.colors[@intFromEnum(index)] = color;
         }
 
-        fn defaultPalette() Palette {
+        pub const default = blk: {
+            @setEvalBranchQuota(1500);
             var palette: Palette = undefined;
             for (0..256) |i| {
                 const color_index: ColorIndex = @enumFromInt(i);
                 palette.set(color_index, colorIndexToRGBA(color_index));
             }
-            return palette;
-        }
-
-        pub const default = defaultPalette();
+            break :blk palette;
+        };
     };
 
     pub const ColorIndex = enum(u8) {
@@ -89,25 +88,26 @@ pub const ansi = struct {
 
             _ => blk: {
                 const index = @intFromEnum(color_index);
+                switch (index) {
+                    16...231 => {
+                        const base = index - 16;
+                        const r = @divFloor(base, 36);
+                        const g = @divFloor(base % 36, 6);
+                        const b = base % 6;
 
-                if (index >= 16 and index <= 231) {
-                    const base = index - 16;
-                    const r = @divFloor(base, 36);
-                    const g = @divFloor(base % 36, 6);
-                    const b = base % 6;
-
-                    const scale = [_]u8{ 0, 95, 135, 175, 215, 255 };
-                    break :blk RGBA.rgba(scale[r], scale[g], scale[b], 255);
-                } else if (index >= 232 and index <= 255) {
-                    const gray = 8 + (index - 232) * 10;
-                    break :blk RGBA.rgba(gray, gray, gray, 255);
-                } else {
-                    break :blk RGBA.rgba(0, 0, 0, 255);
+                        const scale = [_]u8{ 0, 95, 135, 175, 215, 255 };
+                        break :blk RGBA.rgba(scale[r], scale[g], scale[b], 255);
+                    },
+                    232...255 => {
+                        const gray = 8 + (index - 232) * 10;
+                        break :blk RGBA.rgba(gray, gray, gray, 255);
+                    },
+                    else => unreachable,
                 }
             },
         };
-    }
     // zig fmt: on
+    }
 };
 
 pub const RGBA = packed struct(u32) {
