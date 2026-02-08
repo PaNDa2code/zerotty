@@ -1,14 +1,6 @@
 #ifndef DATA_GLSL
 #define DATA_GLSL
 
-struct TextUniform {
-  vec2 screen_to_clip_scale;
-  vec2 screen_to_clip_offset;
-  vec2 inv_atlas_size;
-  vec2 cell_size;
-  float baseline;
-};
-
 struct GlyphAtlasEntry {
   uint atlas_id;
   uvec2 pos;
