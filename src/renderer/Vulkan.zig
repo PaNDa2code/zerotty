@@ -10,6 +10,8 @@ frames: Frames,
 swapchain: core.Swapchain,
 targets: []Target,
 
+cache: Cache,
+
 current_frame: ?*Frames.FrameResources,
 current_image: u32,
 
@@ -62,12 +64,16 @@ pub fn init(
         targets[i] = Target.init(swapchain.image_views[i]);
     }
 
+    // see src/font/root.zig
+    const cache = Cache.init(2048, 2048, 255);
+
     return .{
         .render_context = render_context,
         .render_pipeline = render_pipeline,
         .swapchain = swapchain,
         .frames = frames,
         .targets = targets,
+        .cache = cache,
         .current_image = 0,
         .current_frame = null,
         .bg_color = .black,
@@ -77,7 +83,7 @@ pub fn init(
 pub fn deinit(self: *Vulkan) void {
     const device = self.render_context.device;
     const allocator = self.render_context.allocator_adapter.allocator;
-    // const device_allocator = self.render_context.device_allocator;
+    const device_allocator = self.render_context.device_allocator;
 
     const images_count = self.swapchain.images.len;
 
@@ -88,6 +94,7 @@ pub fn deinit(self: *Vulkan) void {
     }
     allocator.free(self.targets);
 
+    self.cache.deinit(allocator, device_allocator);
     self.frames.deinit(device, allocator);
 
     self.render_pipeline.deinit(device, allocator);
@@ -190,9 +197,12 @@ const root = @import("root.zig");
 const core = @import("core");
 const win = @import("window");
 const color = @import("color");
+const font = @import("font");
 
 const RenderContext = @import("vulkan/rendering/RenderContext.zig");
 const RenderPipeline = @import("vulkan/rendering/RenderPipeline.zig");
 // const RenderResources = @import("vulkan/rendering/Resources.zig");
 const Frames = @import("vulkan/rendering/Frames.zig");
 const Target = @import("vulkan/rendering/Target.zig");
+
+const Cache = @import("vulkan/cache/Cache.zig");

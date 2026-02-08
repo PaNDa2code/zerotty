@@ -1,29 +1,38 @@
 const Cache = @This();
 
-occupation_map: OccupationHashMap,
+allocator: std.mem.Allocator,
 
-pub const InitError = std.mem.Allocator.Error;
+packers: std.ArrayList(Packer),
+map: CacheHashMap,
 
-pub fn init(allocator: std.mem.Allocator) InitError!Cache {
-    const map = OccupationHashMap.init(allocator);
-
-    try map.ensureTotalCapacity(1024);
-
+pub fn init(allocator: std.mem.Allocator) Cache {
     return .{
-        .occupation_map = map,
+        .allocator = allocator,
+        .packers = .empty,
+        .map = .empty,
     };
+}
+
+pub fn deinit(self: *Cache) void {
+    for (self.packers.items) |*packer| {
+        packer.deinit(self.allocator);
+    }
+    self.packers.deinit(self.allocator);
+    self.map.deinit(self.allocator);
 }
 
 const std = @import("std");
 const root = @import("root.zig");
+const bin_packing = @import("bin_packing.zig");
+const Packer = bin_packing.Packer;
 
-const Context = struct {
-    pub fn hash(_: @This(), k: root.GlyphID) u32 {
-        return k.index ^ k.font;
+const CacheHashMapContext = struct {
+    pub fn hash(_: @This(), k: root.GlyphID) u64 {
+        return @bitCast(k);
     }
 
     pub fn eql(_: @This(), a: root.GlyphID, b: root.GlyphID, _: usize) bool {
         return @as(u64, @bitCast(a)) == @as(u64, @bitCast(b));
     }
 };
-const OccupationHashMap = std.array_hash_map.ArrayHashMapWithAllocator(root.GlyphID, root.GlyphAtlasEntry, Context, false);
+const CacheHashMap = std.hash_map.HashMapUnmanaged(root.GlyphID, root.GlyphAtlasEntry, CacheHashMapContext, 80);

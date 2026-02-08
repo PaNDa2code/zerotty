@@ -6,6 +6,7 @@ pub const max_atlas_dim = maxInt(u12);
 pub const max_glyph_dim = maxInt(u8);
 pub const max_bearing = maxInt(i8);
 pub const min_bearing = minInt(i8);
+pub const max_atlases_count = maxInt(u8);
 
 pub const GlyphAtlasEntry = packed struct(u64) {
     // postion

@@ -24,6 +24,10 @@ pub const Packer = struct {
         };
     }
 
+    pub fn deinit(self: *Packer, allocator: std.mem.Allocator) void {
+        self.shelfs.deinit(allocator);
+    }
+
     /// Finds the first available space in existing shelves
     /// or creates a new one (First-Fit strategy).
     /// Time complexity: O(N)
