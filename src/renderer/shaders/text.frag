@@ -3,7 +3,7 @@
 // -------------------------------------------------
 // input
 // -------------------------------------------------
-layout(location = 0) in uint texture_index;
+layout(location = 0) flat in uint texture_index;
 layout(location = 1) in vec2 texture_coords;
 layout(location = 2) in vec4 fg_color;
 layout(location = 3) in vec4 bg_color;

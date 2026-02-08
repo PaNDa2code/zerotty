@@ -16,20 +16,26 @@ layout(location = 3) in vec4 bg_color;
 // -------------------------------------------------
 // output
 // -------------------------------------------------
-layout(location = 0) in uint f_texture_index;
-layout(location = 1) in vec2 f_texture_coords;
-layout(location = 2) in vec4 f_fg_color;
-layout(location = 3) in vec4 f_bg_color;
+layout(location = 0) out uint f_texture_index;
+layout(location = 1) out vec2 f_texture_coords;
+layout(location = 2) out vec4 f_fg_color;
+layout(location = 3) out vec4 f_bg_color;
 
 // -------------------------------------------------
 // uniform
 // -------------------------------------------------
-layout(set = 0, binding = 0) uniform TextUniform ubo;
+layout(set = 0, binding = 0) uniform TextUniform {
+  vec2 screen_to_clip_scale;
+  vec2 screen_to_clip_offset;
+  vec2 inv_atlas_size;
+  vec2 cell_size;
+  float baseline;
+} ubo;
 
 void main() {
   vec2 quad_position;
-  quad_position.x = float(gl_VertexIndex) & 1;
-  quad_position.y = float(gl_VertexIndex >> 1) & 1;
+  quad_position.x = float(gl_VertexIndex & 1);
+  quad_position.y = float((gl_VertexIndex >> 1u) & 1u);
 
   GlyphAtlasEntry glyph = unpackGlyphEntry(p_glyph_entry);
 

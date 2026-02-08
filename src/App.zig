@@ -106,13 +106,14 @@ pub fn run(self: *App) !void {
         const diff = timer.read();
 
         if (diff >= std.time.ns_per_s) {
-            const secands = @as(f64, @floatFromInt(diff)) * (1.0 / 1_000_000_0000.0);
+            const secands = @as(f64, @floatFromInt(diff)) * (1.0 / @as(comptime_float, std.time.ns_per_s));
             const fps = @as(f64, @floatFromInt(frames)) / secands;
 
             var buf: [255]u8 = undefined;
             const title = try std.fmt.bufPrintZ(&buf, "zerotty - FPS: {:.02}", .{fps});
             try self.window.setTitle(title);
 
+            frames = 0;
             timer.reset();
         }
     }
