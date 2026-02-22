@@ -19,6 +19,10 @@ pub const GlyphAtlasEntry = packed struct(u64) {
     height: u8,
     x_bearing: i8,
     y_bearing: i8,
+
+    pub fn toInt(entry: GlyphAtlasEntry) u64 {
+        return @bitCast(entry);
+    }
 };
 
 pub const FontID = enum(u32) { _ };
@@ -27,6 +31,11 @@ pub const GlyphIndex = enum(u32) { _ };
 pub const GlyphID = packed struct(u64) {
     font: FontID,
     index: GlyphIndex,
+
+    pub fn toInt(id: GlyphID) u64 {
+        return @bitCast(id);
+    }
 };
 
 pub const Cache = @import("Cache.zig");
+pub const Layout = @import("Layout.zig");

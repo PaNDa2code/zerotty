@@ -14,6 +14,10 @@
         .vtparse = .{
             .path = "./external/vtparse",
         },
+        .zg = .{
+            .url = "https://codeberg.org/atman/zg/archive/v0.15.3.tar.gz",
+            .hash = "zg-0.15.2-oGqU3PlHtAIe8e9FTY8FDZcl329U2LYuDvRaREomHIwH",
+        },
         .TrueType = .{
             .url = "https://codeberg.org/andrewrk/TrueType/archive/c1d4b62157ca47f6d551c45a1c485b799c6dbf0a.tar.gz",
             .hash = "TrueType-0.0.0-Ne-mWAdyAQBpSstW5tKe3xnKdf0hLBdk0FYAxm1MjvYi",
