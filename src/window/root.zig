@@ -139,6 +139,7 @@ fn WindowInterface(WindowBackend: type) type {
         }
 
         pub fn open(self: *Self, allocator: std.mem.Allocator) !void {
+            self.w.event_queue = &self.event_queue;
             try self.w.open(allocator);
         }
 
@@ -147,7 +148,6 @@ fn WindowInterface(WindowBackend: type) type {
         }
 
         pub fn poll(self: *Self) void {
-            self.w.event_queue = &self.event_queue;
             self.w.poll();
         }
 
