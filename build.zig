@@ -98,8 +98,9 @@ pub fn build(b: *Build) !void {
 
     const assets_compress_run = b.addSystemCommand(&.{
         "tar",
-        "-I",
-        "zstd --ultra -22 --long=27 -T0",
+        "-a",
+        // "-I",
+        // "zstd --ultra -22 --long=27 -T0",
         "-cf",
     });
 

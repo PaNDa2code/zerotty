@@ -27,7 +27,7 @@ layout(location = 3) out vec4 f_bg_color;
 layout(set = 0, binding = 0) uniform TextUniform {
   vec2 screen_to_clip_scale;
   vec2 screen_to_clip_offset;
-  vec2 inv_atlas_size;
+  vec2 inv_atlas_size; // 1 ÷ atlas_size
   vec2 cell_size;
   float baseline;
 } ubo;
