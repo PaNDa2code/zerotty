@@ -33,6 +33,13 @@ pub const Uniforms = packed struct {
     descender: f32,
 };
 
+pub const TextInstance = packed struct {
+    p_postion: u32,
+    p_glyph_entry: math.Vec2(u32),
+    fg_color: color.RGBA,
+    bg_color: color.RGBA,
+};
+
 pub const TextUniform = packed struct {
     screen_to_clip_scale: math.Vec2(f32),
     screen_to_clip_offset: math.Vec2(f32),

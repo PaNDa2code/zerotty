@@ -153,6 +153,7 @@ pub fn build(b: *Build) !void {
     renderer_mod.addImport("math", math_mod);
     renderer_mod.addImport("assets", assets_mod);
     renderer_mod.addImport("DynamicLibrary", dynamiclibrary_mod);
+    renderer_mod.addImport("AssetsManager", assetsmanager_mod);
 
     // -------------------------------------------------------------------------
     // Conditional System Dependencies
@@ -230,30 +231,32 @@ pub fn build(b: *Build) !void {
     // Application Assembly
     // -------------------------------------------------------------------------
 
+    const imports = [_]Build.Module.Import{
+        .{ .name = "vtparse", .module = vtparse_mod },
+        .{ .name = "assets", .module = assets_mod },
+        .{ .name = "io", .module = io_mod },
+        .{ .name = "pty", .module = pty_mod },
+        .{ .name = "grid", .module = grid_mod },
+        .{ .name = "math", .module = math_mod },
+        .{ .name = "font", .module = font_mod },
+        .{ .name = "color", .module = color_mod },
+        .{ .name = "input", .module = input_mod },
+        .{ .name = "window", .module = window_mod },
+        .{ .name = "cursor", .module = cursor_mod },
+        .{ .name = "renderer", .module = renderer_mod },
+        .{ .name = "ChildProcess", .module = childprocess_mod },
+        .{ .name = "DynamicLibrary", .module = dynamiclibrary_mod },
+        .{ .name = "circular_array", .module = circulararray_mod },
+        .{ .name = "AssetsManager", .module = assetsmanager_mod },
+    };
+
     // Create Executable
     const exe_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
         .link_libc = true,
-        .imports = &.{
-            .{ .name = "vtparse", .module = vtparse_mod },
-            .{ .name = "assets", .module = assets_mod },
-            .{ .name = "io", .module = io_mod },
-            .{ .name = "pty", .module = pty_mod },
-            .{ .name = "grid", .module = grid_mod },
-            .{ .name = "math", .module = math_mod },
-            .{ .name = "font", .module = font_mod },
-            .{ .name = "color", .module = color_mod },
-            .{ .name = "input", .module = input_mod },
-            .{ .name = "window", .module = window_mod },
-            .{ .name = "cursor", .module = cursor_mod },
-            .{ .name = "renderer", .module = renderer_mod },
-            .{ .name = "ChildProcess", .module = childprocess_mod },
-            .{ .name = "DynamicLibrary", .module = dynamiclibrary_mod },
-            .{ .name = "circular_array", .module = circulararray_mod },
-            .{ .name = "AssetsManager", .module = assetsmanager_mod },
-        },
+        .imports = &imports,
     });
 
     exe_mod.addImport("build_options", options_mod);
@@ -330,25 +333,31 @@ pub fn build(b: *Build) !void {
     run_step.dependOn(&run_cmd.step);
 
     // -------------------------------------------------------------------------
-    // Test Step
+    // Testing
     // -------------------------------------------------------------------------
-    const test_mod = b.createModule(.{
-        .root_source_file = b.path("src/test.zig"),
-        .target = target,
-        .optimize = optimize,
-        .link_libc = true,
-        // .imports = exe_imports.items,
-    });
-    test_mod.addImport("build_options", options_mod);
 
-    const unit_test = b.addTest(.{
-        .name = "zerotty",
-        .root_module = test_mod,
-    });
+    const test_step = b.step("test_all", "will run all submodules test");
 
-    const run_unit_test = b.addRunArtifact(unit_test);
-    const test_step = b.step("test", "run test.zig tests");
-    test_step.dependOn(&run_unit_test.step);
+    for (imports) |import| {
+        const test_name = std.fmt.allocPrint(
+            b.allocator,
+            "test_{s}",
+            .{import.name},
+        ) catch @panic("OOM");
+
+        const test_mod_step = b.step(test_name, "");
+
+        import.module.resolved_target = target;
+
+        const unit_test = b.addTest(.{
+            .name = test_name,
+            .root_module = import.module,
+        });
+
+        const run_unit_test = b.addRunArtifact(unit_test);
+        test_mod_step.dependOn(&run_unit_test.step);
+        test_step.dependOn(test_mod_step);
+    }
 }
 
 // -------------------------------------------------------------------------

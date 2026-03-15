@@ -184,14 +184,14 @@ pub fn bindVertexBuffer(self: *CommandBuffer, buffer: *const Buffer, offset: u64
     );
 }
 
-pub fn bindDescriptorSet(self: *CommandBuffer, set: *core.DescriptorSet, pipeline_layout: vk.PipelineLayout) !void {
+pub fn bindDescriptorSet(self: *CommandBuffer, descriptor_set: *core.DescriptorSet, set: u32, pipeline_layout: vk.PipelineLayout) !void {
     self.device.vkd.cmdBindDescriptorSets(
         self.handle,
         .graphics,
         pipeline_layout,
-        0,
+        set,
         1,
-        &.{set.handle},
+        &.{descriptor_set.handle},
         0,
         null,
     );

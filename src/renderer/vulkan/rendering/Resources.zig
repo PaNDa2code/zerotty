@@ -14,9 +14,6 @@ font_sampler: core.Sampler, // Font atlas sampler
 
 staging_buffer: core.Buffer,
 
-descriptor_buffer_infos: *std.AutoHashMap(u32, std.ArrayList(vk.DescriptorBufferInfo)),
-descriptor_image_infos: *std.AutoHashMap(u32, std.ArrayList(vk.DescriptorImageInfo)),
-
 // Resource capacities
 max_cells: usize,
 max_styles: usize,
@@ -117,33 +114,14 @@ pub fn init(
     const style_data_info = style_data_buffer.getDescriptorBufferInfo();
     const glyph_data_info = glyph_data_buffer.getDescriptorBufferInfo();
 
-    const buffer_infos = try allocator.create(std.AutoHashMap(u32, std.ArrayList(vk.DescriptorBufferInfo)));
-    const image_infos = try allocator.create(std.AutoHashMap(u32, std.ArrayList(vk.DescriptorImageInfo)));
+    var set = try core.DescriptorSet.init(&pool, &layout, allocator);
 
-    buffer_infos.* = .init(allocator);
-    image_infos.* = .init(allocator);
+    set.addDescriptor(0, 0, .{ .buffer = uniform_buffer_info });
+    set.addDescriptor(1, 0, .{ .image = font_atlas_info });
+    set.addDescriptor(2, 0, .{ .buffer = glyph_data_info });
+    set.addDescriptor(3, 0, .{ .buffer = style_data_info });
 
-    {
-        const uniform_entry = try buffer_infos.getOrPutValue(0, .empty);
-        try uniform_entry.value_ptr.append(allocator, uniform_buffer_info);
-
-        const font_atlas_entry = try image_infos.getOrPutValue(1, .empty);
-        try font_atlas_entry.value_ptr.append(allocator, font_atlas_info);
-
-        const glyph_data_entry = try buffer_infos.getOrPutValue(2, .empty);
-        try glyph_data_entry.value_ptr.append(allocator, glyph_data_info);
-
-        const style_data_entry = try buffer_infos.getOrPutValue(3, .empty);
-        try style_data_entry.value_ptr.append(allocator, style_data_info);
-    }
-
-    var set = try core.DescriptorSet.init(
-        &pool,
-        &layout,
-        allocator,
-        buffer_infos,
-        image_infos,
-    );
+    try set.prepare();
 
     set.update();
 
@@ -158,8 +136,6 @@ pub fn init(
         .staging_buffer = staging_buffer,
         .font_atlas = font_atlas,
         .font_sampler = font_sampler,
-        .descriptor_buffer_infos = buffer_infos,
-        .descriptor_image_infos = image_infos,
         .max_cells = max_cells,
         .max_styles = max_styles,
     };
@@ -246,7 +222,7 @@ pub fn bindResources(self: *Resources, cmd_buffer: *core.CommandBuffer, pipeline
     try cmd_buffer.bindVertexBuffer(&self.vertex_buffer, 0);
 
     // Bind descriptor set
-    try cmd_buffer.bindDescriptorSet(&self.set, pipeline_layout);
+    try cmd_buffer.bindDescriptorSet(&self.set, 0, pipeline_layout);
 }
 
 pub fn bindVertexBuffers(self: *Resources, cmd_buffer: *core.CommandBuffer) !void {

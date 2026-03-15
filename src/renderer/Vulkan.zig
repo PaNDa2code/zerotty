@@ -4,7 +4,6 @@ pub const InitError = anyerror;
 
 render_context: RenderContext,
 render_pipeline: RenderPipeline,
-// render_resources: RenderResources,
 frames: Frames,
 
 swapchain: core.Swapchain,

@@ -1,13 +1,21 @@
 const DescriptorSet = @This();
 
+pub const DescriptorPostion = struct {
+    binding: u32,
+    array_element: u32 = 0,
+};
+
+pub const DescriptorInfo = union(enum) {
+    buffer: vk.DescriptorBufferInfo,
+    image: vk.DescriptorImageInfo,
+};
+
 handle: vk.DescriptorSet,
 
 pool: *const DescriptorPool,
 layout: *const DescriptorSetLayout,
 
-// [binding][element]
-buffer_infos: *const std.AutoHashMap(u32, std.ArrayList(vk.DescriptorBufferInfo)),
-image_infos: *const std.AutoHashMap(u32, std.ArrayList(vk.DescriptorImageInfo)),
+descriptors: std.AutoHashMapUnmanaged(DescriptorPostion, DescriptorInfo),
 
 allocator: std.mem.Allocator,
 write_descriptor_sets: std.ArrayList(vk.WriteDescriptorSet),
@@ -19,8 +27,6 @@ pub fn init(
     pool: *const DescriptorPool,
     layout: *const DescriptorSetLayout,
     allocator: std.mem.Allocator,
-    buffer_infos: *const std.AutoHashMap(u32, std.ArrayList(vk.DescriptorBufferInfo)),
-    image_infos: *const std.AutoHashMap(u32, std.ArrayList(vk.DescriptorImageInfo)),
 ) InitError!DescriptorSet {
     const handle = try pool.allocDescriptorSet(layout);
 
@@ -28,8 +34,7 @@ pub fn init(
         .handle = handle,
         .pool = pool,
         .layout = layout,
-        .buffer_infos = buffer_infos,
-        .image_infos = image_infos,
+        .descriptors = .empty,
         .allocator = allocator,
         .write_descriptor_sets = .empty,
     };
@@ -39,80 +44,86 @@ pub fn init(
     return self;
 }
 
+pub fn deinit(self: *DescriptorSet) void {
+    self.descriptors.deinit(self.allocator);
+    self.write_descriptor_sets.deinit(self.allocator);
+}
+
+pub fn addDescriptor(
+    self: *DescriptorSet,
+    binding: u32,
+    array_element: u32,
+    info: DescriptorInfo,
+) !void {
+    try self.descriptors.put(
+        self.allocator,
+        .{
+            .binding = binding,
+            .array_element = array_element,
+        },
+        info,
+    );
+}
+
 pub const ResetError = error{};
 
 pub fn reset(
     self: *DescriptorSet,
-    buffer_infos: ?*const std.AutoHashMap(u32, std.ArrayList(vk.DescriptorBufferInfo)),
-    image_infos: ?*const std.AutoHashMap(u32, std.ArrayList(vk.DescriptorImageInfo)),
 ) !void {
-    self.image_infos.clearRetainingCapacity();
-    self.buffer_infos.clearRetainingCapacity();
-
-    if (buffer_infos != null and image_infos != null) {
-        self.image_infos = image_infos;
-        self.buffer_infos = buffer_infos;
-    }
-
     self.write_descriptor_sets.clearRetainingCapacity();
-
     try self.prepare();
 }
 
 pub fn prepare(self: *DescriptorSet) std.mem.Allocator.Error!void {
     const limits = self.pool.device.physical_device.properties.limits;
 
-    var buffers_iter = self.buffer_infos.iterator();
+    var desc_iter = self.descriptors.iterator();
 
-    while (buffers_iter.next()) |entry| {
-        const binding_index = entry.key_ptr.*;
-        const layout_binding = self.layout.bindings[binding_index];
+    while (desc_iter.next()) |entry| {
+        const position = entry.key_ptr.*;
+        var info_ptr = entry.value_ptr;
 
-        for (entry.value_ptr.items, 0..) |*buffer_info, array_index| {
-            var range = buffer_info.range;
+        const layout_binding = self.layout.bindings[position.binding];
 
-            switch (layout_binding.descriptor_type) {
-                .uniform_buffer, .uniform_buffer_dynamic => {
-                    if (range > limits.max_uniform_buffer_range)
-                        range = limits.max_uniform_buffer_range;
-                },
-                .storage_buffer, .storage_buffer_dynamic => {
-                    if (range > limits.max_storage_buffer_range)
-                        range = limits.max_storage_buffer_range;
-                },
-                else => {},
-            }
+        switch (info_ptr.*) {
+            .buffer => {
+                var range = info_ptr.buffer.range;
 
-            buffer_info.range = range;
-            try self.write_descriptor_sets.append(self.allocator, .{
-                .dst_set = self.handle,
-                .dst_binding = @intCast(binding_index),
-                .dst_array_element = @intCast(array_index),
-                .descriptor_count = 1,
-                .descriptor_type = layout_binding.descriptor_type,
-                .p_buffer_info = @ptrCast(buffer_info),
-                .p_image_info = &.{},
-                .p_texel_buffer_view = &.{},
-            });
-        }
-    }
+                switch (layout_binding.descriptor_type) {
+                    .uniform_buffer, .uniform_buffer_dynamic => {
+                        range = @min(range, limits.max_uniform_buffer_range);
+                    },
+                    .storage_buffer, .storage_buffer_dynamic => {
+                        range = @min(range, limits.max_storage_buffer_range);
+                    },
+                    else => {},
+                }
 
-    var images_iter = self.image_infos.iterator();
+                info_ptr.buffer.range = range;
 
-    while (images_iter.next()) |entry| {
-        const binding_index = entry.key_ptr.*;
-        const layout_binding = self.layout.bindings[binding_index];
-        for (entry.value_ptr.items, 0..) |*image_info, array_index| {
-            try self.write_descriptor_sets.append(self.allocator, .{
-                .dst_set = self.handle,
-                .dst_binding = @intCast(binding_index),
-                .dst_array_element = @intCast(array_index),
-                .descriptor_count = 1,
-                .descriptor_type = layout_binding.descriptor_type,
-                .p_image_info = @ptrCast(image_info),
-                .p_buffer_info = &.{},
-                .p_texel_buffer_view = &.{},
-            });
+                try self.write_descriptor_sets.append(self.allocator, .{
+                    .dst_set = self.handle,
+                    .dst_binding = position.binding,
+                    .dst_array_element = position.array_element,
+                    .descriptor_count = 1,
+                    .descriptor_type = layout_binding.descriptor_type,
+                    .p_buffer_info = @ptrCast(&info_ptr.buffer),
+                    .p_image_info = &.{},
+                    .p_texel_buffer_view = &.{},
+                });
+            },
+            .image => {
+                try self.write_descriptor_sets.append(self.allocator, .{
+                    .dst_set = self.handle,
+                    .dst_binding = position.binding,
+                    .dst_array_element = position.array_element,
+                    .descriptor_count = 1,
+                    .descriptor_type = layout_binding.descriptor_type,
+                    .p_image_info = @ptrCast(&info_ptr.image),
+                    .p_buffer_info = &.{},
+                    .p_texel_buffer_view = &.{},
+                });
+            },
         }
     }
 }

@@ -26,8 +26,14 @@ fn decompressReset(self: *AssetsManager) void {
     self.zstd_decompress = zstd.Decompress.init(&fixed_reader, self.decompress_buffer[0..], .{});
 }
 
+var file_name_buffer: [std.fs.max_name_bytes]u8 = undefined;
+var link_name_buffer: [std.fs.max_path_bytes]u8 = undefined;
+
 fn tarReset(self: *AssetsManager) void {
-    self.tar_iter = tar.Iterator.init(&self.zstd_decompress.reader, .{});
+    self.tar_iter = tar.Iterator.init(&self.zstd_decompress.reader, .{
+        .file_name_buffer = &file_name_buffer,
+        .link_name_buffer = &link_name_buffer,
+    });
 }
 
 pub fn get(self: *AssetsManager, name: []const u8, writer: *std.Io.Writer) !void {

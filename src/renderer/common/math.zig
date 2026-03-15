@@ -54,8 +54,15 @@ pub fn Vec2(T: type) type {
             };
         }
 
-        pub fn simdVector(vec: Vec2(T)) @Vector(2, T) {
+        pub fn toVector(vec: Vec2(T)) @Vector(2, T) {
             return @bitCast(vec);
+        }
+
+        pub fn fromVector(vec: @Vector(2, T)) Vec2(T) {
+            return .{
+                .x = vec[0],
+                .y = vec[1],
+            };
         }
     };
 }

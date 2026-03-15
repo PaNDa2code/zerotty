@@ -29,13 +29,12 @@ pub fn init(
 
     var image_builder = core.Image.Builder.new();
 
-    const image =
-        try image_builder
-            .setFormat(options.format)
-            .setSize(width, height)
-            .addUsage(.{ .sampled_bit = true, .transfer_dst_bit = true })
-            .setMipLevels(1)
-            .build(device_allocator);
+    const image = try image_builder
+        .setFormat(options.format)
+        .setSize(width, height)
+        .addUsage(.{ .sampled_bit = true, .transfer_dst_bit = true })
+        .setMipLevels(1)
+        .build(device_allocator);
 
     errdefer image.deinit(device_allocator);
 

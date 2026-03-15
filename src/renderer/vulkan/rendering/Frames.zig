@@ -13,19 +13,6 @@ pub const FrameResources = struct {
     descriptor_set: core.DescriptorSet,
 
     image_index: u32,
-
-    // pub fn bindTexture(
-    //     self: *FrameResources,
-    //     allocator: std.mem.Allocator,
-    //     texture: *Texture,
-    //     binding: u32,
-    //     index: u32,
-    // ) !void {
-    //     const descriptor_info = texture.image.getDescriptorImageInfo(texture.sampler);
-    //     const entry = try self.descriptor_set.image_infos.getOrPutValue(binding, .empty);
-    //
-    //     try entry.value_ptr.insert(allocator, index, descriptor_info);
-    // }
 };
 
 descriptor_layout: core.DescriptorSetLayout,
@@ -93,19 +80,11 @@ pub fn init(
             .addPoolSize(.combined_image_sampler, 1)
             .build(device);
 
-        const buffer_infos_map = try allocator.create(std.AutoHashMap(u32, std.ArrayList(vk.DescriptorBufferInfo)));
-        const image_infos_map = try allocator.create(std.AutoHashMap(u32, std.ArrayList(vk.DescriptorImageInfo)));
-
-        buffer_infos_map.* = .init(allocator);
-        image_infos_map.* = .init(allocator);
-
         resources[i].descriptor_set =
             try core.DescriptorSet.init(
                 &resources[i].descriptor_pool,
                 &descriptor_set_layout,
                 allocator,
-                buffer_infos_map,
-                image_infos_map,
             );
     }
 
@@ -137,9 +116,6 @@ pub fn deinit(self: *Frames, device: *const core.Device, allocator: std.mem.Allo
         frame.command_pool.deinit();
         frame.vertex_buffer.deinit(null);
         frame.uniform_buffer.deinit(null);
-
-        allocator.destroy(frame.descriptor_set.buffer_infos);
-        allocator.destroy(frame.descriptor_set.image_infos);
     }
 
     allocator.free(self.images_in_flight);
