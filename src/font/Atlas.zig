@@ -29,8 +29,7 @@ pub const CreateError = TrueType.GlyphBitmapError || Allocator.Error || SaveAtla
 pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32, to: u32) CreateError!Atlas {
     const glyphs_count = to - from;
 
-    const font_buffer = try assets_manager.getAlloc(allocator, "FiraCodeNerdFontMono-Regular.ttf");
-    defer allocator.free(font_buffer);
+    const font_buffer = @import("assets").fonts.@"FiraCodeNerdFontMono-Regular.ttf";
 
     const ttf = try TrueType.load(font_buffer);
     const scale = ttf.scaleForPixelHeight(@floatFromInt(cell_height));
@@ -99,7 +98,7 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
         line_height = @max(line_height, dims.height);
     }
 
-    if (builtin.mode == .Debug)
+    if (builtin.is_test)
         try saveAtlas(allocator, "temp/atlas.png", pixels, tex_width, tex_height);
 
     return .{
@@ -139,6 +138,10 @@ pub fn saveAtlas(
     try image.writeToFilePath(allocator, filename, &buff, .{ .png = .{} });
 }
 
+test Atlas {
+    var atlas = try Atlas.create(std.testing.allocator, 30, 30, 0, 255);
+    defer atlas.deinit(std.testing.allocator);
+}
 
 const std = @import("std");
 const builtin = @import("builtin");

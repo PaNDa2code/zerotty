@@ -39,3 +39,10 @@ pub const GlyphID = packed struct(u64) {
 
 pub const Cache = @import("Cache.zig");
 pub const Layout = @import("Layout.zig");
+pub const Atlas = @import("Atlas.zig");
+
+test {
+    std.testing.refAllDecls(Cache);
+    std.testing.refAllDecls(Layout);
+    std.testing.refAllDecls(Atlas);
+}

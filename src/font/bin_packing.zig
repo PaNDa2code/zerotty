@@ -36,7 +36,7 @@ pub const Packer = struct {
         allocator: std.mem.Allocator,
         height: u16,
         width: u16,
-    ) ?Postion {
+    ) !?Postion {
         var height_tracker: u16 = 0;
         for (self.shelfs.items, 0..) |*shelf, i| {
             const is_last = i == self.shelfs.items.len - 1;

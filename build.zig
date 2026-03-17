@@ -345,7 +345,13 @@ pub fn build(b: *Build) !void {
             .{import.name},
         ) catch @panic("OOM");
 
-        const test_mod_step = b.step(test_name, "");
+        const test_desc = std.fmt.allocPrint(
+            b.allocator,
+            "run module {s} test",
+            .{import.name},
+        ) catch @panic("OOM");
+
+        const test_mod_step = b.step(test_name, test_desc);
 
         import.module.resolved_target = target;
 

@@ -44,7 +44,7 @@ pub fn pushEntry(
         return entry;
 
     for (self.packers.items, 0..) |*packer, i| {
-        const position = packer.findEmptyRectangle(
+        const position = try packer.findEmptyRectangle(
             self.allocator,
             @intCast(height),
             @intCast(width),
@@ -76,7 +76,7 @@ pub fn pushEntry(
 
     const atlas_index = self.packers.items.len - 1;
 
-    const position = self.packers.items[atlas_index].findEmptyRectangle(
+    const position = try self.packers.items[atlas_index].findEmptyRectangle(
         self.allocator,
         @intCast(height),
         @intCast(width),
@@ -109,8 +109,32 @@ const CacheHashMapContext = struct {
         return @bitCast(k);
     }
 
-    pub fn eql(_: @This(), a: root.GlyphID, b: root.GlyphID, _: usize) bool {
+    pub fn eql(_: @This(), a: root.GlyphID, b: root.GlyphID) bool {
         return @as(u64, @bitCast(a)) == @as(u64, @bitCast(b));
     }
 };
 const CacheHashMap = std.hash_map.HashMapUnmanaged(root.GlyphID, root.GlyphAtlasEntry, CacheHashMapContext, 80);
+
+test Cache {
+    var cache = Cache.init(std.testing.allocator);
+    defer cache.deinit();
+
+    for (0..100_000) |_| {
+        var rand = std.Random.DefaultPrng.init(0);
+        const width = std.Random.limitRangeBiased(u64, rand.next(), std.math.maxInt(u8));
+        const height = std.Random.limitRangeBiased(u64, rand.next(), std.math.maxInt(u8));
+        const x_bearing = std.Random.limitRangeBiased(u64, rand.next(), std.math.maxInt(i8));
+        const y_bearing = std.Random.limitRangeBiased(u64, rand.next(), std.math.maxInt(i8));
+        const glyph_id = rand.next();
+        var new_atlas = false;
+
+        _ = try cache.pushEntry(
+            @bitCast(glyph_id),
+            @intCast(width),
+            @intCast(height),
+            @intCast(x_bearing),
+            @intCast(y_bearing),
+            &new_atlas,
+        );
+    }
+}

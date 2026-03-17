@@ -24,7 +24,6 @@ pub fn deinit(self: *Layout) void {
 
 pub fn iterator(self: *Layout, utf8: []const u8) ClusterIterator {
     return .{
-        .layout = self,
         .graph_cluster_iter = self.graph.iterator(utf8),
     };
 }
