@@ -8,7 +8,7 @@ pub const DebugMessagerError = vk.InstanceWrapper.CreateDebugUtilsMessengerEXTEr
 pub fn debugMessenger(
     vki: *const vk.InstanceWrapper,
     instance: vk.Instance,
-    vk_mem_cb: *const vk.AllocationCallbacks,
+    vk_mem_cb: ?*const vk.AllocationCallbacks,
 ) !vk.DebugUtilsMessengerEXT {
     if (vki.dispatch.vkCreateDebugUtilsMessengerEXT == null)
         @panic("createDebugUtilsMessengerEXT is null");

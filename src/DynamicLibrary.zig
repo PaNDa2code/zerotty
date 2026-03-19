@@ -27,7 +27,10 @@ pub fn deinit(self: *const DynamicLibrary) void {
 }
 
 fn initPosix(library_name: [*:0]const u8) !DynamicLibrary {
-    return .{ .lib = @intFromPtr(dlfcn_c.dlopen(library_name, dlfcn_c.RTLD_NOW) orelse return error.FailedToLoadDynamicLibrary) };
+    return .{ .lib = @intFromPtr(dlfcn_c.dlopen(
+        library_name,
+        dlfcn_c.RTLD_NOW,
+    ) orelse return error.FailedToLoadDynamicLibrary) };
 }
 
 fn initWindows(library_name: [*:0]const u8) !DynamicLibrary {

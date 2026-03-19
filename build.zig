@@ -206,6 +206,8 @@ pub fn build(b: *Build) !void {
             const core_mod = b.createModule(.{ .root_source_file = b.path("src/renderer/vulkan/core/root.zig") });
             const memory_mod = b.createModule(.{ .root_source_file = b.path("src/renderer/vulkan/core/memory/root.zig") });
 
+            core_mod.addImport("DynamicLibrary", dynamiclibrary_mod);
+
             renderer_mod.addImport("core", core_mod);
             renderer_mod.addImport("memory", memory_mod);
 

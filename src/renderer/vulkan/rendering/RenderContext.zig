@@ -24,7 +24,8 @@ pub fn init(allocator: std.mem.Allocator, window_handles: window.WindowHandles) 
     const instance = try allocator.create(core.Instance);
     instance.* = try core.Instance.init(
         allocator,
-        &allocator_adapter.alloc_callbacks,
+        // fixes: terminator_CreateDevice Failed in ICD libvulkan_intel.so vkCreateDevice call
+        null, // &allocator_adapter.alloc_callbacks,
         instance_extensions,
     );
     errdefer instance.deinit();
