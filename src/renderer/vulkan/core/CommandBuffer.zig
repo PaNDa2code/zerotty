@@ -464,6 +464,29 @@ pub fn draw(
     );
 }
 
+pub const DrawIndexedError = StateError;
+
+pub fn drawIndexed(
+    self: *const CommandBuffer,
+    index_count: u32,
+    instance_count: u32,
+    first_index: u32,
+    vertex_offset: i32,
+    first_instance: u32,
+) DrawError!void {
+    if (!self.recording)
+        return error.NotRecording;
+
+    self.device.vkd.cmdDrawIndexed(
+        self.handle,
+        index_count,
+        instance_count,
+        first_index,
+        vertex_offset,
+        first_instance,
+    );
+}
+
 pub const SetViewPortError = StateError;
 
 pub fn setViewPort(

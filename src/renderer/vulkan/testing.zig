@@ -1,5 +1,5 @@
 const std = @import("std");
-const core = @import("core/root.zig");
+const core = @import("core");
 
 var mutex: std.Thread.Mutex = .{};
 
@@ -14,32 +14,36 @@ fn allocAdapter() *core.memory.AllocatorAdapter {
     return vk_alloc.?;
 }
 
-pub fn getTestInstance() !*const core.Instance {
+pub fn getTestInstance() *const core.Instance {
     if (instance) |*ptr| return ptr;
 
-    instance = try core.Instance.init(
+    instance = core.Instance.init(
         std.testing.allocator,
         &allocAdapter().alloc_callbacks,
         &.{},
-    );
+    ) catch |err| {
+        std.debug.panic("testing Instance creation failed: {}", .{err});
+    };
 
     return &(instance.?);
 }
 
-pub fn getTestDevice() !*const core.Device {
+pub fn getTestDevice() *const core.Device {
     if (device) |*ptr| return ptr;
 
-    device = try core.Device.init(
+    device = core.Device.init(
         std.testing.allocator,
-        try getTestInstance(),
+        getTestInstance(),
         .null_handle,
         &.{},
-    );
+    ) catch |err| {
+        std.debug.panic("testing Device creation failed: {}", .{err});
+    };
 
     return &(device.?);
 }
 
-pub fn getTestDeviceLocked() !*const core.Device {
+pub fn getTestDeviceLocked() *const core.Device {
     mutex.lock();
     return getTestDevice();
 }

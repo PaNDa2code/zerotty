@@ -207,7 +207,7 @@ pub fn SecondaryCommandBuffer(
 
 test CommandBuffer {
     const testing = @import("../testing.zig");
-    const device = try testing.getTestDeviceLocked();
+    const device = testing.getTestDeviceLocked();
     defer testing.unlockTestDevice();
 
     var registry = CommandBufferRegistry.init(

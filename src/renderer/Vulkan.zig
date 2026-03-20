@@ -54,7 +54,7 @@ pub fn init(
             .image_attachemnt_format = swapchain.surface_format.format,
             .extent = swapchain.extent,
         },
-        .{ .descriptor_set_layouts = &.{frames.descriptor_layout} },
+        .{ .descriptor_set_layouts = frames.descriptor_layouts },
     );
 
     const targets = try allocator.alloc(Target, images_count);
@@ -205,3 +205,7 @@ const Frames = @import("vulkan/rendering/Frames.zig");
 const Target = @import("vulkan/rendering/Target.zig");
 
 const Cache = @import("vulkan/cache/Cache.zig");
+
+test Vulkan {
+    std.testing.refAllDeclsRecursive(Cache);
+}

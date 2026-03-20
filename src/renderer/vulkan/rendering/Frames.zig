@@ -10,12 +10,12 @@ pub const FrameResources = struct {
     uniform_buffer: core.Buffer,
 
     descriptor_pool: core.DescriptorPool,
-    descriptor_set: core.DescriptorSet,
+    descriptor_sets: []core.DescriptorSet,
 
     image_index: u32,
 };
 
-descriptor_layout: core.DescriptorSetLayout,
+descriptor_layouts: []core.DescriptorSetLayout,
 
 resources: []FrameResources,
 current_frame: usize = 0,
@@ -46,14 +46,18 @@ pub fn init(
     const images_in_flight = try allocator.alloc(vk.Fence, images_count);
     @memset(images_in_flight, .null_handle);
 
-    const descriptor_set_layout = try core.DescriptorSetLayout.Builder
-        .addBinding(0, .uniform_buffer, 1, .{ .vertex_bit = true })
-        .addBinding(1, .combined_image_sampler, 1, .{ .fragment_bit = true })
-        .addBinding(2, .storage_buffer, 1, .{ .vertex_bit = true })
-        .addBinding(3, .storage_buffer, 1, .{ .vertex_bit = true })
-        .build(device);
+    const descriptor_set_layouts = try allocator.alloc(core.DescriptorSetLayout, 2);
+    errdefer allocator.free(descriptor_set_layouts);
 
-    errdefer descriptor_set_layout.deinit(device);
+    descriptor_set_layouts[0] = try core.DescriptorSetLayout.Builder
+        .addBinding(0, .uniform_buffer, 1, .{ .vertex_bit = true })
+        .build(device);
+    errdefer descriptor_set_layouts[0].deinit(device);
+
+    descriptor_set_layouts[1] = try core.DescriptorSetLayout.Builder
+        .addBinding(0, .combined_image_sampler, 255, .{ .fragment_bit = true })
+        .build(device);
+    errdefer descriptor_set_layouts[1].deinit(device);
 
     for (0..max_frames_in_flight) |i| {
         resources[i].command_pool = try core.CommandPool.init(device, 0);
@@ -76,21 +80,25 @@ pub fn init(
 
         resources[i].descriptor_pool = try core.DescriptorPool.Builder
             .addPoolSize(.uniform_buffer, 1)
-            .addPoolSize(.storage_buffer, 2)
-            .addPoolSize(.combined_image_sampler, 1)
+            .addPoolSize(.combined_image_sampler, 255)
+            .setMaxSets(2)
             .build(device);
 
-        resources[i].descriptor_set =
-            try core.DescriptorSet.init(
-                &resources[i].descriptor_pool,
-                &descriptor_set_layout,
-                allocator,
-            );
+        resources[i].descriptor_sets = try allocator.alloc(
+            core.DescriptorSet,
+            descriptor_set_layouts.len,
+        );
+        errdefer allocator.free(resources[i].descriptor_sets);
+
+        for (descriptor_set_layouts, 0..) |*layout, j| {
+            resources[i].descriptor_sets[j] =
+                try core.DescriptorSet.init(&resources[i].descriptor_pool, layout, allocator);
+        }
     }
 
     return .{
         .resources = resources,
-        .descriptor_layout = descriptor_set_layout,
+        .descriptor_layouts = descriptor_set_layouts,
         .images_in_flight = images_in_flight,
 
         .image_available = image_available,
@@ -107,7 +115,9 @@ pub fn deinit(self: *Frames, device: *const core.Device, allocator: std.mem.Allo
         device.destroySemaphore(sem);
     }
 
-    self.descriptor_layout.deinit(device);
+    for (self.descriptor_layouts) |layout| {
+        layout.deinit(device);
+    }
 
     for (self.resources) |frame| {
         device.destroyFence(frame.in_flight_fence);
@@ -116,12 +126,15 @@ pub fn deinit(self: *Frames, device: *const core.Device, allocator: std.mem.Allo
         frame.command_pool.deinit();
         frame.vertex_buffer.deinit(null);
         frame.uniform_buffer.deinit(null);
+
+        allocator.free(frame.descriptor_sets);
     }
 
     allocator.free(self.images_in_flight);
     allocator.free(self.render_finished);
     allocator.free(self.image_available);
     allocator.free(self.resources);
+    allocator.free(self.descriptor_layouts);
 }
 
 pub fn frameBegin(

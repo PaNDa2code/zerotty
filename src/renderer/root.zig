@@ -24,5 +24,6 @@ pub const vertex = @import("vertex.zig");
 
 test {
     const std = @import("std");
+    std.testing.refAllDeclsRecursive(Renderer);
     std.testing.refAllDeclsRecursive(@import("spirv.zig"));
 }
