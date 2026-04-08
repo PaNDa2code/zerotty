@@ -51,23 +51,25 @@ pub fn updateDescriptorSet(
 }
 
 pub fn recordCopyCmd(
-    self: *const Cache,
+    self: *Cache,
     cmd: *const core.CommandBuffer,
     buffer: *const core.Buffer,
     allocator: std.mem.Allocator,
     entries: []const font.GlyphAtlasEntry,
 ) !void {
+    if (entries.len == 0) return;
+
+    var arina = std.heap.ArenaAllocator.init(allocator);
+    defer arina.deinit();
+    const arina_alloc = arina.allocator();
+
     const texture_count = self.textures.items.len;
-    var copy_lists = try allocator.alloc(std.ArrayList(vk.BufferImageCopy), texture_count);
-    defer allocator.free(copy_lists);
+
+    var copy_lists = try arina_alloc.alloc(std.ArrayList(vk.BufferImageCopy), texture_count);
 
     for (copy_lists) |*list| {
         list.* = std.ArrayList(vk.BufferImageCopy).empty;
     }
-
-    defer for (copy_lists) |*list| {
-        list.deinit(allocator);
-    };
 
     var buffer_offset: usize = 0;
 
@@ -98,7 +100,7 @@ pub fn recordCopyCmd(
             },
         };
 
-        try copy_lists[texture_index].append(allocator, region);
+        try copy_lists[texture_index].append(arina_alloc, region);
 
         buffer_offset += entry.width * entry.height;
     }
@@ -106,12 +108,34 @@ pub fn recordCopyCmd(
     for (copy_lists, 0..) |copy_list, texture_index| {
         if (copy_list.items.len == 0) continue;
 
+        var tex = &self.textures.items[texture_index];
+
+        try transitionImageLayout(
+            cmd,
+            tex.image.handle,
+            .{ .color_bit = true },
+            tex.layout,
+            .transfer_dst_optimal,
+            arina_alloc,
+        );
+
         try cmd.copyBufferToImage(
             buffer.handle,
-            self.textures.items[texture_index].image.handle,
+            tex.image.handle,
             .transfer_dst_optimal,
             copy_list.items,
         );
+
+        try transitionImageLayout(
+            cmd,
+            tex.image.handle,
+            .{ .color_bit = true },
+            .transfer_dst_optimal,
+            .shader_read_only_optimal,
+            arina_alloc,
+        );
+
+        tex.layout = .shader_read_only_optimal;
     }
 }
 
@@ -124,6 +148,76 @@ pub fn deinit(
         texture.deinit(device_allocator);
     }
     self.textures.deinit(allocator);
+}
+
+fn transitionImageLayout(
+    cmd_buffer: *const core.CommandBuffer,
+    image: vk.Image,
+    aspects: vk.ImageAspectFlags,
+    old_layout: vk.ImageLayout,
+    new_layout: vk.ImageLayout,
+    arina: std.mem.Allocator,
+) !void {
+    var src_access_mask: vk.AccessFlags2 = .{};
+    var dst_access_mask: vk.AccessFlags2 = .{};
+    var src_stage_mask: vk.PipelineStageFlags2 = .{};
+    var dst_stage_mask: vk.PipelineStageFlags2 = .{};
+
+    switch (old_layout) {
+        .undefined, .preinitialized => {
+            src_access_mask = .{};
+            src_stage_mask.top_of_pipe_bit = true;
+        },
+        .transfer_dst_optimal => {
+            src_access_mask.transfer_write_bit = true;
+            src_stage_mask.all_transfer_bit = true;
+        },
+        .shader_read_only_optimal => {
+            src_access_mask.shader_read_bit = true;
+            src_stage_mask.all_graphics_bit = true;
+        },
+        else => {},
+    }
+
+    switch (new_layout) {
+        .transfer_dst_optimal => {
+            dst_access_mask.transfer_write_bit = true;
+            dst_stage_mask.all_transfer_bit = true;
+        },
+        .shader_read_only_optimal => {
+            dst_access_mask.shader_read_bit = true;
+            dst_stage_mask.fragment_shader_bit = true;
+        },
+        else => {},
+    }
+
+    const barriers = [_]vk.ImageMemoryBarrier2{.{
+        .src_access_mask = src_access_mask,
+        .dst_access_mask = dst_access_mask,
+        .src_stage_mask = src_stage_mask,
+        .dst_stage_mask = dst_stage_mask,
+        .old_layout = old_layout,
+        .new_layout = new_layout,
+        .src_queue_family_index = vk.QUEUE_FAMILY_IGNORED,
+        .dst_queue_family_index = vk.QUEUE_FAMILY_IGNORED,
+        .image = image,
+        .subresource_range = .{
+            .aspect_mask = aspects,
+            .base_mip_level = 0,
+            .level_count = 1,
+            .base_array_layer = 0,
+            .layer_count = 1,
+        },
+    }};
+
+    try cmd_buffer.pipelineBarrierAuto(
+        arina,
+        .{
+            .src_stage_mask = src_stage_mask,
+            .dst_stage_mask = dst_stage_mask,
+            .image_barriers = &barriers,
+        },
+    );
 }
 
 const std = @import("std");

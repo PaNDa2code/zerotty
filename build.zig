@@ -313,9 +313,11 @@ pub fn build(b: *Build) !void {
     });
 
     // Windows Specific EXE settings
-    if (window_system == .win32 and optimize != .Debug) {
-        exe.subsystem = .Windows;
-        exe.mingw_unicode_entry_point = true;
+    if (window_system == .win32) {
+        if (optimize != .Debug) {
+            exe.subsystem = .Windows;
+            exe.mingw_unicode_entry_point = true;
+        }
         exe.bundle_compiler_rt = true;
     }
     exe.addWin32ResourceFile(.{ .file = b.path("assets/zerotty.rc") });

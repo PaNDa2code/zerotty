@@ -2,6 +2,7 @@ const Texture = @This();
 
 image: core.Image,
 sampler: core.Sampler,
+layout: vk.ImageLayout = .undefined,
 
 pub const TextureOptions = struct {
     width: u32,
@@ -43,6 +44,7 @@ pub fn init(
     return .{
         .image = image,
         .sampler = sampler,
+        .layout = .undefined,
     };
 }
 

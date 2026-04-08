@@ -13,9 +13,13 @@ pub const FrameResources = struct {
     descriptor_sets: []core.DescriptorSet,
 
     image_index: u32,
+    pending_copy_count: usize = 0,
 };
 
+uniform_stage: core.Buffer,
+
 descriptor_layouts: []core.DescriptorSetLayout,
+device_allocator: *core.memory.DeviceAllocator,
 
 resources: []FrameResources,
 current_frame: usize = 0,
@@ -27,6 +31,7 @@ render_finished: []vk.Semaphore,
 
 pub fn init(
     device: *const core.Device,
+    device_allocator: *core.memory.DeviceAllocator,
     allocator: std.mem.Allocator,
     max_frames_in_flight: usize,
     images_count: usize,
@@ -55,7 +60,7 @@ pub fn init(
     errdefer descriptor_set_layouts[0].deinit(device);
 
     descriptor_set_layouts[1] = try core.DescriptorSetLayout.Builder
-        .addBinding(0, .combined_image_sampler, 255, .{ .fragment_bit = true })
+        .addBinding(0, .combined_image_sampler, 64, .{ .fragment_bit = true })
         .build(device);
     errdefer descriptor_set_layouts[1].deinit(device);
 
@@ -64,17 +69,19 @@ pub fn init(
         resources[i].main_cmd = try resources[i].command_pool.allocBuffer(.primary);
         resources[i].in_flight_fence = try device.createFence(true);
 
-        resources[i].vertex_buffer = try core.Buffer.init(
-            device,
+        resources[i].vertex_buffer = try core.Buffer.initAlloc(
+            device_allocator,
             1024 * 1024 * 16,
-            .{ .vertex_buffer_bit = true },
+            .{ .vertex_buffer_bit = true, .transfer_dst_bit = true },
+            .{ .device_local_bit = true },
             .exclusive,
         );
 
-        resources[i].uniform_buffer = try core.Buffer.init(
-            device,
+        resources[i].uniform_buffer = try core.Buffer.initAlloc(
+            device_allocator,
             @sizeOf(root.vertex.Uniforms),
-            .{ .uniform_buffer_bit = true },
+            .{ .uniform_buffer_bit = true, .transfer_dst_bit = true },
+            .{ .host_visible_bit = true, .host_coherent_bit = true },
             .exclusive,
         );
 
@@ -96,13 +103,24 @@ pub fn init(
         }
     }
 
+    const staging = try core.Buffer.initAlloc(
+        device_allocator,
+        @sizeOf(vertex.TextUniform),
+        .{ .transfer_src_bit = true },
+        .{ .host_visible_bit = true, .host_coherent_bit = true },
+        .exclusive,
+    );
+
     return .{
         .resources = resources,
         .descriptor_layouts = descriptor_set_layouts,
+        .device_allocator = device_allocator,
         .images_in_flight = images_in_flight,
 
         .image_available = image_available,
         .render_finished = render_finished,
+
+        .uniform_stage = staging,
     };
 }
 
@@ -125,7 +143,7 @@ pub fn deinit(self: *Frames, device: *const core.Device, allocator: std.mem.Allo
         frame.descriptor_pool.deinit();
         frame.command_pool.deinit();
         frame.vertex_buffer.deinit(null);
-        frame.uniform_buffer.deinit(null);
+        frame.uniform_buffer.deinit(self.device_allocator);
 
         allocator.free(frame.descriptor_sets);
     }
@@ -175,9 +193,7 @@ pub fn frameBegin(
     return frame;
 }
 
-pub fn endFrame(self: *Frames) !void {
-    _ = self;
-}
+pub fn endFrame(_: *Frames) void {}
 
 pub fn submit(
     self: *Frames,
@@ -216,3 +232,4 @@ const vk = @import("vulkan");
 const core = @import("core");
 
 const root = @import("../../root.zig");
+const vertex = @import("../../vertex.zig");

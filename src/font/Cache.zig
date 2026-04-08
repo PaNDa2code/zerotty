@@ -63,6 +63,7 @@ pub fn pushEntry(
         };
 
         try self.map.put(self.allocator, glyph_id, entry);
+        try self.new_added_entries.append(self.allocator, entry);
 
         return entry;
     }
@@ -95,6 +96,7 @@ pub fn pushEntry(
     };
 
     try self.map.put(self.allocator, glyph_id, entry);
+    try self.new_added_entries.append(self.allocator, entry);
 
     return entry;
 }

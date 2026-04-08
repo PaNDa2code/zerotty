@@ -65,7 +65,7 @@ fn vtparserCallback(state: *const vt.ParserData, to_action: vt.Action, char: u8,
                 .fg_color = terminal.current_style.fg_color,
                 .bg_color = terminal.current_style.bg_color,
                 .flags = terminal.current_style.flags,
-                .code = @intCast(char),
+                .unicode = @intCast(char),
             }) catch unreachable;
         },
         else => {},
@@ -151,6 +151,7 @@ const std = @import("std");
 const log = std.log.scoped(.vtparser); 
 const vt = @import("vtparse");
 const color = @import("color");
+const font = @import("font");
 const Pty = @import("pty").Pty;
 const ChildProcess = @import("ChildProcess");
 const Scrollback = @import("Scrollback.zig");

@@ -148,5 +148,5 @@ const vertex_input = core.Pipeline.VertexInputDescriptionBuilder
     .addAttribute(.{ .location = 0, .binding = 0, .format = .r32_uint, .offset = @offsetOf(vertex.TextInstance, "p_postion") })
     .addAttribute(.{ .location = 1, .binding = 0, .format = .r32g32_uint, .offset = @offsetOf(vertex.TextInstance, "p_glyph_entry") })
     .addAttribute(.{ .location = 2, .binding = 0, .format = .r8g8b8a8_unorm, .offset = @offsetOf(vertex.TextInstance, "fg_color") })
-    .addAttribute(.{ .location = 3, .binding = 0, .format = .r8g8b8a8_unorm, .offset = @offsetOf(vertex.TextInstance, "fg_color") })
+    .addAttribute(.{ .location = 3, .binding = 0, .format = .r8g8b8a8_unorm, .offset = @offsetOf(vertex.TextInstance, "bg_color") })
     .collect();

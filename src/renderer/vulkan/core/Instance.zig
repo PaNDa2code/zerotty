@@ -70,10 +70,8 @@ pub fn init(
     const instance_info = vk.InstanceCreateInfo{
         .p_application_info = &.{
             .p_application_name = "zerotty",
-
             .application_version = 0,
             .api_version = api_version,
-
             .engine_version = 0,
         },
         .enabled_extension_count = @intCast(extensions.len),

@@ -34,8 +34,8 @@ layout(set = 0, binding = 0) uniform TextUniform {
 
 void main() {
   vec2 quad_position;
-  quad_position.x = float(gl_VertexIndex & 1);
-  quad_position.y = float((gl_VertexIndex >> 1u) & 1u);
+  quad_position.x = float((14 >> gl_VertexIndex) & 1);
+  quad_position.y = float((28 >> gl_VertexIndex) & 1);
 
   GlyphAtlasEntry glyph = unpackGlyphEntry(p_glyph_entry);
 

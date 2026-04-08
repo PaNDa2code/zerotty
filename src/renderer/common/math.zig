@@ -1,8 +1,12 @@
 pub fn Vec2(T: type) type {
-    return packed struct {
+    return extern struct {
         x: T,
         y: T,
         pub const zero = std.mem.zeroes(@This());
+
+        pub fn from(x: T, y: T) Vec2(T) {
+            return .{ .x = x, .y = y };
+        }
 
         pub fn add(a: Vec2(T), b: Vec2(T)) Vec2(T) {
             return .{

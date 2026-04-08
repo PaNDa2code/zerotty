@@ -9,6 +9,8 @@ io_event_loop: io.EventLoop,
 buf: []u8,
 terminal: *Terminal,
 
+font_context: *font.FontContext,
+
 pub fn init(allocator: std.mem.Allocator) !App {
     const window = try win.Window.initAlloc(allocator, .{
         .title = "zerotty",
@@ -23,7 +25,14 @@ pub fn init(allocator: std.mem.Allocator) !App {
         .grid_cols = 100,
     });
 
-    var io_event_loop = try io.EventLoop.init(allocator, 20);
+    var io_event_loop = try io.EventLoop.init(allocator, 100);
+
+    const font_context = try allocator.create(font.FontContext);
+
+    font_context.font =
+        try font.Font.init(assets.fonts.@"FiraCodeNerdFontMono-Regular.ttf", 20, 20);
+
+    font_context.cache = font.Cache.init(allocator);
 
     const terminal = try allocator.create(Terminal);
 
@@ -55,6 +64,8 @@ pub fn init(allocator: std.mem.Allocator) !App {
 
         .buf = buf,
         .terminal = terminal,
+
+        .font_context = font_context,
     };
 }
 
@@ -84,8 +95,74 @@ pub fn run(self: *App) !void {
                         size.height,
                     );
                 },
+                .input => |input_event| {
+                    if (input_event == .utf8_codepoint) {
+                        var buff: [4]u8 = undefined;
+                        const len = try std.unicode.utf8Encode(input_event.utf8_codepoint, &buff);
+                        try self.terminal.shell.stdin.?.writeAll(buff[0..len]);
+                    }
+                },
                 else => {},
             }
+        }
+
+        var instance_list: std.ArrayList(TextInstance) = .empty;
+        defer instance_list.deinit(self.allocator);
+
+        var pixels_pool: std.ArrayList(u8) = .empty;
+        defer pixels_pool.deinit(self.allocator);
+
+        var row: u32 = 0;
+        var col: u32 = 0;
+
+        for (self.terminal.grid.rows_list.items) |line| {
+            const cells = self.terminal.grid
+                .backing_store[line.cells_offset .. line.cells_offset + line.cells_len];
+
+            for (cells) |cell| {
+                if (cell.unicode == ' ') {
+                    col += 1;
+                    continue;
+                }
+                const glyph_id = font.GlyphID{
+                    .font = @enumFromInt(0),
+                    .index = @enumFromInt(cell.unicode),
+                };
+                const glyph_entry =
+                    self.font_context.cache.getAtlasEntry(glyph_id) orelse blk: {
+                        const index = self.font_context.font.ttf
+                            .codepointGlyphIndex(@intCast(cell.unicode));
+
+                        const bmp = try self.font_context.font.ttf.glyphBitmap(
+                            self.allocator,
+                            &pixels_pool,
+                            index,
+                            self.font_context.font.scale_x,
+                            self.font_context.font.scale_y,
+                        );
+
+                        var new_atlas: bool = false;
+
+                        break :blk try self.font_context.cache.pushEntry(
+                            glyph_id,
+                            @intCast(bmp.width),
+                            @intCast(bmp.height),
+                            @intCast(bmp.off_x),
+                            @intCast(bmp.off_y),
+                            &new_atlas,
+                        );
+                    };
+
+                try instance_list.append(self.allocator, .{
+                    .p_postion = (row & 0xFFFF) | (col << 16),
+                    .p_glyph_entry = @bitCast(glyph_entry),
+                    .fg_color = cell.fg_color,
+                    .bg_color = cell.bg_color,
+                });
+
+                col += 1;
+            }
+            row += 1;
         }
 
         try self.renderer.beginFrame();
@@ -98,6 +175,23 @@ pub fn run(self: *App) !void {
         );
 
         self.renderer.clear(.black);
+
+        if (self.font_context.cache.new_added_entries.items.len > 0) {
+            try self.renderer.cacheGlyphs(
+                self.font_context.cache.new_added_entries.items,
+                pixels_pool.items,
+            );
+
+            self.font_context.cache.new_added_entries.clearRetainingCapacity();
+        }
+
+        if (instance_list.items.len != 0) {
+            const batch = try self.renderer.reserveBatch(instance_list.items.len);
+            @memcpy(batch, instance_list.items);
+
+            try self.renderer.commitBatch(instance_list.items.len);
+        }
+
         try self.renderer.endFrame();
         try self.renderer.presnt();
 
@@ -142,8 +236,11 @@ const std = @import("std");
 const builtin = @import("builtin");
 const io = @import("io");
 const win = @import("window");
+const font = @import("font");
+const assets = @import("assets");
 const Terminal = @import("Terminal.zig");
 const AssetsManager = @import("AssetsManager");
+const TextInstance = @import("renderer").vertex.TextInstance;
 const Renderer = @import("renderer").Renderer;
 
 const os_tag = builtin.os.tag;

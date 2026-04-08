@@ -25,6 +25,16 @@ pub fn init(pool: *const CommandPool, level: vk.CommandBufferLevel) InitError!Co
     return pool.allocBuffer(level);
 }
 
+pub fn setObjectName(self: *const CommandBuffer, comptime fmt: []const u8, args: anytype) !void {
+    try DebugMarker(vk.CommandBuffer).setFmtName(
+        self.device.handle,
+        &self.device.vkd,
+        self.handle,
+        fmt,
+        args,
+    );
+}
+
 pub const BeginError = StateError ||
     vk.DeviceWrapper.BeginCommandBufferError;
 
@@ -53,26 +63,25 @@ pub fn beginSecondary(
         return error.StillRecording;
 
     var flags = usage_flags;
-    var inheritance_info: vk.CommandBufferInheritanceInfo = undefined;
+
+    var inheritance_info = vk.CommandBufferInheritanceInfo{
+        .subpass = 0,
+        .occlusion_query_enable = .false,
+    };
 
     if (render_pass) |rp| {
-        flags = flags.merge(.{ .render_pass_continue_bit = true });
-
-        inheritance_info = vk.CommandBufferInheritanceInfo{
-            .render_pass = rp.handle,
-            .subpass = subpass,
-            .framebuffer = if (framebuffer) |fb| fb.handle else .null_handle,
-            .occlusion_query_enable = .false,
-        };
+        flags.render_pass_continue_bit = true;
+        inheritance_info.render_pass = rp.handle;
+        inheritance_info.subpass = subpass;
+        inheritance_info.framebuffer = if (framebuffer) |fb| fb.handle else .null_handle;
     }
 
     const begin_info = vk.CommandBufferBeginInfo{
         .flags = flags,
-        .p_inheritance_info = if (render_pass != null) &inheritance_info else null,
+        .p_inheritance_info = &inheritance_info,
     };
 
     try self.device.vkd.beginCommandBuffer(self.handle, &begin_info);
-
     self.recording = true;
 }
 
@@ -199,9 +208,11 @@ pub fn bindDescriptorSet(self: *CommandBuffer, descriptor_set: *core.DescriptorS
 
 pub const CopyBufferError = StateError;
 
-pub fn copyBuffer(self: *const CommandBuffer, src: vk.Buffer, dst: vk.Buffer, regons: []vk.BufferCopy) CopyBufferError!void {
+pub fn copyBuffer(self: *const CommandBuffer, src: vk.Buffer, dst: vk.Buffer, regons: []const vk.BufferCopy) CopyBufferError!void {
     if (!self.recording)
         return error.NotRecording;
+    if (self.in_render_pass)
+        return error.InRenderPass;
 
     if (regons.len == 0) return;
 
@@ -519,3 +530,6 @@ const CommandPool = @import("CommandPool.zig");
 const RenderPass = @import("RenderPass.zig");
 const Framebuffer = @import("Framebuffer.zig");
 const Buffer = @import("Buffer.zig");
+
+const debug = core.debug;
+const DebugMarker = debug.DebugMarker;

@@ -40,9 +40,16 @@ pub const GlyphID = packed struct(u64) {
 pub const Cache = @import("Cache.zig");
 pub const Layout = @import("Layout.zig");
 pub const Atlas = @import("Atlas.zig");
+pub const Font = @import("Font.zig");
+
+pub const FontContext = struct {
+    font: Font,
+    cache: Cache,
+};
 
 test {
     std.testing.refAllDecls(Cache);
     std.testing.refAllDecls(Layout);
     std.testing.refAllDecls(Atlas);
+    std.testing.refAllDecls(Font);
 }

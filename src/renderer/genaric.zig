@@ -3,6 +3,7 @@ const win = @import("window");
 const root = @import("root.zig");
 const color = @import("color");
 const vertex = @import("vertex.zig");
+const font = @import("font");
 
 const OpenGL = @import("OpenGL.zig");
 const Vulkan = @import("Vulkan.zig");
@@ -35,11 +36,17 @@ pub fn GenaricRenderer(Impl: type) type {
         pub fn setViewport(self: *Self, x: u32, y: u32, width: u32, height: u32) !void {
             try self.inner.setViewport(x, y, width, height);
         }
-        // pub fn cacheGlyphs(self: *Self, dimensions: []const GlyphBitmap, bitmap_pool: []const u8) !void {}
+        pub fn cacheGlyphs(self: *Self, entries: []font.GlyphAtlasEntry, bitmap_pool: []const u8) !void {
+            try self.inner.cacheGlyphs(entries, bitmap_pool);
+        }
         // pub fn resetGlyphCache(self: *Self) !void {}
         // pub fn pushBatch(self: *Self) !void {}
-        // pub fn reserveBatch(self: *Self, count: usize) ![]vertex.Instance {}
-        // pub fn commitBatch(self: *Self, count: usize) !void {}
+        pub fn reserveBatch(self: *Self, count: usize) ![]vertex.TextInstance {
+            return try self.inner.reserveBatch(count);
+        }
+        pub fn commitBatch(self: *Self, count: usize) !void {
+            try self.inner.commitBatch(count);
+        }
         // pub fn draw(self: *Self) !void {}
         pub fn clear(self: *Self, bg_color: color.RGBA) void {
             self.inner.clear(bg_color);
