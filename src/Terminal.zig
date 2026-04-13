@@ -68,6 +68,20 @@ fn vtparserCallback(state: *const vt.ParserData, to_action: vt.Action, char: u8,
                 .unicode = @intCast(char),
             }) catch unreachable;
         },
+        .EXECUTE => {
+            switch (char) {
+                0x0A => {
+                    terminal.grid.appendRow() catch unreachable;
+                },
+                0x0D => {
+                    // TODO: handle carriage return if needed
+                    // Usually CR just moves cursor to column 0,
+                    // but since appendCell/appendRow handles it implicitly for now,
+                    // we might need more logic here later.
+                },
+                else => {},
+            }
+        },
         else => {},
     }
 
@@ -144,11 +158,11 @@ fn handleSGR(term: *Terminal, state: *const vt.ParserData) void {
         }
     }
 
-    log.debug("{any}", .{ term.current_style });
+    log.debug("{any}", .{term.current_style});
 }
 
 const std = @import("std");
-const log = std.log.scoped(.vtparser); 
+const log = std.log.scoped(.vtparser);
 const vt = @import("vtparse");
 const color = @import("color");
 const font = @import("font");

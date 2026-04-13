@@ -9,8 +9,6 @@ io_event_loop: io.EventLoop,
 buf: []u8,
 terminal: *Terminal,
 
-font_context: *font.FontContext,
-
 pub fn init(allocator: std.mem.Allocator) !App {
     const window = try win.Window.initAlloc(allocator, .{
         .title = "zerotty",
@@ -26,13 +24,6 @@ pub fn init(allocator: std.mem.Allocator) !App {
     });
 
     var io_event_loop = try io.EventLoop.init(allocator, 100);
-
-    const font_context = try allocator.create(font.FontContext);
-
-    font_context.font =
-        try font.Font.init(assets.fonts.@"FiraCodeNerdFontMono-Regular.ttf", 20, 20);
-
-    font_context.cache = font.Cache.init(allocator);
 
     const terminal = try allocator.create(Terminal);
 
@@ -64,8 +55,6 @@ pub fn init(allocator: std.mem.Allocator) !App {
 
         .buf = buf,
         .terminal = terminal,
-
-        .font_context = font_context,
     };
 }
 
@@ -76,6 +65,10 @@ pub fn run(self: *App) !void {
 
     var timer = try std.time.Timer.start();
     var frames: usize = 0;
+
+    var cache = font.Cache.init(self.allocator);
+    const font_ttf = try font.Font.init(assets.fonts.@"FiraCodeNerdFontMono-Regular.ttf", 32, 32);
+    const ttf = font_ttf.ttf;
 
     while (running) {
         self.window.poll();
@@ -96,10 +89,17 @@ pub fn run(self: *App) !void {
                     );
                 },
                 .input => |input_event| {
-                    if (input_event == .utf8_codepoint) {
-                        var buff: [4]u8 = undefined;
-                        const len = try std.unicode.utf8Encode(input_event.utf8_codepoint, &buff);
-                        try self.terminal.shell.stdin.?.writeAll(buff[0..len]);
+                    switch (input_event) {
+                        .utf8_codepoint => |codepoint| {
+                            var buff: [4]u8 = undefined;
+                            const len = try std.unicode.utf8Encode(codepoint, &buff);
+                            try self.terminal.shell.stdin.?.writeAll(buff[0..len]);
+                        },
+                        .keyboard => |key_event| {
+                            if (key_event.type == .press and key_event.code == 28)
+                                try self.terminal.shell.stdin.?.writeAll("\r\n");
+                        },
+                        else => {}
                     }
                 },
                 else => {},
@@ -129,21 +129,25 @@ pub fn run(self: *App) !void {
                     .index = @enumFromInt(cell.unicode),
                 };
                 const glyph_entry =
-                    self.font_context.cache.getAtlasEntry(glyph_id) orelse blk: {
-                        const index = self.font_context.font.ttf
-                            .codepointGlyphIndex(@intCast(cell.unicode));
-
-                        const bmp = try self.font_context.font.ttf.glyphBitmap(
+                    cache.getAtlasEntry(glyph_id) orelse blk: {
+                        const index = ttf.codepointGlyphIndex(@intCast(cell.unicode));
+                        const bmp = try ttf.glyphBitmap(
                             self.allocator,
                             &pixels_pool,
                             index,
-                            self.font_context.font.scale_x,
-                            self.font_context.font.scale_y,
+                            font_ttf.scale_x,
+                            font_ttf.scale_y,
                         );
+
+                        // const current_len = pixels_pool.items.len;
+                        // const align_len = std.mem.alignForward(usize, current_len, 16);
+                        //
+                        // if (current_len < align_len)
+                        //     try pixels_pool.appendNTimes(self.allocator, 0, align_len - current_len);
 
                         var new_atlas: bool = false;
 
-                        break :blk try self.font_context.cache.pushEntry(
+                        break :blk try cache.pushEntry(
                             glyph_id,
                             @intCast(bmp.width),
                             @intCast(bmp.height),
@@ -163,6 +167,7 @@ pub fn run(self: *App) !void {
                 col += 1;
             }
             row += 1;
+            col = 0;
         }
 
         try self.renderer.beginFrame();
@@ -176,13 +181,13 @@ pub fn run(self: *App) !void {
 
         self.renderer.clear(.black);
 
-        if (self.font_context.cache.new_added_entries.items.len > 0) {
+        if (cache.new_added_entries.items.len > 0) {
             try self.renderer.cacheGlyphs(
-                self.font_context.cache.new_added_entries.items,
+                cache.new_added_entries.items,
                 pixels_pool.items,
             );
 
-            self.font_context.cache.new_added_entries.clearRetainingCapacity();
+            cache.new_added_entries.clearRetainingCapacity();
         }
 
         if (instance_list.items.len != 0) {

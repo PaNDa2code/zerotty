@@ -11,6 +11,7 @@ targets: []Target,
 
 cache: Cache,
 staging_buffer: core.Buffer,
+glyph_staging_buffer: core.Buffer,
 
 current_frame: ?*Frames.FrameResources,
 current_image: u32,
@@ -77,6 +78,14 @@ pub fn init(
         .exclusive,
     );
 
+    const glyph_staging_buffer = try core.Buffer.initAlloc(
+        render_context.device_allocator,
+        2048 * 2048,
+        .{ .transfer_src_bit = true },
+        .{ .host_visible_bit = true, .host_coherent_bit = true },
+        .exclusive,
+    );
+
     return .{
         .render_context = render_context,
         .render_pipeline = render_pipeline,
@@ -85,6 +94,7 @@ pub fn init(
         .targets = targets,
         .cache = cache,
         .staging_buffer = staging_buffer,
+        .glyph_staging_buffer = glyph_staging_buffer,
         .current_image = 0,
         .current_frame = null,
         .bg_color = .black,
@@ -105,6 +115,8 @@ pub fn deinit(self: *Vulkan) void {
     }
     allocator.free(self.targets);
 
+    self.staging_buffer.deinit(device_allocator);
+    self.glyph_staging_buffer.deinit(device_allocator);
     self.cache.deinit(allocator, device_allocator);
     self.frames.deinit(device, allocator);
 
@@ -165,15 +177,15 @@ pub fn endFrame(self: *Vulkan) !void {
         const atlas_w: f32 = 2048;
         const atlas_h: f32 = 2048;
 
-        const cell_w: f32 = 20.0;
-        const cell_h: f32 = 20.0;
+        const cell_w: f32 = 25.0;
+        const cell_h: f32 = 32.0;
 
         staging_uniform_ptr.* = vertex.TextUniform{
             .screen_to_clip_scale = .from(2.0 / screen_w, 2.0 / screen_h),
             .screen_to_clip_offset = .from(-1.0, -1.0),
             .inv_atlas_size = .from(1.0 / atlas_w, 1.0 / atlas_h),
             .cell_size = .from(cell_w, cell_h),
-            .baseline = 0,
+            .baseline = 28.0,
         };
 
         var copy_cmd = try frame.command_pool.allocBuffer(.secondary);
@@ -190,8 +202,8 @@ pub fn endFrame(self: *Vulkan) !void {
             frame.uniform_buffer.handle,
             &.{
                 .{
-                    .src_offset = self.frames.uniform_stage.mem_alloc.?.offset,
-                    .dst_offset = frame.uniform_buffer.mem_alloc.?.offset,
+                    .src_offset = 0,
+                    .dst_offset = 0,
                     .size = @sizeOf(vertex.TextUniform),
                 },
             },
@@ -209,7 +221,7 @@ pub fn endFrame(self: *Vulkan) !void {
         if (frame.vertex_buffer.mem_alloc) |mem| {
             try frame.main_cmd.bindVertexBuffer(
                 &frame.vertex_buffer,
-                mem.offset,
+                0,
             );
 
             for (0..2) |i|
@@ -307,11 +319,11 @@ pub fn cacheGlyphs(
 ) !void {
     const frame = self.current_frame orelse return error.FrameDidNotStart;
 
-    if (self.staging_buffer.mem_alloc == null or
-        self.staging_buffer.mem_alloc.?.size < bitmap_pool.len)
+    if (self.glyph_staging_buffer.mem_alloc == null or
+        self.glyph_staging_buffer.mem_alloc.?.size < bitmap_pool.len)
     {
-        self.staging_buffer.deinit(self.render_context.device_allocator);
-        self.staging_buffer = try .initAlloc(
+        self.glyph_staging_buffer.deinit(self.render_context.device_allocator);
+        self.glyph_staging_buffer = try .initAlloc(
             self.render_context.device_allocator,
             bitmap_pool.len,
             .{ .transfer_src_bit = true },
@@ -320,7 +332,7 @@ pub fn cacheGlyphs(
         );
     }
 
-    const stage_slice = self.staging_buffer.hostSlice(u8) orelse
+    const stage_slice = self.glyph_staging_buffer.hostSlice(u8) orelse
         return error.MemoryMapFailed;
     @memcpy(stage_slice[0..bitmap_pool.len], bitmap_pool);
 
@@ -328,7 +340,7 @@ pub fn cacheGlyphs(
     try copy_cmd.beginSecondary(null, null, 0, .{ .one_time_submit_bit = true });
     try self.cache.recordCopyCmd(
         &copy_cmd,
-        &self.staging_buffer,
+        &self.glyph_staging_buffer,
         self.render_context.allocator_adapter.allocator,
         entries,
     );
@@ -373,8 +385,8 @@ pub fn commitBatch(self: *Vulkan, count: usize) !void {
 
         const copy_regons = [_]vk.BufferCopy{
             .{
-                .src_offset = self.staging_buffer.mem_alloc.?.offset,
-                .dst_offset = frame.vertex_buffer.mem_alloc.?.offset,
+                .src_offset = 0,
+                .dst_offset = 0,
                 .size = count * @sizeOf(vertex.TextInstance),
             },
         };
@@ -398,7 +410,7 @@ pub fn commitBatch(self: *Vulkan, count: usize) !void {
 
         try frame.main_cmd.bindVertexBuffer(
             &frame.vertex_buffer,
-            frame.vertex_buffer.mem_alloc.?.offset,
+            0,
         );
     } else return error.FrameDidNotStart;
 }

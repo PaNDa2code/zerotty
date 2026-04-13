@@ -2,7 +2,7 @@ const std = @import("std");
 const vk = @import("vulkan");
 const core = @import("../core/root.zig");
 
-pub const CommandBufferState = enum { recording, executable };
+pub const CommandBufferState = enum { inital, recording, executable };
 pub const CommandBufferType = enum { primary, secondary };
 
 const Handle = enum(u32) { invalid = std.math.maxInt(u32), _ };
@@ -216,7 +216,7 @@ test CommandBuffer {
     );
     defer registry.deinit();
 
-    var cmd_buffer = try registry.create(.primary);
+    var cmd_buffer: CommandBuffer(.executable, .primary) = try registry.create(.primary);
     var recording_cmd = try registry.begin(&cmd_buffer, .{});
     // cmd_buffer is now not usable
     //

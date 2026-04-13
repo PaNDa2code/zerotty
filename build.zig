@@ -32,7 +32,7 @@ pub fn build(b: *Build) !void {
     // -------------------------------------------------------------------------
     // Build Options
     // -------------------------------------------------------------------------
-    const use_llvm = b.option(bool, "use_llvm", "") orelse false;
+    const use_llvm = b.option(bool, "use_llvm", "") orelse (target_tag == .windows);
     const comptime_check = b.option(bool, "comptime-check", "") orelse false;
     const render_backend = b.option(RenderBackend, "render-backend", "") orelse DEFAULT_RENDER_BACKEND;
 

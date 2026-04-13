@@ -44,7 +44,7 @@ void main() {
 
   vec2 cell_origin = vec2(col, row) * ubo.cell_size;
 
-  vec2 glyph_offset = cell_origin + vec2(0.0, ubo.baseline) + glyph.bearing * vec2(1.0, -1.0);
+  vec2 glyph_offset = cell_origin + vec2(0.0, ubo.baseline) + glyph.bearing;
   vec2 vertex_position = glyph_offset + quad_position * glyph.size;
 
   gl_Position = vec4(vertex_position * ubo.screen_to_clip_scale + ubo.screen_to_clip_offset, 0.0, 1.0);

@@ -76,22 +76,20 @@ pub fn recordCopyCmd(
     for (entries) |entry| {
         const texture_index: usize = @intCast(entry.atlas_id);
 
-        const region_extent = vk.Extent3D{
-            .width = @intCast(entry.width),
-            .height = @intCast(entry.height),
-            .depth = 1,
-        };
-
         const region = vk.BufferImageCopy{
             .buffer_offset = buffer_offset,
-            .buffer_row_length = @intCast(entry.width),
-            .buffer_image_height = @intCast(entry.height),
+            .buffer_row_length = 0,
+            .buffer_image_height = 0,
             .image_offset = .{
                 .x = @intCast(entry.x),
                 .y = @intCast(entry.y),
                 .z = 0,
             },
-            .image_extent = region_extent,
+            .image_extent = .{
+                .width = @intCast(entry.width),
+                .height = @intCast(entry.height),
+                .depth = 1,
+            },
             .image_subresource = .{
                 .aspect_mask = .{ .color_bit = true },
                 .mip_level = 0,
@@ -102,7 +100,8 @@ pub fn recordCopyCmd(
 
         try copy_lists[texture_index].append(arina_alloc, region);
 
-        buffer_offset += entry.width * entry.height;
+        buffer_offset += @as(usize, entry.width) * @as(usize, entry.height);
+        // buffer_offset = std.mem.alignForward(usize, buffer_offset, 16);
     }
 
     for (copy_lists, 0..) |copy_list, texture_index| {
