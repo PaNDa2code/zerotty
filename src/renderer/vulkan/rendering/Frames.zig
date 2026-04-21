@@ -137,14 +137,17 @@ pub fn deinit(self: *Frames, device: *const core.Device, allocator: std.mem.Allo
         layout.deinit(device);
     }
 
-    for (self.resources) |frame| {
+    for (self.resources) |*frame| {
         device.destroyFence(frame.in_flight_fence);
 
         frame.descriptor_pool.deinit();
         frame.command_pool.deinit();
-        frame.vertex_buffer.deinit(null);
+        frame.vertex_buffer.deinit(self.device_allocator);
         frame.uniform_buffer.deinit(self.device_allocator);
 
+        for (frame.descriptor_sets) |*ds| {
+            ds.deinit();
+        }
         allocator.free(frame.descriptor_sets);
     }
 
@@ -153,6 +156,8 @@ pub fn deinit(self: *Frames, device: *const core.Device, allocator: std.mem.Allo
     allocator.free(self.image_available);
     allocator.free(self.resources);
     allocator.free(self.descriptor_layouts);
+
+    self.uniform_stage.deinit(self.device_allocator);
 }
 
 pub fn frameBegin(

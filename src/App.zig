@@ -67,7 +67,11 @@ pub fn run(self: *App) !void {
     var frames: usize = 0;
 
     var cache = font.Cache.init(self.allocator);
+    defer cache.deinit();
+
     const font_ttf = try font.Font.init(assets.fonts.@"FiraCodeNerdFontMono-Regular.ttf", 32, 32);
+    defer font_ttf.deinit();
+
     const ttf = font_ttf.ttf;
 
     while (running) {
@@ -99,7 +103,7 @@ pub fn run(self: *App) !void {
                             if (key_event.type == .press and key_event.code == 28)
                                 try self.terminal.shell.stdin.?.writeAll("\r\n");
                         },
-                        else => {}
+                        else => {},
                     }
                 },
                 else => {},

@@ -23,6 +23,7 @@ pub fn deinit(self: *Cache) void {
     }
     self.packers.deinit(self.allocator);
     self.map.deinit(self.allocator);
+    self.new_added_entries.deinit(self.allocator);
 }
 
 pub fn getAtlasEntry(self: *const Cache, glyph_id: root.GlyphID) ?root.GlyphAtlasEntry {

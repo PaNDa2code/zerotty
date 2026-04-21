@@ -7,6 +7,7 @@ pub const RenderBackend = enum {
     d3d11,
     opengl,
     vulkan,
+    // webgpu,
 };
 
 pub const WindowSystem = enum {
@@ -14,6 +15,7 @@ pub const WindowSystem = enum {
     xlib,
     xcb,
     glfw,
+    // web,
 };
 
 pub fn build(b: *Build) !void {
@@ -76,6 +78,8 @@ pub fn build(b: *Build) !void {
 
     const zigimg_dep = b.dependency("zigimg", .{ .target = target, .optimize = optimize });
     const zigimg_mod = zigimg_dep.module("zigimg");
+
+    // const webgpu_headers = b.dependency("webgpu_headers", .{});
 
     // -------------------------------------------------------------------------
     // Internal Modules Definition
@@ -154,6 +158,7 @@ pub fn build(b: *Build) !void {
     renderer_mod.addImport("assets", assets_mod);
     renderer_mod.addImport("DynamicLibrary", dynamiclibrary_mod);
     renderer_mod.addImport("AssetsManager", assetsmanager_mod);
+    // renderer_mod.addIncludePath(webgpu_headers.path("."));
 
     // -------------------------------------------------------------------------
     // Conditional System Dependencies

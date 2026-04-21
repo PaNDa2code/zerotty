@@ -81,6 +81,10 @@
             .hash = "glfw_zig-1.0.0-NrvYo-PXGQBHXHdzK3udR329ezIrC4k8Di1R3wWt7GjS",
             .lazy = true,
         },
+        .webgpu_headers = .{
+            .url = "https://github.com/webgpu-native/webgpu-headers/archive/refs/heads/main.zip",
+            .hash = "N-V-__8AAHTWCwBhoh386CNwTPN8Xgnf5K03yQFD6lRH8qyc",
+        },
     },
     .paths = .{
         "build.zig",

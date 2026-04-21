@@ -18,6 +18,8 @@ current_image: u32,
 
 bg_color: color.RGBA,
 
+instance_count: u32 = 0,
+
 pub fn init(
     allocator: std.mem.Allocator,
     window_handles: win.WindowHandles,
@@ -177,7 +179,7 @@ pub fn endFrame(self: *Vulkan) !void {
         const atlas_w: f32 = 2048;
         const atlas_h: f32 = 2048;
 
-        const cell_w: f32 = 25.0;
+        const cell_w: f32 = 19.0;
         const cell_h: f32 = 32.0;
 
         staging_uniform_ptr.* = vertex.TextUniform{
@@ -218,7 +220,7 @@ pub fn endFrame(self: *Vulkan) !void {
             frame.descriptor_sets[i].update();
         }
 
-        if (frame.vertex_buffer.mem_alloc) |mem| {
+        if (frame.vertex_buffer.mem_alloc != null) {
             try frame.main_cmd.bindVertexBuffer(
                 &frame.vertex_buffer,
                 0,
@@ -248,8 +250,7 @@ pub fn endFrame(self: *Vulkan) !void {
                 .@"inline",
             );
 
-            const instance_count: u32 = @intCast(mem.size / @sizeOf(vertex.TextInstance));
-            try frame.main_cmd.draw(6, instance_count, 0, 0);
+            try frame.main_cmd.draw(6, self.instance_count, 0, 0);
 
             try frame.main_cmd.endRenderPass();
         }
@@ -413,6 +414,8 @@ pub fn commitBatch(self: *Vulkan, count: usize) !void {
             0,
         );
     } else return error.FrameDidNotStart;
+
+    self.instance_count = @intCast(count);
 }
 
 const std = @import("std");
