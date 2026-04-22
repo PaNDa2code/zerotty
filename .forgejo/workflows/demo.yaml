@@ -1,0 +1,15 @@
+name: Demo Workflow
+
+on:
+  push:
+    branch:
+      - master
+      - refactor
+
+jobs:
+  test:
+    runs-on: ubuntu-latest # This matches the label in your compose file
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "Hello from my self-hosted runner!"
+
