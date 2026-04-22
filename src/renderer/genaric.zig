@@ -1,0 +1,69 @@
+const std = @import("std");
+const win = @import("window");
+const root = @import("root.zig");
+const color = @import("color");
+const vertex = @import("vertex.zig");
+const font = @import("font");
+
+const OpenGL = @import("OpenGL.zig");
+const Vulkan = @import("Vulkan.zig");
+
+pub fn GenaricRenderer(Impl: type) type {
+    return struct {
+        const Self = @This();
+
+        inner: Impl,
+
+        pub const InitError = Impl.InitError;
+        pub fn init(
+            alloc: std.mem.Allocator,
+            window_handles: win.WindowHandles,
+            settings: root.RendererSettings,
+        ) InitError!Self {
+            const inner = try Impl.init(alloc, window_handles, .{}, settings);
+            return .{
+                .inner = inner,
+            };
+        }
+
+        pub fn deinit(self: *Self) void {
+            self.inner.deinit();
+        }
+
+        pub fn resizeSurface(self: *Self, width: u32, height: u32) !void {
+            try self.inner.resizeSurface(width, height);
+        }
+        pub fn setViewport(self: *Self, x: u32, y: u32, width: u32, height: u32) !void {
+            try self.inner.setViewport(x, y, width, height);
+        }
+        pub fn cacheGlyphs(self: *Self, entries: []font.GlyphAtlasEntry, bitmap_pool: []const u8) !void {
+            try self.inner.cacheGlyphs(entries, bitmap_pool);
+        }
+        // pub fn resetGlyphCache(self: *Self) !void {}
+        // pub fn pushBatch(self: *Self) !void {}
+        pub fn reserveBatch(self: *Self, count: usize) ![]vertex.TextInstance {
+            return try self.inner.reserveBatch(count);
+        }
+        pub fn commitBatch(self: *Self, count: usize) !void {
+            try self.inner.commitBatch(count);
+        }
+        // pub fn draw(self: *Self) !void {}
+        pub fn clear(self: *Self, bg_color: color.RGBA) void {
+            self.inner.clear(bg_color);
+        }
+        pub fn beginFrame(self: *Self) !void {
+            try self.inner.beginFrame();
+        }
+        pub fn endFrame(self: *Self) !void {
+            try self.inner.endFrame();
+        }
+        pub fn presnt(self: *Self) !void {
+            try self.inner.presnt();
+        }
+    };
+}
+
+comptime {
+    _ = GenaricRenderer(OpenGL);
+    _ = GenaricRenderer(Vulkan);
+}

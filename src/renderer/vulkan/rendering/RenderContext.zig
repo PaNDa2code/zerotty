@@ -24,7 +24,8 @@ pub fn init(allocator: std.mem.Allocator, window_handles: window.WindowHandles) 
     const instance = try allocator.create(core.Instance);
     instance.* = try core.Instance.init(
         allocator,
-        &allocator_adapter.alloc_callbacks,
+        // fixes: terminator_CreateDevice Failed in ICD libvulkan_intel.so vkCreateDevice call
+        null, // &allocator_adapter.alloc_callbacks,
         instance_extensions,
     );
     errdefer instance.deinit();
@@ -67,6 +68,13 @@ pub fn init(allocator: std.mem.Allocator, window_handles: window.WindowHandles) 
 pub fn deinit(self: *RenderContext) void {
     const allocator = self.allocator_adapter.allocator;
 
+    if (self.surface != .null_handle)
+        self.instance.vki.destroySurfaceKHR(
+            self.instance.handle,
+            self.surface,
+            self.instance.vk_allocator,
+        );
+
     self.device.deinit();
     self.instance.deinit();
 
@@ -77,10 +85,28 @@ pub fn deinit(self: *RenderContext) void {
     allocator.destroy(self.device_allocator);
 }
 
+pub fn getSurfaceExtent(self: *RenderContext, width: u32, height: u32) !vk.Extent2D {
+    const caps = try self.instance.vki.getPhysicalDeviceSurfaceCapabilitiesKHR(
+        self.device.physical_device.handle,
+        self.surface,
+    );
+
+    var extent: vk.Extent2D = undefined;
+
+    if (caps.current_extent.width != std.math.maxInt(u32)) {
+        extent = caps.current_extent;
+    } else {
+        extent.width = std.math.clamp(width, caps.min_image_extent.width, caps.max_image_extent.width);
+        extent.height = std.math.clamp(height, caps.min_image_extent.height, caps.max_image_extent.height);
+    }
+
+    return extent;
+}
+
 const std = @import("std");
 const vk = @import("vulkan");
 
-const core = @import("../core/root.zig");
+const core = @import("core");
 
 const window = @import("window");
 const window_surface = @import("window_surface.zig");

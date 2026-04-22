@@ -7,6 +7,7 @@ pub const RenderBackend = enum {
     d3d11,
     opengl,
     vulkan,
+    // webgpu,
 };
 
 pub const WindowSystem = enum {
@@ -14,6 +15,7 @@ pub const WindowSystem = enum {
     xlib,
     xcb,
     glfw,
+    // web,
 };
 
 pub fn build(b: *Build) !void {
@@ -32,7 +34,7 @@ pub fn build(b: *Build) !void {
     // -------------------------------------------------------------------------
     // Build Options
     // -------------------------------------------------------------------------
-    const use_llvm = b.option(bool, "use-llvm", "") orelse false;
+    const use_llvm = b.option(bool, "use_llvm", "") orelse (target_tag == .windows);
     const comptime_check = b.option(bool, "comptime-check", "") orelse false;
     const render_backend = b.option(RenderBackend, "render-backend", "") orelse DEFAULT_RENDER_BACKEND;
 
@@ -62,12 +64,22 @@ pub fn build(b: *Build) !void {
     const truetype_dep = b.dependency("TrueType", .{ .target = target, .optimize = optimize });
     const truetype_mod = truetype_dep.module("TrueType");
 
-    const machfreetype_dep = b.dependency("mach_freetype", .{ .target = target, .optimize = optimize });
+    const machfreetype_dep = b.dependency("mach_freetype", .{
+        .target = target,
+        .optimize = optimize,
+        .use_llvm = use_llvm,
+    });
     const machfreetype_mod = machfreetype_dep.module("mach-freetype");
     const machharfbuzz_mod = machfreetype_dep.module("mach-harfbuzz");
 
+    const zg_dep = b.dependency("zg", .{ .target = target, .optimize = optimize });
+    const graphemes_mod = zg_dep.module("Graphemes");
+    const codepoint_mod = zg_dep.module("code_point");
+
     const zigimg_dep = b.dependency("zigimg", .{ .target = target, .optimize = optimize });
     const zigimg_mod = zigimg_dep.module("zigimg");
+
+    // const webgpu_headers = b.dependency("webgpu_headers", .{});
 
     // -------------------------------------------------------------------------
     // Internal Modules Definition
@@ -86,6 +98,25 @@ pub fn build(b: *Build) !void {
     const assets_mod = b.createModule(.{ .root_source_file = b.path("assets/assets.zig") });
     const renderer_mod = b.createModule(.{ .root_source_file = b.path("src/renderer/root.zig") });
     const circulararray_mod = b.createModule(.{ .root_source_file = b.path("src/circular_array/root.zig") });
+    const assetsmanager_mod = b.createModule(.{ .root_source_file = b.path("src/AssetsManager.zig") });
+
+    const assets_compress_run = b.addSystemCommand(&.{
+        "tar",
+        "-a",
+        // "-I",
+        // "zstd --ultra -22 --long=27 -T0",
+        "-cf",
+    });
+
+    assets_compress_run.setCwd(b.path("assets"));
+
+    const assets_archive_path = assets_compress_run.addOutputFileArg("assets.tar.zst");
+
+    assets_compress_run.addDirectoryArg(b.path("assets/fonts"));
+
+    assetsmanager_mod.addAnonymousImport("assets.tar.zst", .{
+        .root_source_file = assets_archive_path,
+    });
 
     // -------------------------------------------------------------------------
     // Internal Module Wiring (Imports)
@@ -112,6 +143,9 @@ pub fn build(b: *Build) !void {
     font_mod.addImport("mach-harfbuzz", machharfbuzz_mod);
     font_mod.addImport("zigimg", zigimg_mod);
     font_mod.addImport("assets", assets_mod);
+    font_mod.addImport("AssetsManager", assetsmanager_mod);
+    font_mod.addImport("Graphemes", graphemes_mod);
+    font_mod.addImport("code_point", codepoint_mod);
 
     // Renderer imports
     renderer_mod.addImport("build_options", options_mod);
@@ -122,6 +156,9 @@ pub fn build(b: *Build) !void {
     renderer_mod.addImport("window", window_mod);
     renderer_mod.addImport("math", math_mod);
     renderer_mod.addImport("assets", assets_mod);
+    renderer_mod.addImport("DynamicLibrary", dynamiclibrary_mod);
+    renderer_mod.addImport("AssetsManager", assetsmanager_mod);
+    // renderer_mod.addIncludePath(webgpu_headers.path("."));
 
     // -------------------------------------------------------------------------
     // Conditional System Dependencies
@@ -132,6 +169,8 @@ pub fn build(b: *Build) !void {
         if (b.lazyDependency("zigwin32", .{})) |dep| {
             const win32_mod = dep.module("win32");
             window_mod.addImport("win32", win32_mod);
+            renderer_mod.addImport("win32", win32_mod);
+            dynamiclibrary_mod.addImport("win32", win32_mod);
             pty_mod.addImport("win32", win32_mod);
             childprocess_mod.addImport("win32", win32_mod);
         }
@@ -153,7 +192,10 @@ pub fn build(b: *Build) !void {
     const compiled_shaders = @import("build/shaders.zig").compiledShadersPathes(
         b,
         b.path("src/renderer/shaders"),
-        &.{ "cell.frag", "cell.vert" },
+        &.{
+            "cell.frag", "cell.vert",
+            "text.frag", "text.vert",
+        },
         render_backend,
     ) catch unreachable;
     @import("build/shaders.zig").addCompiledShadersToModule(compiled_shaders, assets_mod);
@@ -166,6 +208,14 @@ pub fn build(b: *Build) !void {
             renderer_mod.addImport("gl", gl_mod);
         },
         .vulkan => {
+            const core_mod = b.createModule(.{ .root_source_file = b.path("src/renderer/vulkan/core/root.zig") });
+            const memory_mod = b.createModule(.{ .root_source_file = b.path("src/renderer/vulkan/core/memory/root.zig") });
+
+            core_mod.addImport("DynamicLibrary", dynamiclibrary_mod);
+
+            renderer_mod.addImport("core", core_mod);
+            renderer_mod.addImport("memory", memory_mod);
+
             const vulkan_headers = b.lazyDependency("vulkan_headers", .{});
 
             // Resolve Vulkan dependency based on headers presence
@@ -176,15 +226,11 @@ pub fn build(b: *Build) !void {
 
             if (vulkan_headers != null) {
                 if (vulkan_dep) |dep| {
-                    renderer_mod.addImport("vulkan", dep.module("vulkan-zig"));
+                    const mod = dep.module("vulkan-zig");
+                    core_mod.addImport("vulkan", mod);
+                    renderer_mod.addImport("vulkan", mod);
                 }
             }
-
-            const core_mod = b.createModule(.{ .root_source_file = b.path("src/renderer/vulkan/core/root.zig") });
-            const memory_mod = b.createModule(.{ .root_source_file = b.path("src/renderer/vulkan/core/memory/root.zig") });
-
-            renderer_mod.addImport("core", core_mod);
-            renderer_mod.addImport("memory", memory_mod);
         },
     }
 
@@ -192,29 +238,32 @@ pub fn build(b: *Build) !void {
     // Application Assembly
     // -------------------------------------------------------------------------
 
+    const imports = [_]Build.Module.Import{
+        .{ .name = "vtparse", .module = vtparse_mod },
+        .{ .name = "assets", .module = assets_mod },
+        .{ .name = "io", .module = io_mod },
+        .{ .name = "pty", .module = pty_mod },
+        .{ .name = "grid", .module = grid_mod },
+        .{ .name = "math", .module = math_mod },
+        .{ .name = "font", .module = font_mod },
+        .{ .name = "color", .module = color_mod },
+        .{ .name = "input", .module = input_mod },
+        .{ .name = "window", .module = window_mod },
+        .{ .name = "cursor", .module = cursor_mod },
+        .{ .name = "renderer", .module = renderer_mod },
+        .{ .name = "ChildProcess", .module = childprocess_mod },
+        .{ .name = "DynamicLibrary", .module = dynamiclibrary_mod },
+        .{ .name = "circular_array", .module = circulararray_mod },
+        .{ .name = "AssetsManager", .module = assetsmanager_mod },
+    };
+
     // Create Executable
     const exe_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
         .link_libc = true,
-        .imports = &.{
-            .{ .name = "vtparse", .module = vtparse_mod },
-            .{ .name = "assets", .module = assets_mod },
-            .{ .name = "io", .module = io_mod },
-            .{ .name = "pty", .module = pty_mod },
-            .{ .name = "grid", .module = grid_mod },
-            .{ .name = "math", .module = math_mod },
-            .{ .name = "font", .module = font_mod },
-            .{ .name = "color", .module = color_mod },
-            .{ .name = "input", .module = input_mod },
-            .{ .name = "window", .module = window_mod },
-            .{ .name = "cursor", .module = cursor_mod },
-            .{ .name = "renderer", .module = renderer_mod },
-            .{ .name = "ChildProcess", .module = childprocess_mod },
-            .{ .name = "DynamicLibrary", .module = dynamiclibrary_mod },
-            .{ .name = "circular_array", .module = circulararray_mod },
-        },
+        .imports = &imports,
     });
 
     exe_mod.addImport("build_options", options_mod);
@@ -269,9 +318,11 @@ pub fn build(b: *Build) !void {
     });
 
     // Windows Specific EXE settings
-    if (window_system == .win32 and optimize != .Debug) {
-        exe.subsystem = .Windows;
-        exe.mingw_unicode_entry_point = true;
+    if (window_system == .win32) {
+        if (optimize != .Debug) {
+            exe.subsystem = .Windows;
+            exe.mingw_unicode_entry_point = true;
+        }
         exe.bundle_compiler_rt = true;
     }
     exe.addWin32ResourceFile(.{ .file = b.path("assets/zerotty.rc") });
@@ -291,25 +342,37 @@ pub fn build(b: *Build) !void {
     run_step.dependOn(&run_cmd.step);
 
     // -------------------------------------------------------------------------
-    // Test Step
+    // Testing
     // -------------------------------------------------------------------------
-    const test_mod = b.createModule(.{
-        .root_source_file = b.path("src/test.zig"),
-        .target = target,
-        .optimize = optimize,
-        .link_libc = true,
-        // .imports = exe_imports.items,
-    });
-    test_mod.addImport("build_options", options_mod);
 
-    const unit_test = b.addTest(.{
-        .name = "zerotty",
-        .root_module = test_mod,
-    });
+    const test_step = b.step("test_all", "will run all submodules test");
 
-    const run_unit_test = b.addRunArtifact(unit_test);
-    const test_step = b.step("test", "run test.zig tests");
-    test_step.dependOn(&run_unit_test.step);
+    for (imports) |import| {
+        const test_name = std.fmt.allocPrint(
+            b.allocator,
+            "test_{s}",
+            .{import.name},
+        ) catch @panic("OOM");
+
+        const test_desc = std.fmt.allocPrint(
+            b.allocator,
+            "run module {s} test",
+            .{import.name},
+        ) catch @panic("OOM");
+
+        const test_mod_step = b.step(test_name, test_desc);
+
+        import.module.resolved_target = target;
+
+        const unit_test = b.addTest(.{
+            .name = test_name,
+            .root_module = import.module,
+        });
+
+        const run_unit_test = b.addRunArtifact(unit_test);
+        test_mod_step.dependOn(&run_unit_test.step);
+        test_step.dependOn(test_mod_step);
+    }
 }
 
 // -------------------------------------------------------------------------

@@ -7,6 +7,7 @@ handle: vk.SwapchainKHR,
 surface: vk.SurfaceKHR,
 
 images: []vk.Image,
+image_views: []vk.ImageView,
 surface_format: vk.SurfaceFormatKHR,
 
 extent: vk.Extent2D,
@@ -28,7 +29,8 @@ pub const InitError = std.mem.Allocator.Error ||
     vk.InstanceWrapper.GetPhysicalDeviceSurfacePresentModesKHRError ||
     vk.InstanceWrapper.GetPhysicalDeviceSurfaceFormatsKHRError ||
     vk.InstanceWrapper.GetPhysicalDeviceSurfaceCapabilitiesKHRError ||
-    vk.DeviceWrapper.CreateSwapchainKHRError;
+    vk.DeviceWrapper.CreateSwapchainKHRError ||
+    vk.DeviceWrapper.CreateImageViewError;
 
 pub fn init(
     instance: *const Instance,
@@ -108,6 +110,37 @@ pub fn init(
         allocator,
     );
 
+    const image_views = try allocator.alloc(vk.ImageView, images.len);
+
+    var image_view_info: vk.ImageViewCreateInfo = .{
+        .image = .null_handle,
+        .view_type = .@"2d",
+        .format = surface_format.format,
+        .components = .{
+            .r = .identity,
+            .g = .identity,
+            .b = .identity,
+            .a = .identity,
+        },
+        .subresource_range = .{
+            .base_mip_level = 0,
+            .level_count = 1,
+            .base_array_layer = 0,
+            .layer_count = 1,
+            .aspect_mask = .{ .color_bit = true },
+        },
+    };
+
+    for (0..image_views.len) |i| {
+        image_view_info.image = images[i];
+
+        image_views[i] = try device.vkd.createImageView(
+            device.handle,
+            &image_view_info,
+            device.vk_allocator,
+        );
+    }
+
     return .{
         .instance = instance,
         .device = device,
@@ -116,6 +149,7 @@ pub fn init(
         .surface = surface,
 
         .images = images,
+        .image_views = image_views,
         .surface_format = surface_format,
 
         .extent = extent,
@@ -156,15 +190,16 @@ pub fn deinit(self: *const SwapChain, allocator: std.mem.Allocator) void {
     );
 
     allocator.free(self.images);
+    allocator.free(self.image_views);
 }
 
 pub const AcquireNextImageError = vk.DeviceWrapper.AcquireNextImageKHRError;
 
-pub const AcquireNextImageResult = union(vk.Result) {
+pub const AcquireNextImageResult = union(enum) {
     success: u32,
     timeout,
     not_ready,
-    suboptimal_khr,
+    suboptimal_khr: u32,
 };
 
 pub fn acquireNextImage(
@@ -181,11 +216,11 @@ pub fn acquireNextImage(
         fence,
     );
 
-    return switch (res) {
+    return switch (res.result) {
         .success => .{ .success = res.image_index },
         .timeout => .timeout,
         .not_ready => .not_ready,
-        .suboptimal_khr => .suboptimal_khr,
+        .suboptimal_khr => .{ .suboptimal_khr = res.image_index },
         else => unreachable,
     };
 }

@@ -9,6 +9,8 @@ pub const WindowCreateOptions = struct {
     title: []const u8 = "zerotty",
     height: u32,
     width: u32,
+
+    window_requirements: WindowRequirements = .{},
 };
 
 pub const RenderCreateInfo = struct {
@@ -39,6 +41,15 @@ pub const WindowHandles = switch (Api) {
     },
 };
 
+pub const WindowRequirements = struct {
+    color_bits: u8 = 32,
+    depth_bits: u8 = 24,
+    stencil_bits: u8 = 8,
+    alpha_bits: u8 = 8,
+    double_buffer: bool = true,
+    samples: u8 = 0,
+};
+
 pub const OpenGLContextCreateInfo = struct {};
 pub const GLESContextCreateInfo = struct {};
 
@@ -47,7 +58,7 @@ pub const InputHandleCallbackFn = fn (*InputContext, u32, bool, []u8) usize;
 pub const ResizeEvent = struct {
     height: u32,
     width: u32,
-    is_live: bool, // user is still resizing
+    is_live: bool = false, // user is still resizing
 };
 
 pub const InputEvent = @import("input").InputEvent;
@@ -128,15 +139,15 @@ fn WindowInterface(WindowBackend: type) type {
         }
 
         pub fn open(self: *Self, allocator: std.mem.Allocator) !void {
+            self.w.event_queue = &self.event_queue;
             try self.w.open(allocator);
         }
 
-        pub fn setTitle(self: *Self, title: []const u8) !void {
+        pub fn setTitle(self: *Self, title: [:0]const u8) !void {
             try self.w.setTitle(title);
         }
 
         pub fn poll(self: *Self) void {
-            self.w.event_queue = &self.event_queue;
             self.w.poll();
         }
 

@@ -20,14 +20,14 @@ pub fn init(
     descriptor_info: DescriptorSetInfo,
 ) !RenderPipeline {
     var vertex_shader = core.ShaderModule.init(
-        &assets.shaders.cell_vert,
+        &assets.shaders.text_vert,
         "main",
         .vertex,
     );
     defer vertex_shader.deinit(device);
 
     var fragment_shader = core.ShaderModule.init(
-        &assets.shaders.cell_frag,
+        &assets.shaders.text_frag,
         "main",
         .fragment,
     );
@@ -139,13 +139,14 @@ const std = @import("std");
 const vk = @import("vulkan");
 const assets = @import("assets");
 
-const core = @import("../core/root.zig");
+const core = @import("core");
 
 const vertex = @import("../../root.zig").vertex;
 
 const vertex_input = core.Pipeline.VertexInputDescriptionBuilder
-    .addBinding(.{ .binding = 0, .stride = @sizeOf(vertex.Instance), .input_rate = .instance })
-    .addAttribute(.{ .location = 1, .binding = 0, .format = .r32_uint, .offset = @offsetOf(vertex.Instance, "packed_pos") })
-    .addAttribute(.{ .location = 2, .binding = 0, .format = .r32_uint, .offset = @offsetOf(vertex.Instance, "glyph_index") })
-    .addAttribute(.{ .location = 3, .binding = 0, .format = .r32_uint, .offset = @offsetOf(vertex.Instance, "style_index") })
+    .addBinding(.{ .binding = 0, .stride = @sizeOf(vertex.TextInstance), .input_rate = .instance })
+    .addAttribute(.{ .location = 0, .binding = 0, .format = .r32_uint, .offset = @offsetOf(vertex.TextInstance, "p_postion") })
+    .addAttribute(.{ .location = 1, .binding = 0, .format = .r32g32_uint, .offset = @offsetOf(vertex.TextInstance, "p_glyph_entry") })
+    .addAttribute(.{ .location = 2, .binding = 0, .format = .r8g8b8a8_unorm, .offset = @offsetOf(vertex.TextInstance, "fg_color") })
+    .addAttribute(.{ .location = 3, .binding = 0, .format = .r8g8b8a8_unorm, .offset = @offsetOf(vertex.TextInstance, "bg_color") })
     .collect();

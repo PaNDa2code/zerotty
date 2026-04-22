@@ -24,7 +24,8 @@ pub fn open(self: *Window, allocator: Allocator) !void {
 
     _ = c.glfwInit();
 
-    c.glfwWindowHint(c.GLFW_CLIENT_API, c.GLFW_NO_API);
+    if (render_backend != .opengl)
+        c.glfwWindowHint(c.GLFW_CLIENT_API, c.GLFW_NO_API);
 
     const title = try allocator.dupeZ(u8, self.title);
     defer allocator.free(title);
@@ -45,12 +46,16 @@ pub fn open(self: *Window, allocator: Allocator) !void {
     self.height = @intCast(fb_h);
 
     _ = c.glfwSetWindowUserPointer(self.window, self);
-    _ = c.glfwSetWindowSizeCallback(self.window, callbacks.windowSize);
+    _ = c.glfwSetFramebufferSizeCallback(self.window, callbacks.framebufferSize);
     _ = c.glfwSetWindowCloseCallback(self.window, callbacks.windowClose);
     _ = c.glfwSetKeyCallback(self.window, callbacks.key);
     _ = c.glfwSetCharCallback(self.window, callbacks.char);
+    _ = c.glfwSetWindowIconifyCallback(self.window, callbacks.iconify);
 
     c.glfwShowWindow(self.window);
+
+    if (render_backend == .opengl)
+        c.glfwMakeContextCurrent(self.window);
 }
 
 pub fn setTitle(self: *Window, title: []const u8) !void {
@@ -116,7 +121,7 @@ const callbacks = struct {
         window.event_queue.push(event) catch unreachable;
     }
 
-    fn windowSize(glfw_window: ?*c.GLFWwindow, width: c_int, height: c_int) callconv(.c) void {
+    fn framebufferSize(glfw_window: ?*c.GLFWwindow, width: c_int, height: c_int) callconv(.c) void {
         const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
 
         window.height = @intCast(height);
@@ -139,6 +144,11 @@ const callbacks = struct {
         window.event_queue.push(.close) catch unreachable;
     }
 
+    fn iconify(glfw_window: ?*c.GLFWwindow, iconified: c_int) callconv(.c) void {
+        const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
+        window.event_queue.push(.{ .expose = iconified == c.GLFW_TRUE }) catch unreachable;
+    }
+
     fn errorCallback(code: c_int, description: [*c]const u8) callconv(.c) void {
         std.log.scoped(.glfw).err(": {} {s}", .{ code, description });
     }
@@ -148,8 +158,12 @@ const std = @import("std");
 
 const root = @import("root.zig");
 
+const render_backend = @import("build_options").@"render-backend"; 
+
 const c = @cImport({
-    @cDefine("GLFW_INCLUDE_NONE", "");
+    if (render_backend != .opengl)
+        @cDefine("GLFW_INCLUDE_NONE", "");
+
     @cInclude("GLFW/glfw3.h");
 });
 

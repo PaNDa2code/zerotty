@@ -1,8 +1,73 @@
 pub fn Vec2(T: type) type {
-    return packed struct {
+    return extern struct {
         x: T,
         y: T,
         pub const zero = std.mem.zeroes(@This());
+
+        pub fn from(x: T, y: T) Vec2(T) {
+            return .{ .x = x, .y = y };
+        }
+
+        pub fn add(a: Vec2(T), b: Vec2(T)) Vec2(T) {
+            return .{
+                .x = a.x + b.x,
+                .y = a.y + b.y,
+            };
+        }
+
+        pub fn sub(a: Vec2(T), b: Vec2(T)) Vec2(T) {
+            return .{
+                .x = a.x - b.x,
+                .y = a.y - b.y,
+            };
+        }
+
+        pub fn subScaler(vec: Vec2(T), scaler: T) Vec2(T) {
+            return .{
+                .x = vec.x - scaler,
+                .y = vec.y - scaler,
+            };
+        }
+
+        pub fn div(a: Vec2(T), b: Vec2(T)) Vec2(T) {
+            return .{
+                .x = a.x / b.x,
+                .y = a.y / b.y,
+            };
+        }
+
+        pub fn mul(a: Vec2(T), b: Vec2(T)) Vec2(T) {
+            return .{
+                .x = a.x * b.x,
+                .y = a.y * b.y,
+            };
+        }
+
+        pub fn scale(a: Vec2(T), scaler: T) Vec2(T) {
+            return .{
+                .x = a.x * scaler,
+                .y = a.y * scaler,
+            };
+        }
+
+        pub fn inv(vec: Vec2(T)) Vec2(T) {
+            std.debug.assert(vec.x != 0 and vec.y != 0);
+            return .{
+                .x = 1 / vec.x,
+                .y = 1 / vec.y,
+            };
+        }
+
+        pub fn toVector(vec: Vec2(T)) @Vector(2, T) {
+            return @bitCast(vec);
+        }
+
+        pub fn fromVector(vec: @Vector(2, T)) Vec2(T) {
+            return .{
+                .x = vec[0],
+                .y = vec[1],
+            };
+        }
     };
 }
 

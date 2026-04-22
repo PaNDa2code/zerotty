@@ -30,6 +30,8 @@ grid: Grid,
 copy_command_buffer: core.CommandBuffer,
 copy_fence: vk.Fence,
 
+clear_color: color.RGBA = .black,
+
 pub const log = std.log.scoped(.renderer);
 
 pub fn init(
@@ -96,7 +98,12 @@ pub fn setup(
     errdefer allocator.free(self.framebuffers);
 
     for (0..self.render_targets.len) |i| {
-        self.framebuffers[i] = try core.Framebuffer.init(device, &self.render_pipeline.renderpass, &self.render_targets[i]);
+        self.framebuffers[i] = try core.Framebuffer.init(
+            device,
+            &self.render_pipeline.renderpass,
+            self.render_targets[i].image_views,
+            self.render_targets[i].extent,
+        );
     }
 
     // Setup frame synchronization
@@ -207,7 +214,7 @@ pub fn resize(self: *Backend, width: u32, height: u32) !void {
     _ = device.vkd.deviceWaitIdle(device.handle) catch {};
 
     for (self.framebuffers) |framebuffer| {
-        device.vkd.destroyFramebuffer(device.handle, framebuffer.handle, device.vk_allocator);
+        framebuffer.deinit(device);
     }
     // allocator.free(self.framebuffers);
 
@@ -284,16 +291,20 @@ pub fn renaderGrid(self: *Backend) !void {
         self.in_flight_fences[self.current_frame];
 
     // Reset fence for this frame
-    _ = device.vkd.resetFences(device.handle, 1, &.{self.in_flight_fences[self.current_frame]}) catch {};
+    try device.resetFence(self.in_flight_fences[self.current_frame]);
 
     // Reset and begin command buffer
     try self.command_buffers[self.current_frame].reset(false);
     try self.command_buffers[self.current_frame].begin(.{});
 
+    const clear_value = [_]vk.ClearValue{
+        .{ .color = .{ .float_32 = self.clear_color.floatArray() } },
+    };
+
     try self.command_buffers[self.current_frame].beginRenderPass(
         &self.render_pipeline.renderpass,
         self.framebuffers[image_index],
-        null,
+        &clear_value,
         .@"inline",
     );
 

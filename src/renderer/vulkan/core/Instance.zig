@@ -8,7 +8,7 @@ version: vk.Version,
 vkb: vk.BaseWrapper,
 vki: vk.InstanceWrapper,
 
-vk_allocator: *const vk.AllocationCallbacks,
+vk_allocator: ?*const vk.AllocationCallbacks,
 
 debug_messenger: if (builtin.mode == .Debug) vk.DebugUtilsMessengerEXT else void,
 
@@ -19,16 +19,16 @@ pub const InitError = std.mem.Allocator.Error ||
 
 pub fn init(
     allocator: std.mem.Allocator,
-    vk_allocator: *const vk.AllocationCallbacks,
+    vk_allocator: ?*const vk.AllocationCallbacks,
     required_extensions: []const [*:0]const u8,
 ) InitError!Instance {
-    const vkb = vk.BaseWrapper.load(struct {
-        const vk_lib_path: [*:0]const u8 = switch (builtin.os.tag) {
-            .windows => "C:\\Windows\\System32\\vulkan-1.dll",
-            .linux => "libvulkan.so.1",
-            else => {},
-        };
+    const vk_lib_path: [*:0]const u8 = switch (builtin.os.tag) {
+        .windows => "C:\\Windows\\System32\\vulkan-1.dll",
+        .linux => "libvulkan.so.1",
+        else => {},
+    };
 
+    const vkb = vk.BaseWrapper.load(struct {
         pub fn load(_: vk.Instance, procname: [*:0]const u8) vk.PfnVoidFunction {
             var lib = std.DynLib.openZ(vk_lib_path) catch unreachable;
             const symbol = lib.lookup(*anyopaque, std.mem.span(procname));
@@ -70,10 +70,8 @@ pub fn init(
     const instance_info = vk.InstanceCreateInfo{
         .p_application_info = &.{
             .p_application_name = "zerotty",
-
             .application_version = 0,
             .api_version = api_version,
-
             .engine_version = 0,
         },
         .enabled_extension_count = @intCast(extensions.len),
@@ -124,3 +122,5 @@ const vk = @import("vulkan");
 const builtin = @import("builtin");
 
 const debug = @import("debug.zig");
+
+const DynamicLibrary = @import("DynamicLibrary");

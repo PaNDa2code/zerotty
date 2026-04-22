@@ -81,6 +81,10 @@ pub fn createFence(self: *const Device, signaled: bool) CreateFenceError!vk.Fenc
     );
 }
 
+pub fn destroyFence(self: *const Device, fence: vk.Fence) void {
+    self.vkd.destroyFence(self.handle, fence, self.vk_allocator);
+}
+
 pub const WaitFenceError = vk.DeviceWrapper.WaitForFencesError;
 
 pub const WaitFenceResult = enum(i32) {
@@ -98,10 +102,20 @@ pub fn waitFence(self: *const Device, fence: vk.Fence, timeout: u64) WaitFenceEr
     };
 }
 
+pub const ResetFenceError = vk.DeviceWrapper.ResetFencesError;
+
+pub fn resetFence(self: *const Device, fence: vk.Fence) ResetFenceError!void {
+    try self.vkd.resetFences(self.handle, 1, &.{fence});
+}
+
 pub const CreateSemaphoreError = vk.DeviceWrapper.CreateSemaphoreError;
 
 pub fn createSemaphore(self: *const Device) CreateSemaphoreError!vk.Semaphore {
     return self.vkd.createSemaphore(self.handle, &.{}, self.vk_allocator);
+}
+
+pub fn destroySemaphore(self: *const Device, semaphore: vk.Semaphore) void {
+    self.vkd.destroySemaphore(self.handle, semaphore, self.vk_allocator);
 }
 
 fn createDevice(

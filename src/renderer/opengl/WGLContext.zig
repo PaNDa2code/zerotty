@@ -16,7 +16,12 @@ pub const CreateOpenGLContextError = error{
     DescribePixelFormat,
 };
 
-pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLContext {
+pub fn createOpenGLContext(
+    window_handles: window.WindowHandles,
+    window_reqs: window.WindowRequirements,
+) CreateOpenGLContextError!OpenGLContext {
+    const hwnd: HWND = @ptrCast(window_handles.hwnd);
+
     const dummy_window_class_name = std.unicode.wtf8ToWtf16LeStringLiteral("Core");
     const dummy_window_class = std.mem.zeroInit(windows.WNDCLASSW, .{
         .lpszClassName = dummy_window_class_name,
@@ -49,9 +54,9 @@ pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLConte
         .nVersion = 1,
         .dwFlags = .{ .DRAW_TO_WINDOW = 1, .SUPPORT_OPENGL = 1, .DOUBLEBUFFER = 1 },
         .iPixelType = .RGBA,
-        .cColorBits = 32,
+        .cColorBits = window_reqs.color_bits,
         .cAlphaBits = 8,
-        .cDepthBits = 24,
+        .cDepthBits = window_reqs.depth_bits,
     });
 
     const temp_format = open_gl.ChoosePixelFormat(dummy_dc, &temp_pf_disc);
@@ -83,22 +88,22 @@ pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLConte
     const pixel_attribus = [_]i32{
         WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
         WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
-        WGL_DOUBLE_BUFFER_ARB,  GL_TRUE,
+        WGL_DOUBLE_BUFFER_ARB,  if (window_reqs.double_buffer) GL_TRUE else GL_FALSE,
         WGL_PIXEL_TYPE_ARB,     WGL_TYPE_RGBA_ARB,
         WGL_ACCELERATION_ARB,   WGL_FULL_ACCELERATION_ARB,
-        WGL_COLOR_BITS_ARB,     32,
-        WGL_ALPHA_BITS_ARB,     8,
-        WGL_DEPTH_BITS_ARB,     24,
-        WGL_STENCIL_BITS_ARB,   8,
+        WGL_COLOR_BITS_ARB,     @intCast(window_reqs.color_bits),
+        WGL_ALPHA_BITS_ARB,     @intCast(window_reqs.alpha_bits),
+        WGL_DEPTH_BITS_ARB,     @intCast(window_reqs.depth_bits),
+        WGL_STENCIL_BITS_ARB,   @intCast(window_reqs.stencil_bits),
         WGL_SAMPLE_BUFFERS_ARB, GL_TRUE,
-        WGL_SAMPLES_ARB,        4,
+        WGL_SAMPLES_ARB,        @intCast(window_reqs.samples),
         0,
     };
 
     var pixel_format_id: i32 = 0;
     var num_formats: u32 = 0;
 
-    const dc = gdi.GetDC(window.hwnd) orelse return error.GetDC;
+    const dc = gdi.GetDC(hwnd) orelse return error.GetDC;
 
     const status = wglChoosePixelFormatARB(
         dc,
@@ -160,7 +165,7 @@ pub fn createOpenGLContext(window: *Window) CreateOpenGLContextError!OpenGLConte
     return .{
         .device_context = dc,
         .opengl_rendering_context = rc.?,
-        .window_handle = window.hwnd,
+        .window_handle = hwnd,
         .wglSwapIntervalEXT = wglSwapIntervalEXT,
     };
 }
@@ -204,6 +209,8 @@ const GL_TRUE: u32 = 1;
 
 const std = @import("std");
 const gl = @import("gl");
+
+const window = @import("window");
 
 const win32 = @import("win32");
 const windows = win32.ui.windows_and_messaging;

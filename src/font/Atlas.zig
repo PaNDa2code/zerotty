@@ -28,7 +28,10 @@ pub const CreateError = TrueType.GlyphBitmapError || Allocator.Error || SaveAtla
 // TODO: glyphs are not placed correctly on the baseline
 pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32, to: u32) CreateError!Atlas {
     const glyphs_count = to - from;
-    const ttf = try TrueType.load(assets.fonts.@"FiraCodeNerdFontMono-Regular.ttf");
+
+    const font_buffer = @import("assets").fonts.@"FiraCodeNerdFontMono-Regular.ttf";
+
+    const ttf = try TrueType.load(font_buffer);
     const scale = ttf.scaleForPixelHeight(@floatFromInt(cell_height));
 
     var buffer = try std.ArrayList(u8).initCapacity(allocator, cell_height * cell_width);
@@ -95,9 +98,7 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
         line_height = @max(line_height, dims.height);
     }
 
-    try shape("Hello");
-
-    if (builtin.mode == .Debug)
+    if (builtin.is_test)
         try saveAtlas(allocator, "temp/atlas.png", pixels, tex_width, tex_height);
 
     return .{
@@ -137,40 +138,15 @@ pub fn saveAtlas(
     try image.writeToFilePath(allocator, filename, &buff, .{ .png = .{} });
 }
 
-fn shape(string: []const u8) !void {
-    const font_bytes = assets.fonts.@"FiraCodeNerdFontMono-Regular.ttf";
-
-    const font_size = 13;
-    const ft_lib = try ft.Library.init();
-    const ft_face = try ft_lib.createFaceMemory(font_bytes, 0);
-    const hb_face = hb.Face.fromFreetypeFace(ft_face);
-    const hb_font = hb.Font.init(hb_face);
-
-    try ft_face.setPixelSizes(0, font_size);
-    hb_font.setScale(font_size * 64, font_size * 64);
-
-    const buffer = hb.Buffer.init() orelse
-        return error.OutOfMemory;
-    defer buffer.deinit();
-
-    buffer.addUTF8(string, 0, null);
-    buffer.guessSegmentProps();
-
-    hb_font.shape(buffer, null);
-
-    const infos = buffer.getGlyphInfos();
-    const positions = buffer.getGlyphPositions() orelse
-        return error.OutOfMemory;
-
-    for (infos, positions) |info, position| {
-        std.log.debug("infos = {any}", .{info});
-        std.log.debug("position = {any}", .{position});
-    }
+test Atlas {
+    var atlas = try Atlas.create(std.testing.allocator, 30, 30, 0, 255);
+    defer atlas.deinit(std.testing.allocator);
 }
 
 const std = @import("std");
 const builtin = @import("builtin");
-const assets = @import("assets");
+const AssetsManager = @import("AssetsManager");
+const assets_manager = &AssetsManager.instance;
 const zigimg = @import("zigimg");
 const Allocator = std.mem.Allocator;
 
@@ -178,5 +154,3 @@ const math = @import("math");
 const Vec2 = math.Vec2;
 
 const TrueType = @import("TrueType");
-const ft = @import("mach-freetype");
-const hb = @import("mach-harfbuzz");

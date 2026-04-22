@@ -100,6 +100,16 @@ pub fn allocBuffer(
     };
 }
 
+pub const ResetError = vk.DeviceWrapper.ResetCommandPoolError;
+
+pub fn reset(self: *const CommandPool, release_resources: bool) !void {
+    try self.device.vkd.resetCommandPool(
+        self.device.handle,
+        self.handle,
+        .{ .release_resources_bit = release_resources },
+    );
+}
+
 const std = @import("std");
 const vk = @import("vulkan");
 const Device = @import("Device.zig");

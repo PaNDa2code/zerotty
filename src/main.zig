@@ -28,7 +28,17 @@ fn panicHandle(msg: []const u8, first_trace_addr: ?usize) noreturn {
     std.debug.defaultPanic(msg, first_trace_addr);
 }
 
-export fn wWinMain() callconv(.winapi) i32 {
+export fn wWinMain(
+    hInstance: ?*anyopaque,
+    hPrevInstance: ?*anyopaque,
+    pCmdLine: *[*:0]const u16,
+    nCmdShow: i32,
+) callconv(.winapi) i32 {
+    _ = hInstance;
+    _ = hPrevInstance;
+    _ = pCmdLine;
+    _ = nCmdShow;
+
     main() catch |e| {
         std.debug.panic("{}", .{e});
     };

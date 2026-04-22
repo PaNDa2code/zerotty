@@ -12,4 +12,3 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: echo "Hello from my self-hosted runner!"
-

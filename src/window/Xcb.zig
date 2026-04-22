@@ -222,7 +222,7 @@ fn resizeCallBack(self: *Window, height: u32, width: u32) !void {
     try self.renderer.resize(width, height);
 }
 
-pub fn setTitle(self: *Window, title: []const u8) !void {
+pub fn setTitle(self: *Window, title: [:0]const u8) !void {
     const title_cookie = c.xcb_change_property_checked(
         self.connection,
         c.XCB_PROP_MODE_REPLACE,
@@ -300,8 +300,14 @@ pub fn poll(self: *Window) void {
             },
             c.XCB_CONFIGURE_NOTIFY => {
                 const cfg: *c.xcb_configure_notify_event_t = @ptrCast(event);
-                self.height = @intCast(cfg.height);
-                self.width = @intCast(cfg.width);
+                const height: u32 = @intCast(cfg.height);
+                const width: u32 = @intCast(cfg.width);
+
+                if (self.width == width and self.height == height)
+                    continue;
+
+                self.height = height;
+                self.width = width;
 
                 const window_event = root.WindowEvent{
                     .resize = .{

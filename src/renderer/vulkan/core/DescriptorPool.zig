@@ -4,21 +4,25 @@ device: *const Device,
 
 handle: vk.DescriptorPool,
 
-pub const Builder = DescriptorPoolBuilder(&.{});
+pub const Builder = DescriptorPoolBuilder(&.{}, 1);
 
-fn DescriptorPoolBuilder(comptime Sizes: []const vk.DescriptorPoolSize) type {
+fn DescriptorPoolBuilder(comptime Sizes: []const vk.DescriptorPoolSize, comptime MaxSets: comptime_int) type {
     return struct {
         pub fn addPoolSize(
             comptime d_type: vk.DescriptorType,
             comptime d_count: comptime_int,
         ) type {
-            return DescriptorPoolBuilder(Sizes ++ &[_]vk.DescriptorPoolSize{.{ .type = d_type, .descriptor_count = d_count }});
+            return DescriptorPoolBuilder(Sizes ++ &[_]vk.DescriptorPoolSize{.{ .type = d_type, .descriptor_count = d_count }}, MaxSets);
+        }
+
+        pub fn setMaxSets(max_sets: comptime_int) type {
+            return DescriptorPoolBuilder(Sizes, max_sets);
         }
 
         pub fn build(
             device: *const Device,
         ) InitError!DescriptorPool {
-            return init(device, Sizes);
+            return init(device, Sizes, MaxSets);
         }
     };
 }
@@ -28,9 +32,10 @@ pub const InitError = vk.DeviceWrapper.CreateDescriptorPoolError;
 pub fn init(
     device: *const Device,
     pool_sizes: []const vk.DescriptorPoolSize,
+    max_sets: u32,
 ) InitError!DescriptorPool {
     const descript_pool_info = vk.DescriptorPoolCreateInfo{
-        .max_sets = 1,
+        .max_sets = max_sets,
         .pool_size_count = @intCast(pool_sizes.len),
         .p_pool_sizes = pool_sizes.ptr,
     };
@@ -58,7 +63,7 @@ pub fn deinit(self: *const DescriptorPool) void {
 
 pub const AllocDescriptorError = vk.DeviceWrapper.AllocateDescriptorSetsError;
 
-pub fn allocDescriptorSets(
+pub fn allocDescriptorSet(
     self: *const DescriptorPool,
     descriptor_set_layout: *const DescriptorSetLayout,
 ) AllocDescriptorError!vk.DescriptorSet {

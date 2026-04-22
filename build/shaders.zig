@@ -19,14 +19,13 @@ pub fn compiledShadersPathes(
         try findPathAlloc(b.allocator, "glslangValidator") != null and
         try findPathAlloc(b.allocator, "spirv-opt") != null;
 
-    var glslang: ?*Build.Dependency = null;
     var spirv_opt: ?*Build.Step.Compile = null;
     var glslangValidator: ?*Build.Step.Compile = null;
 
     if (!glslang_tools_installed) {
-        glslang = b.lazyDependency("glslang", .{ .optimize = .ReleaseFast }) orelse return &.{};
-        glslangValidator = glslang.?.artifact("glslangValidator");
-        spirv_opt = glslang.?.artifact("spirv-opt");
+        const glslang = b.lazyDependency("glslang", .{ .optimize = .ReleaseFast }) orelse return &.{};
+        glslangValidator = glslang.artifact("glslangValidator");
+        spirv_opt = glslang.artifact("spirv-opt");
     }
 
     for (files, 0..) |file, i| {
@@ -42,12 +41,12 @@ pub fn compiledShadersPathes(
         glslangValidator_cmd.addFileArg(path);
         glslangValidator_cmd.addPrefixedDirectoryArg("-I", path.dirname());
 
+        glslangValidator_cmd.addArg("--target-env");
         if (renderer == .vulkan)
-            glslangValidator_cmd.addArg("-V");
+            glslangValidator_cmd.addArg("vulkan1.0");
         if (renderer == .opengl)
-            glslangValidator_cmd.addArg("-G");
+            glslangValidator_cmd.addArg("opengl");
 
-        // addPrefixedOutputFileArg not working with glslang
         glslangValidator_cmd.addArg("-o");
         const shader_spv_path = glslangValidator_cmd.addOutputFileArg(output_basename);
 
@@ -70,7 +69,9 @@ pub fn compiledShadersPathes(
             } else shader_spv_path;
 
         if (b.release_mode == .off)
-            glslangValidator_cmd.addArg("-gVS");
+            glslangValidator_cmd.addArg("-gVS")
+        else 
+            glslangValidator_cmd.addArg("-g0");
 
         shader_pathes[i] = .{
             .name = output_basename,

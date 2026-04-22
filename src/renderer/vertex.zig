@@ -33,5 +33,20 @@ pub const Uniforms = packed struct {
     descender: f32,
 };
 
+pub const TextInstance = extern struct {
+    p_postion: u32,
+    p_glyph_entry: math.Vec2(u32),
+    fg_color: color.RGBA,
+    bg_color: color.RGBA,
+};
+
+pub const TextUniform = extern struct {
+    screen_to_clip_scale: math.Vec2(f32),
+    screen_to_clip_offset: math.Vec2(f32),
+    inv_atlas_size: math.Vec2(f32), // 1 / atlas_size
+    cell_size: math.Vec2(f32),
+    baseline: f32,
+};
+
 const math = @import("math");
 const color = @import("color");

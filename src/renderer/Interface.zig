@@ -55,6 +55,7 @@ vtable: VTable,
 
 const std = @import("std");
 const color = @import("color");
+const win = @import("window");
 const TrueType = @import("TrueType");
 
 const RGBA = color.RGBA;

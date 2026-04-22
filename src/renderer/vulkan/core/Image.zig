@@ -185,11 +185,19 @@ pub const Builder = struct {
     }
 };
 
-pub fn getDescriptorImageInfo(self: *const Image, sampler: vk.Sampler) vk.DescriptorImageInfo {
+pub fn getDescriptorImageInfo(self: *const Image, sampler: Sampler) vk.DescriptorImageInfo {
     return .{
-        .sampler = sampler,
+        .sampler = sampler.handle,
         .image_view = self.view,
         .image_layout = .shader_read_only_optimal,
+    };
+}
+
+pub fn getDescriptorImageInfoWithLayout(self: *const Image, sampler: Sampler, layout: vk.ImageLayout) vk.DescriptorImageInfo {
+    return .{
+        .sampler = sampler.handle,
+        .image_view = self.view,
+        .image_layout = layout,
     };
 }
 
@@ -204,7 +212,9 @@ pub fn deinit(self: *const Image, device_allocator: *DeviceAllocator) void {
 
 const std = @import("std");
 const vk = @import("vulkan");
-const Device = @import("Device.zig");
+const core = @import("root.zig");
+const Device = core.Device;
+const Sampler = core.Sampler;
 const memory = @import("memory/root.zig");
 const DeviceAllocator = memory.DeviceAllocator;
 const DeviceAllocation = DeviceAllocator.DeviceAllocation;

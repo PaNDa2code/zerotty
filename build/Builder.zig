@@ -239,7 +239,12 @@ fn addImports(self: *Builder) void {
     const compiled_shaders = @import("shaders.zig").compiledShadersPathes(
         self.b,
         self.b.path("src/renderer/shaders"),
-        &.{ "cell.frag", "cell.vert" },
+        &.{
+            "cell.vert",
+            "cell.frag",
+            "text.vert",
+            "text.frag",
+        },
         self.render_backend,
     ) catch unreachable;
 

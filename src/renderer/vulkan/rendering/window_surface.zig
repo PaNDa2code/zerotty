@@ -3,7 +3,7 @@ const vk = @import("vulkan");
 
 const build_options = @import("build_options");
 
-const Instance = @import("../core/root.zig").Instance;
+const Instance = @import("core").Instance;
 
 pub const SurfaceCreationInfo = union(enum) {
     win32: struct {
