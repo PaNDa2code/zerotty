@@ -1,5 +1,11 @@
 name: Demo Workflow
-on: [push]
+
+on:
+  push:
+    branch:
+      - master
+      - refactor
+
 jobs:
   test:
     runs-on: ubuntu-latest # This matches the label in your compose file
