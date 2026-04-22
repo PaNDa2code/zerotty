@@ -1,10 +1,6 @@
 name: Demo Workflow
 
-on:
-  push:
-    branch:
-      - master
-      - refactor
+on: [push]
 
 jobs:
   test:
