@@ -1,0 +1,18 @@
+name: Run Unit-Tests
+
+on:
+  push:
+    branches:
+      master
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Setup zig
+        uses: https://codeberg.org/mlugg/setup-zig@v2.2.1
+
+
