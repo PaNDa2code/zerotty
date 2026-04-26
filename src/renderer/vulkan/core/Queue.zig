@@ -33,7 +33,7 @@ pub fn init(
 pub const SupmitError = vk.DeviceWrapper.QueueSubmitError;
 
 pub fn submit(self: *const Queue, infos: []const vk.SubmitInfo, fence: vk.Fence) SupmitError!void {
-    try self.device.vkd.queueSubmit(self.handle, @intCast(infos.len), infos.ptr, fence);
+    try self.device.vkd.queueSubmit(self.handle, infos, fence);
 }
 
 pub fn submitOne(

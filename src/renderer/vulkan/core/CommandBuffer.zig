@@ -187,7 +187,6 @@ pub fn bindVertexBuffer(self: *CommandBuffer, buffer: *const Buffer, offset: u64
     self.device.vkd.cmdBindVertexBuffers(
         self.handle,
         0,
-        1,
         &.{buffer.handle},
         &.{offset},
     );
@@ -199,9 +198,7 @@ pub fn bindDescriptorSet(self: *CommandBuffer, descriptor_set: *core.DescriptorS
         .graphics,
         pipeline_layout,
         set,
-        1,
         &.{descriptor_set.handle},
-        0,
         null,
     );
 }
@@ -220,8 +217,7 @@ pub fn copyBuffer(self: *const CommandBuffer, src: vk.Buffer, dst: vk.Buffer, re
         self.handle,
         src,
         dst,
-        @intCast(regons.len),
-        regons.ptr,
+        regons,
     );
 }
 
@@ -238,8 +234,7 @@ pub fn copyBufferToImage(self: *const CommandBuffer, src: vk.Buffer, dst: vk.Ima
         src,
         dst,
         dst_layout,
-        @intCast(regons.len),
-        regons.ptr,
+        regons,
     );
 }
 
@@ -384,12 +379,9 @@ pub fn pipelineBarrier(
         src_stage_mask,
         dst_stage_mask,
         dependency_flags,
-        if (memory_barriers) |b| @intCast(b.len) else 0,
-        if (memory_barriers) |b| b.ptr else null,
-        if (buffer_memory_barriers) |b| @intCast(b.len) else 0,
-        if (buffer_memory_barriers) |b| b.ptr else null,
-        if (image_memory_barriers) |b| @intCast(b.len) else 0,
-        if (image_memory_barriers) |b| b.ptr else null,
+        memory_barriers,
+        buffer_memory_barriers,
+        image_memory_barriers,
     );
 }
 
@@ -441,7 +433,7 @@ pub fn executeCommands(self: *const CommandBuffer, cmds: []vk.CommandBuffer) Exe
 
     if (cmds.len == 0) return;
 
-    self.device.vkd.cmdExecuteCommands(self.handle, @intCast(cmds.len), cmds.ptr);
+    self.device.vkd.cmdExecuteCommands(self.handle, cmds);
 }
 
 pub fn executeCommand(self: *const CommandBuffer, cmd: vk.CommandBuffer) ExecuteCommandsError!void {
@@ -451,7 +443,7 @@ pub fn executeCommand(self: *const CommandBuffer, cmd: vk.CommandBuffer) Execute
     if (self.level == .secondary)
         return error.OperationNotAllowedOnSecondary;
 
-    self.device.vkd.cmdExecuteCommands(self.handle, 1, @ptrCast(&cmd));
+    self.device.vkd.cmdExecuteCommands(self.handle, &.{cmd});
 }
 
 pub const DrawError = StateError;
@@ -502,24 +494,24 @@ pub const SetViewPortError = StateError;
 
 pub fn setViewPort(
     self: *const CommandBuffer,
-    view_port: *const vk.Viewport,
+    view_port: vk.Viewport,
 ) SetViewPortError!void {
     if (!self.recording)
         return error.NotRecording;
 
-    self.device.vkd.cmdSetViewport(self.handle, 0, 1, @as([*]const vk.Viewport, @ptrCast(view_port)));
+    self.device.vkd.cmdSetViewport(self.handle, 0, &.{view_port});
 }
 
 pub const SetScissorError = StateError;
 
 pub fn setScissor(
     self: *const CommandBuffer,
-    scissor: *const vk.Rect2D,
+    scissor: vk.Rect2D,
 ) SetScissorError!void {
     if (!self.recording)
         return error.NotRecording;
 
-    self.device.vkd.cmdSetScissor(self.handle, 0, 1, @as([*]const vk.Rect2D, @ptrCast(scissor)));
+    self.device.vkd.cmdSetScissor(self.handle, 0, &.{scissor});
 }
 
 const std = @import("std");

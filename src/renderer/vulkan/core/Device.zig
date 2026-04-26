@@ -93,7 +93,7 @@ pub const WaitFenceResult = enum(i32) {
 };
 
 pub fn waitFence(self: *const Device, fence: vk.Fence, timeout: u64) WaitFenceError!WaitFenceResult {
-    const res = try self.vkd.waitForFences(self.handle, 1, &.{fence}, .true, timeout);
+    const res = try self.vkd.waitForFences(self.handle, &.{fence}, .true, timeout);
 
     return switch (res) {
         .success => .success,
@@ -105,7 +105,7 @@ pub fn waitFence(self: *const Device, fence: vk.Fence, timeout: u64) WaitFenceEr
 pub const ResetFenceError = vk.DeviceWrapper.ResetFencesError;
 
 pub fn resetFence(self: *const Device, fence: vk.Fence) ResetFenceError!void {
-    try self.vkd.resetFences(self.handle, 1, &.{fence});
+    try self.vkd.resetFences(self.handle, &.{fence});
 }
 
 pub const CreateSemaphoreError = vk.DeviceWrapper.CreateSemaphoreError;

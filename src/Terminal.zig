@@ -20,7 +20,12 @@ pub const TerminalSettings = struct {
     cols: u32,
 };
 
-pub fn init(allocator: std.mem.Allocator, settings: TerminalSettings) !Terminal {
+pub fn init(
+    io: std.Io,
+    environ_map: *std.process.Environ.Map,
+    allocator: std.mem.Allocator,
+    settings: TerminalSettings,
+) !Terminal {
     var pty: Pty = undefined;
     try pty.open(.{
         .shell = .bash,
@@ -31,7 +36,7 @@ pub fn init(allocator: std.mem.Allocator, settings: TerminalSettings) !Terminal 
         .exe_path = settings.shell_path,
         .args = settings.shell_args,
     };
-    try shell.start(allocator, &pty);
+    try shell.start(io, environ_map, allocator, &pty);
 
     const grid = try Grid.init(allocator, .{
         .visable_columns = settings.cols,

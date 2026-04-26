@@ -48,7 +48,7 @@ pub const Context = struct {
         const sq_address = linux.mmap(
             null,
             sq_size,
-            linux.PROT.READ | linux.PROT.WRITE,
+            .{ .READ = true, .WRITE = true },
             .{ .TYPE = .SHARED, .POPULATE = true },
             fd,
             linux.IORING_OFF_SQ_RING,
@@ -64,7 +64,7 @@ pub const Context = struct {
             linux.mmap(
                 null,
                 cq_size,
-                linux.PROT.READ | linux.PROT.WRITE,
+                .{ .READ = true, .WRITE = true },
                 .{ .TYPE = .SHARED, .POPULATE = true },
                 fd,
                 linux.IORING_OFF_CQ_RING,
@@ -77,7 +77,7 @@ pub const Context = struct {
         const sqes_address = linux.mmap(
             null,
             sqes_size,
-            linux.PROT.READ | linux.PROT.WRITE,
+            .{ .READ = true, .WRITE = true },
             .{ .TYPE = .SHARED, .POPULATE = true },
             fd,
             linux.IORING_OFF_SQES,
@@ -181,7 +181,7 @@ pub const Context = struct {
             null,
         );
 
-        if (linux.E.init(res) != .SUCCESS) {
+        if (res < 0) {
             return error.SubmitFailed;
         }
     }

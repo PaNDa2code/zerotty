@@ -250,10 +250,9 @@ pub const Builder = struct {
         _ = try self.device.vkd.createGraphicsPipelines(
             self.device.handle,
             cache,
-            1,
-            @ptrCast(&pipeline_info),
+            &.{pipeline_info},
             self.device.vk_allocator,
-            @ptrCast(&handle),
+            (&handle)[0..1],
         );
 
         return .{

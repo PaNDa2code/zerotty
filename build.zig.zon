@@ -19,8 +19,8 @@
             .hash = "zg-0.15.2-oGqU3PlHtAIe8e9FTY8FDZcl329U2LYuDvRaREomHIwH",
         },
         .TrueType = .{
-            .url = "https://codeberg.org/andrewrk/TrueType/archive/c1d4b62157ca47f6d551c45a1c485b799c6dbf0a.tar.gz",
-            .hash = "TrueType-0.0.0-Ne-mWAdyAQBpSstW5tKe3xnKdf0hLBdk0FYAxm1MjvYi",
+            .url = "git+https://codeberg.org/andrewrk/TrueType#b0f9867671a14ce4ed75a05a7e52c927623095e5",
+            .hash = "TrueType-0.0.0-Ne-mWMxxAQDit1oHfxlK2lkZAX8P7Wsa2SBPaR_xSpc8",
         },
         .zigwin32 = .{
             .url = "git+https://github.com/marlersoft/zigwin32#9d399c0895de4746c1fcab366841e2ab031b0429",
@@ -28,8 +28,8 @@
             .lazy = true,
         },
         .zig_openpty = .{
-            .url = "https://github.com/PaNDa2code/zig_openpty/archive/refs/tags/v1.0.0.tar.gz",
-            .hash = "zig_openpty-1.0.0-5hNBiThEAABnlrgllPW3fzgqjkgdiklYIirKvGV154pL",
+            .url = "https://github.com/PaNDa2code/zig_openpty/archive/refs/tags/v2.0.2.tar.gz",
+            .hash = "zig_openpty-2.0.2-5hNBiUxFAAAuqg54_Wzpp8LyoSde031tm46Xd28nliCK",
             .lazy = true,
         },
         .zigglgen = .{
@@ -43,8 +43,8 @@
             .lazy = true,
         },
         .vulkan = .{
-            .url = "git+https://github.com/Snektron/vulkan-zig#f879074293f0e2f718c93fd19cc0a96260a3aa52",
-            .hash = "vulkan-0.0.0-r7Ytx6hBAwBUnt0XA-uOkR2hda4fAHFhQITNTgJpnFkY",
+            .url = "git+https://github.com/Snektron/vulkan-zig#5234ae68d1ac143b3ebd1a6e2e40aaa0ef7693c7",
+            .hash = "vulkan-0.0.0-r7Ytx7t9AwBjKG7tnhReEVo0P2fvstTc8G_0qF8iog_V",
             .lazy = true,
         },
         .emsdk = .{
@@ -53,8 +53,8 @@
             .lazy = true,
         },
         .zigimg = .{
-            .url = "git+https://github.com/zigimg/zigimg#362cdd6bce109f7bc674be134cddd378f52da5d4",
-            .hash = "zigimg-0.1.0-8_eo2jNrFQD4mu3EAUkfQRmCkyfprdIXc8JQ6uyxhjSQ",
+            .url = "https://github.com/zigimg/zigimg/archive/refs/tags/zigimg_zig_0.16.0.tar.gz",
+            .hash = "zigimg-0.1.0-8_eo2oyaFwBZwJpmqPkCfVXWBrHcqbYwmrp1I6bTD3lI",
         },
         .glslang = .{
             .url = "git+https://github.com/Games-by-Mason/glslang-zig#7b15bbef199ab1c3aec18f62b98e6924d9441d7e",
@@ -67,8 +67,8 @@
             .lazy = true,
         },
         .xkbcommon = .{
-            .url = "https://github.com/PaNDa2code/libxkbcommon/archive/refs/tags/1.11.0.tar.gz",
-            .hash = "libxkbcommon-1.11.0-93LaF25wAgB5JdA4saWc0sbnCTo7PEMKvJYEHw6sxYGX",
+            .url = "https://github.com/allyourcodebase/xkbcommon/archive/refs/tags/v1.31.1.tar.gz",
+            .hash = "xkbcommon-1.13.1-gwljwTZSAACow_g5Kdrdl6w4dzmBS4U0jnKiFsF2uqvL",
             .lazy = true,
         },
         .zbench = .{
@@ -77,13 +77,17 @@
             .lazy = true,
         },
         .glfw_zig = .{
-            .url = "git+https://github.com/tiawl/glfw.zig#437459944a37470d743438a77baee754d30471fc",
-            .hash = "glfw_zig-1.0.0-NrvYo-PXGQBHXHdzK3udR329ezIrC4k8Di1R3wWt7GjS",
+            .url = "https://github.com/tiawl/glfw.zig/archive/refs/tags/zig-0.16.0.tar.gz",
+            .hash = "glfw_zig-1.0.0-NrvYoy_SGQD5J2e5okpIf_dir8BZpWdKaUmWNDenm_ki",
             .lazy = true,
         },
         .webgpu_headers = .{
             .url = "https://github.com/webgpu-native/webgpu-headers/archive/refs/heads/main.zip",
             .hash = "N-V-__8AAHTWCwBhoh386CNwTPN8Xgnf5K03yQFD6lRH8qyc",
+        },
+        .libxkbcommon = .{
+            .url = "https://github.com/allyourcodebase/libxkbcommon/archive/refs/tags/1.13.1.tar.gz",
+            .hash = "libxkbcommon-1.13.1-93LaF2x7AgDgSrr8xjRYrYGhtGhJKcZMuID3M95APvl1",
         },
     },
     .paths = .{

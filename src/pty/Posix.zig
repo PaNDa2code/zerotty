@@ -34,7 +34,7 @@ pub fn open(self: *Pty, options: PtyOptions) !void {
 }
 
 pub fn close(self: *Pty) void {
-    posix.close(self.master);
+    _ = std.os.linux.close(self.master);
     // TODO: this is closed by the child process starting
     // posix.close(self.slave);
 }

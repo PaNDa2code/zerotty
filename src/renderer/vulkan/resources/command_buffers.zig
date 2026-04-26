@@ -115,7 +115,7 @@ pub const CommandBufferRegistry = struct {
                 else
                     .secondary,
             },
-            thread_context_ptr.command_buffers[index .. index + 1].ptr,
+            thread_context_ptr.command_buffers[index .. index + 1],
         );
 
         return @enumFromInt(index);

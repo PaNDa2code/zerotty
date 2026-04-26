@@ -78,7 +78,7 @@ pub fn allocDescriptorSet(
     try self.device.vkd.allocateDescriptorSets(
         self.device.handle,
         &descriptor_set_alloc_info,
-        @ptrCast(&descriptor_set),
+        (&descriptor_set)[0..1],
     );
 
     return descriptor_set;
@@ -90,8 +90,7 @@ pub fn freeDescriptorSet(self: *const DescriptorPool, descriptor_set: vk.Descrip
     try self.device.vkd.freeDescriptorSets(
         self.device.handle,
         self.handle,
-        1,
-        @ptrCast(&descriptor_set),
+        &.{descriptor_set},
     );
 }
 

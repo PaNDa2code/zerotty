@@ -55,7 +55,7 @@ pub fn allocBuffers(
     try self.device.vkd.allocateCommandBuffers(
         self.device.handle,
         &buffer_info,
-        handles.ptr,
+        handles,
     );
 
     const command_buffers = try allocator.alloc(CommandBuffer, @intCast(count));

@@ -15,9 +15,14 @@ pub fn compiledShadersPathes(
 ) ![]CompiledShader {
     const shader_pathes = try b.allocator.alloc(CompiledShader, files.len);
 
+    const PATH = b.graph.environ_map.get("PATH");
+
     const glslang_tools_installed =
-        try findPathAlloc(b.allocator, "glslangValidator") != null and
-        try findPathAlloc(b.allocator, "spirv-opt") != null;
+        if (PATH) |path_env|
+            try findPathAlloc(b.allocator, path_env, "glslangValidator", b.graph.io) != null and
+                try findPathAlloc(b.allocator, path_env, "spirv-opt", b.graph.io) != null
+        else
+            false;
 
     var spirv_opt: ?*Build.Step.Compile = null;
     var glslangValidator: ?*Build.Step.Compile = null;
@@ -70,7 +75,7 @@ pub fn compiledShadersPathes(
 
         if (b.release_mode == .off)
             glslangValidator_cmd.addArg("-gVS")
-        else 
+        else
             glslangValidator_cmd.addArg("-g0");
 
         shader_pathes[i] = .{
@@ -90,7 +95,7 @@ pub fn addCompiledShadersToModule(compiled_shaders: []CompiledShader, module: *B
     }
 }
 
-fn findPathAlloc(allocator: std.mem.Allocator, exe: []const u8) !?[]const u8 {
+fn findPathAlloc(allocator: std.mem.Allocator, PATH: []const u8, exe: []const u8, io: std.Io) !?[]const u8 {
     const sep = std.fs.path.sep;
     const delimiter = std.fs.path.delimiter;
 
@@ -102,23 +107,20 @@ fn findPathAlloc(allocator: std.mem.Allocator, exe: []const u8) !?[]const u8 {
         else
             "";
 
-    const PATH = try std.process.getEnvVarOwned(allocator, "PATH");
-    defer allocator.free(PATH);
-
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     var it = std.mem.tokenizeScalar(u8, PATH, delimiter);
 
     while (it.next()) |search_path| {
         const full_path = try std.fmt.bufPrintZ(&path_buf, "{s}{c}{s}{s}", .{ search_path, sep, exe, suffix });
-        const file = std.fs.cwd().openFile(full_path, .{}) catch |err| {
+        const file = std.Io.Dir.cwd().openFile(io, full_path, .{}) catch |err| {
             switch (err) {
                 error.FileNotFound, error.AccessDenied => continue,
                 else => return err,
             }
         };
-        defer file.close();
-        const stat = try file.stat();
-        if (stat.kind != .directory and (builtin.os.tag == .windows or stat.mode & 0o0111 != 0)) {
+        defer file.close(io);
+        const stat = try file.stat(io);
+        if (stat.kind == .file and @intFromEnum(stat.permissions) & 0o0111 != 0) {
             return try allocator.dupe(u8, full_path);
         }
     }

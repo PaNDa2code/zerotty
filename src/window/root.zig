@@ -115,8 +115,6 @@ fn WindowInterface(WindowBackend: type) type {
         running: bool,
         w: WindowBackend,
 
-        renderer_semaphore: std.Thread.Semaphore = .{},
-
         event_queue: EventQueue = .empty,
 
         pub fn initAlloc(allocator: std.mem.Allocator, options: WindowCreateOptions) !*Self {

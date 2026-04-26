@@ -131,10 +131,8 @@ pub fn prepare(self: *DescriptorSet) std.mem.Allocator.Error!void {
 pub fn update(self: *DescriptorSet) void {
     self.pool.device.vkd.updateDescriptorSets(
         self.pool.device.handle,
-        @intCast(self.write_descriptor_sets.items.len),
-        self.write_descriptor_sets.items.ptr,
-        0,
-        null,
+        self.write_descriptor_sets.items,
+        &.{},
     );
 
     self.write_descriptor_sets.clearRetainingCapacity();

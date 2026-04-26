@@ -72,10 +72,6 @@ pub fn build(b: *Build) !void {
     const machfreetype_mod = machfreetype_dep.module("mach-freetype");
     const machharfbuzz_mod = machfreetype_dep.module("mach-harfbuzz");
 
-    const zg_dep = b.dependency("zg", .{ .target = target, .optimize = optimize });
-    const graphemes_mod = zg_dep.module("Graphemes");
-    const codepoint_mod = zg_dep.module("code_point");
-
     const zigimg_dep = b.dependency("zigimg", .{ .target = target, .optimize = optimize });
     const zigimg_mod = zigimg_dep.module("zigimg");
 
@@ -144,8 +140,6 @@ pub fn build(b: *Build) !void {
     font_mod.addImport("zigimg", zigimg_mod);
     font_mod.addImport("assets", assets_mod);
     font_mod.addImport("AssetsManager", assetsmanager_mod);
-    font_mod.addImport("Graphemes", graphemes_mod);
-    font_mod.addImport("code_point", codepoint_mod);
 
     // Renderer imports
     renderer_mod.addImport("build_options", options_mod);
@@ -325,7 +319,7 @@ pub fn build(b: *Build) !void {
         }
         exe.bundle_compiler_rt = true;
     }
-    exe.addWin32ResourceFile(.{ .file = b.path("assets/zerotty.rc") });
+    exe_mod.addWin32ResourceFile(.{ .file = b.path("assets/zerotty.rc") });
 
     b.installArtifact(exe);
 
@@ -406,8 +400,7 @@ fn createOpenGLBindings(b: *Build, target: Build.ResolvedTarget) *Build.Module {
             zigglgen_run.addArg(extension);
         }
 
-        const output = zigglgen_run.captureStdOut();
-        zigglgen_run.captured_stdout.?.basename = "gl.zig";
+        const output = zigglgen_run.captureStdOut(.{ .basename = "gl.zig" });
         gl.root_source_file = output;
     }
 

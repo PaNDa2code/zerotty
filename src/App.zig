@@ -1,15 +1,21 @@
 const App = @This();
 
+io: std.Io,
 allocator: std.mem.Allocator,
+
+io_event_loop: myio.EventLoop,
 
 window: *win.Window,
 renderer: Renderer,
-io_event_loop: io.EventLoop,
 
 buf: []u8,
 terminal: *Terminal,
 
-pub fn init(allocator: std.mem.Allocator) !App {
+pub fn init(
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    environ_map: *std.process.Environ.Map,
+) !App {
     const window = try win.Window.initAlloc(allocator, .{
         .title = "zerotty",
         .height = 600,
@@ -23,35 +29,42 @@ pub fn init(allocator: std.mem.Allocator) !App {
         .grid_cols = 100,
     });
 
-    var io_event_loop = try io.EventLoop.init(allocator, 100);
-
     const terminal = try allocator.create(Terminal);
+
+    var event_loop = try myio.EventLoop.init(allocator, 100);
 
     AssetsManager.instance = try AssetsManager.init(
         allocator,
         AssetsManager.assets_archive,
     );
 
-    terminal.* = try Terminal.init(allocator, if (os_tag == .linux) .{
-        .shell_path = "/bin/bash",
-        .shell_args = &.{ "bash", "--norc", "--noprofile" },
-        .rows = 100,
-        .cols = 100,
-    } else if (os_tag == .windows) .{
-        .shell_path = "cmd.exe",
-        .shell_args = &.{"cmd"},
-        .rows = 100,
-        .cols = 100,
-    });
+    terminal.* = try Terminal.init(
+        io,
+        environ_map,
+        allocator,
+        if (os_tag == .linux) .{
+            .shell_path = "/bin/bash",
+            .shell_args = &.{ "bash", "--norc", "--noprofile" },
+            .rows = 100,
+            .cols = 100,
+        } else if (os_tag == .windows) .{
+            .shell_path = "cmd.exe",
+            .shell_args = &.{"cmd"},
+            .rows = 100,
+            .cols = 100,
+        },
+    );
 
     const buf = try allocator.alloc(u8, 1024);
-    try io_event_loop.read(terminal.shell.stdout.?, buf, ptyReadCallback, terminal);
+    try event_loop.read(terminal.shell.stdout.?, buf, ptyReadCallback, terminal);
 
     return .{
+        .io = io,
         .allocator = allocator,
         .window = window,
         .renderer = renderer,
-        .io_event_loop = io_event_loop,
+
+        .io_event_loop = event_loop,
 
         .buf = buf,
         .terminal = terminal,
@@ -63,7 +76,7 @@ pub fn run(self: *App) !void {
 
     var running = true;
 
-    var timer = try std.time.Timer.start();
+    var timer = std.Io.Timestamp.zero;
     var frames: usize = 0;
 
     var cache = font.Cache.init(self.allocator);
@@ -97,11 +110,11 @@ pub fn run(self: *App) !void {
                         .utf8_codepoint => |codepoint| {
                             var buff: [4]u8 = undefined;
                             const len = try std.unicode.utf8Encode(codepoint, &buff);
-                            try self.terminal.shell.stdin.?.writeAll(buff[0..len]);
+                            try self.terminal.shell.stdin.?.writeStreamingAll(self.io, buff[0..len]);
                         },
                         .keyboard => |key_event| {
                             if (key_event.type == .press and key_event.code == 28)
-                                try self.terminal.shell.stdin.?.writeAll("\r\n");
+                                try self.terminal.shell.stdin.?.writeStreamingAll(self.io, "\r\n");
                         },
                         else => {},
                     }
@@ -206,10 +219,10 @@ pub fn run(self: *App) !void {
 
         frames += 1;
 
-        const diff = timer.read();
+        const diff = timer.untilNow(self.io, .real);
 
-        if (diff >= std.time.ns_per_s) {
-            const secands = @as(f64, @floatFromInt(diff)) * (1.0 / @as(comptime_float, std.time.ns_per_s));
+        if (diff.nanoseconds >= std.time.ns_per_s) {
+            const secands = @as(f64, @floatFromInt(diff.nanoseconds)) * (1.0 / @as(comptime_float, std.time.ns_per_s));
             const fps = @as(f64, @floatFromInt(frames)) / secands;
 
             var buf: [255]u8 = undefined;
@@ -217,7 +230,7 @@ pub fn run(self: *App) !void {
             try self.window.setTitle(title);
 
             frames = 0;
-            timer.reset();
+            timer.nanoseconds = 0;
         }
     }
 }
@@ -225,7 +238,6 @@ pub fn run(self: *App) !void {
 pub fn deinit(self: *App) void {
     self.renderer.deinit();
     self.window.destroy(self.allocator);
-    self.io_event_loop.deinit(self.allocator);
     self.terminal.deinit(self.allocator);
     self.allocator.free(self.buf);
 
@@ -234,7 +246,7 @@ pub fn deinit(self: *App) void {
     AssetsManager.instance.deinit(self.allocator);
 }
 
-fn ptyReadCallback(event: *io.EventLoop.Event, len: usize, user_data: ?*anyopaque) io.EventLoop.CallbackAction {
+fn ptyReadCallback(event: *myio.EventLoop.Event, len: usize, user_data: ?*anyopaque) myio.EventLoop.CallbackAction {
     const buffer = event.request.op_data.read[0..len];
     const terminal: *Terminal = @ptrCast(@alignCast(user_data));
     terminal.vtparser.parse(buffer);
@@ -243,7 +255,7 @@ fn ptyReadCallback(event: *io.EventLoop.Event, len: usize, user_data: ?*anyopaqu
 
 const std = @import("std");
 const builtin = @import("builtin");
-const io = @import("io");
+const myio = @import("io");
 const win = @import("window");
 const font = @import("font");
 const assets = @import("assets");

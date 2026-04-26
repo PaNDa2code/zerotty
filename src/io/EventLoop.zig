@@ -42,7 +42,7 @@ pub fn init(allocator: std.mem.Allocator, max_events: usize) !EventLoop {
 
 pub fn read(
     self: *EventLoop,
-    file: std.fs.File,
+    file: std.Io.File,
     buf: []u8,
     completion_callback: ?Callback,
     user_data: ?*anyopaque,
@@ -55,7 +55,7 @@ pub fn read(
 
 pub fn write(
     self: *EventLoop,
-    file: std.fs.File,
+    file: std.Io.File,
     buf: []const u8,
     completion_callback: ?Callback,
     user_data: ?*anyopaque,

@@ -157,13 +157,13 @@ pub fn beginFrame(self: *Vulkan) !void {
         .min_depth = 0,
         .max_depth = 1,
     };
-    try cmd.setViewPort(&viewport);
+    try cmd.setViewPort(viewport);
 
     const scissor = vk.Rect2D{
         .offset = .{ .x = 0, .y = 0 },
         .extent = self.swapchain.extent,
     };
-    try cmd.setScissor(&scissor);
+    try cmd.setScissor(scissor);
 }
 
 pub fn endFrame(self: *Vulkan) !void {
@@ -286,8 +286,8 @@ pub fn setViewport(self: *Vulkan, x: u32, y: u32, width: u32, height: u32) !void
     };
 
     if (self.current_frame) |frame| {
-        try frame.main_cmd.setViewPort(&viewport);
-        try frame.main_cmd.setScissor(&scissor);
+        try frame.main_cmd.setViewPort(viewport);
+        try frame.main_cmd.setScissor(scissor);
     }
 }
 

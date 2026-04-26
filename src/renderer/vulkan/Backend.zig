@@ -339,8 +339,8 @@ pub fn renaderGrid(self: *Backend) !void {
         .offset = .{ .x = 0, .y = 0 },
         .extent = self.swapchain.extent,
     };
-    try self.command_buffers[self.current_frame].setViewPort(&viewport);
-    try self.command_buffers[self.current_frame].setScissor(&scissor);
+    try self.command_buffers[self.current_frame].setViewPort(viewport);
+    try self.command_buffers[self.current_frame].setScissor(scissor);
 
     // Draw call (instanced rendering for terminal cells)
     // For now, skip draw call - TODO: Implement

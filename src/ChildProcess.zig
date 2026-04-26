@@ -12,20 +12,26 @@ id: switch (os) {
 
 exe_path: []const u8,
 args: []const []const u8 = &.{""},
-env_map: ?std.process.EnvMap = null,
+env_map: ?std.process.Environ.Map = null,
 cwd: ?[]const u8 = null,
 
 stdin: ?File = null,
 stdout: ?File = null,
 stderr: ?File = null,
 
-pub fn start(self: *ChildProcess, allocator: Allocator, pty: ?*Pty) !void {
+pub fn start(
+    self: *ChildProcess,
+    io: std.Io,
+    environ_map: *std.process.Environ.Map,
+    allocator: Allocator,
+    pty: ?*Pty,
+) !void {
     var arina = std.heap.ArenaAllocator.init(allocator);
     defer arina.deinit();
 
     return switch (os) {
         .windows => self.startWindows(arina.allocator(), pty),
-        .linux, .macos => self.startPosix(arina.allocator(), pty),
+        .linux => self.startLinux(io, environ_map, arina.allocator(), pty),
         else => @compileError("Not supported"),
     };
 }
@@ -41,7 +47,7 @@ pub fn terminate(self: *ChildProcess) void {
 pub fn wait(self: *const ChildProcess) !void {
     return switch (os) {
         .windows => self.waitWindows(),
-        .linux, .macos => self.waitPosix(),
+        .linux, .macos => self.waitLinux(),
         else => @compileError("Not supported"),
     };
 }
@@ -142,23 +148,31 @@ fn waitWindows(self: *const ChildProcess) !void {
     }
 }
 
-fn startPosix(self: *ChildProcess, arina: std.mem.Allocator, pty: ?*Pty) !void {
+fn startLinux(
+    self: *ChildProcess,
+    io: std.Io,
+    environ_map: *std.process.Environ.Map,
+    arina: std.mem.Allocator,
+    pty: ?*Pty,
+) !void {
     const slave_fd = pty.?.slave;
     const master_fd = pty.?.master;
 
-    const path = try findPathAlloc(arina, self.exe_path) orelse self.exe_path;
+    const path = try findPathAlloc(io, environ_map, arina, self.exe_path) orelse self.exe_path;
     const path_absolute =
         if (std.fs.path.isAbsolutePosix(path))
             path
         else
-            try std.fs.realpathAlloc(arina, path);
+            try std.Io.Dir.realPathFileAbsoluteAlloc(io, path, arina);
+
     const pathZ = try arina.dupeZ(u8, path_absolute);
     const argsZ = try arina.allocSentinel(?[*:0]u8, self.args.len, null);
     for (self.args, 0..) |arg, i| {
         argsZ[i] = try arina.dupeZ(u8, arg);
     }
 
-    const env_map = self.env_map orelse try std.process.getEnvMap(arina);
+    const env_map = self.env_map orelse std.process.Environ.Map.init(arina);
+
     const envZ: [*:null]const ?[*:0]u8 = envz: {
         const envZ = try arina.allocSentinel(?[*:0]u8, env_map.count(), null);
         var it = env_map.iterator();
@@ -174,15 +188,17 @@ fn startPosix(self: *ChildProcess, arina: std.mem.Allocator, pty: ?*Pty) !void {
         break :envz envZ.ptr;
     };
 
-    const pid = try posix.fork();
+    const pid: isize = @bitCast(linux.fork());
+
+    if (pid < 0) return error.ForkFailed;
 
     if (pid != 0) {
-        self.stdin = .{ .handle = master_fd };
-        self.stdout = .{ .handle = master_fd };
-        self.stderr = .{ .handle = master_fd };
-        self.id = pid;
-        posix.close(slave_fd);
-        pty.?.child = pid;
+        self.stdin = .{ .handle = master_fd, .flags = .{ .nonblocking = true } };
+        self.stdout = .{ .handle = master_fd, .flags = .{ .nonblocking = true } };
+        self.stderr = .{ .handle = master_fd, .flags = .{ .nonblocking = true } };
+        self.id = @truncate(pid);
+        _ = linux.close(slave_fd);
+        pty.?.child = @truncate(pid);
         return;
     }
 
@@ -190,27 +206,31 @@ fn startPosix(self: *ChildProcess, arina: std.mem.Allocator, pty: ?*Pty) !void {
     _ = linux.setsid();
     _ = linux.ioctl(slave_fd, 0x540E, @as(usize, 0));
 
-    try posix.dup2(slave_fd, posix.STDIN_FILENO);
-    try posix.dup2(slave_fd, posix.STDOUT_FILENO);
-    try posix.dup2(slave_fd, posix.STDERR_FILENO);
+    _ = linux.dup2(slave_fd, linux.STDIN_FILENO);
+    _ = linux.dup2(slave_fd, linux.STDOUT_FILENO);
+    _ = linux.dup2(slave_fd, linux.STDERR_FILENO);
 
-    posix.close(master_fd);
-    posix.close(slave_fd);
+    _ = linux.close(master_fd);
+    _ = linux.close(slave_fd);
 
-    posix.execveZ(pathZ, argsZ, envZ) catch {
-        posix.exit(127);
-    };
+    const ret = linux.execve(pathZ, argsZ, envZ);
+    _ = linux.exit(@intCast(ret));
 }
 
 fn terminatePosix(self: *ChildProcess) void {
     _ = posix.kill(self.id, posix.SIG.KILL) catch {};
 }
 
-fn waitPosix(self: *const ChildProcess) !void {
-    _ = posix.waitpid(self.id, 0);
+fn waitLinux(self: *const ChildProcess) !void {
+    _ = linux.waitpid(self.id, 0);
 }
 
-fn findPathAlloc(allocator: Allocator, exe: []const u8) !?[]const u8 {
+fn findPathAlloc(
+    io: std.Io,
+    environ_map: *std.process.Environ.Map,
+    allocator: Allocator,
+    exe: []const u8,
+) !?[]const u8 {
     const sep = std.fs.path.sep;
     const delimiter = std.fs.path.delimiter;
 
@@ -222,23 +242,22 @@ fn findPathAlloc(allocator: Allocator, exe: []const u8) !?[]const u8 {
         else
             "";
 
-    const PATH = try std.process.getEnvVarOwned(allocator, "PATH");
-    defer allocator.free(PATH);
+    const PATH = environ_map.get("PATH") orelse return null;
 
     var path_buf: [std.fs.max_path_bytes]u8 = undefined;
     var it = std.mem.tokenizeScalar(u8, PATH, delimiter);
 
     while (it.next()) |search_path| {
         const full_path = try std.fmt.bufPrintZ(&path_buf, "{s}{c}{s}{s}", .{ search_path, sep, exe, suffix });
-        const file = std.fs.cwd().openFile(full_path, .{}) catch |err| {
+        const file = std.Io.Dir.cwd().openFile(io, full_path, .{}) catch |err| {
             switch (err) {
                 error.FileNotFound, error.AccessDenied => continue,
                 else => return err,
             }
         };
-        defer file.close();
-        const stat = try file.stat();
-        if (stat.kind != .directory and (os == .windows or stat.mode & 0o0111 != 0)) {
+        defer file.close(io);
+        const stat = try file.stat(io);
+        if (stat.kind != .directory and (os == .windows or @intFromEnum(stat.permissions) & 0o0111 != 0)) {
             return try allocator.dupe(u8, full_path);
         }
     }
@@ -255,7 +274,7 @@ pub fn setEnvVar(self: *ChildProcess, allocator: Allocator, name: []const u8, va
 
 pub fn unsetEvnVar(self: *ChildProcess, name: []const u8) void {
     if (self.env_map) |*map| {
-        map.remove(name);
+        map.orderedRemove(name);
     }
 }
 
@@ -293,7 +312,7 @@ const win32mem = win32.system.memory;
 
 const Pty = @import("pty").Pty;
 
-const File = std.fs.File;
+const File = std.Io.File;
 const Allocator = std.mem.Allocator;
 
 const os = builtin.os.tag;
