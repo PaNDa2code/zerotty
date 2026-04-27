@@ -14,5 +14,9 @@ jobs:
 
       - name: Setup zig
         uses: https://codeberg.org/mlugg/setup-zig@v2.2.1
+        with:
+          version: "0.16.0"
 
+      - name: Run tests
+        run: zig build test_all
 
