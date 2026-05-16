@@ -129,62 +129,60 @@ pub fn run(self: *App) !void {
         var pixels_pool: std.ArrayList(u8) = .empty;
         defer pixels_pool.deinit(self.allocator);
 
-        var row: u32 = 0;
-        var col: u32 = 0;
+        const cell_w = 19;
+        const cell_h = 32;
 
-        for (self.terminal.grid.rows_list.items) |line| {
-            const cells = self.terminal.grid
-                .backing_store[line.cells_offset .. line.cells_offset + line.cells_len];
+        const actual_visible_cols = self.window.w.width / cell_w;
+        const actual_visible_rows = self.window.w.height / cell_h;
 
-            for (cells) |cell| {
-                if (cell.unicode == ' ') {
-                    col += 1;
-                    continue;
-                }
-                const glyph_id = font.GlyphID{
-                    .font = @enumFromInt(0),
-                    .index = @enumFromInt(cell.unicode),
+        var grid_iter = self.terminal.grid.iter(
+            actual_visible_cols,
+            actual_visible_rows,
+            0,
+        );
+
+        while (grid_iter.next()) |item| {
+            if (item.cell.unicode == 0 or item.cell.unicode == ' ')
+                continue;
+
+            const glyph_id = font.GlyphID{
+                .font = @enumFromInt(0),
+                .index = @enumFromInt(item.cell.unicode),
+            };
+            const glyph_entry =
+                cache.getAtlasEntry(glyph_id) orelse blk: {
+                    const index = ttf.codepointGlyphIndex(@intCast(item.cell.unicode));
+                    const bmp = try ttf.glyphBitmap(
+                        self.allocator,
+                        &pixels_pool,
+                        index,
+                        font_ttf.scale_x,
+                        font_ttf.scale_y,
+                    );
+
+                    // const current_len = pixels_pool.items.len;
+                    // const align_len = std.mem.alignForward(usize, current_len, 16);
+                    //
+                    // if (current_len < align_len)
+                    //     try pixels_pool.appendNTimes(self.allocator, 0, align_len - current_len);
+
+                    var new_atlas: bool = false;
+
+                    break :blk try cache.pushEntry(
+                        glyph_id,
+                        @intCast(bmp.width),
+                        @intCast(bmp.height),
+                        @intCast(bmp.off_x),
+                        @intCast(bmp.off_y),
+                        &new_atlas,
+                    );
                 };
-                const glyph_entry =
-                    cache.getAtlasEntry(glyph_id) orelse blk: {
-                        const index = ttf.codepointGlyphIndex(@intCast(cell.unicode));
-                        const bmp = try ttf.glyphBitmap(
-                            self.allocator,
-                            &pixels_pool,
-                            index,
-                            font_ttf.scale_x,
-                            font_ttf.scale_y,
-                        );
-
-                        // const current_len = pixels_pool.items.len;
-                        // const align_len = std.mem.alignForward(usize, current_len, 16);
-                        //
-                        // if (current_len < align_len)
-                        //     try pixels_pool.appendNTimes(self.allocator, 0, align_len - current_len);
-
-                        var new_atlas: bool = false;
-
-                        break :blk try cache.pushEntry(
-                            glyph_id,
-                            @intCast(bmp.width),
-                            @intCast(bmp.height),
-                            @intCast(bmp.off_x),
-                            @intCast(bmp.off_y),
-                            &new_atlas,
-                        );
-                    };
-
-                try instance_list.append(self.allocator, .{
-                    .p_postion = (row & 0xFFFF) | (col << 16),
-                    .p_glyph_entry = @bitCast(glyph_entry),
-                    .fg_color = cell.fg_color,
-                    .bg_color = cell.bg_color,
-                });
-
-                col += 1;
-            }
-            row += 1;
-            col = 0;
+            try instance_list.append(self.allocator, .{
+                .p_postion = (@as(u32, @intCast(item.y)) & 0xFFFF) | (@as(u32, @intCast(item.x)) << 16),
+                .p_glyph_entry = @bitCast(glyph_entry),
+                .fg_color = item.cell.fg_color,
+                .bg_color = item.cell.bg_color,
+            });
         }
 
         try self.renderer.beginFrame();

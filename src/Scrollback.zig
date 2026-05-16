@@ -26,12 +26,29 @@ pub const Line = struct {
     styles: []Style = &.{},
 };
 
+pub const Block = struct {
+    arina: std.heap.ArenaAllocator,
+    lines: std.ArrayList(Line),
+
+    pub fn init(alloc: std.mem.Allocator, lines: usize) !Block {
+        return .{
+            .arina = .init(alloc),
+            .lines = .initCapacity(alloc, lines),
+        };
+    }
+
+    pub fn deinit(self: *Block) void {
+        self.lines.deinit(self.arina.child_allocator);
+        self.arina.deinit();
+    }
+};
+
 allocator: std.mem.Allocator,
 
 max_lines: usize = 10_000,
 
-bytes_pool: std.ArrayList(u8) = .empty,
-lines: Line = .empty,
+blocks: std.ArrayList(Block) = .empty,
+total_lines: usize = 0,
 
 head: usize = 0,
 
@@ -42,8 +59,35 @@ pub fn init(allocator: std.mem.Allocator) void {
 }
 
 pub fn pushData(self: *Scrollback, utf8: []const u8) !void {
-    _ = self;
-    _ = utf8;
+    if (self.blocks.items.len == 0)
+        try self.blocks.append(self.allocator, try Block.init(self.allocator, 500));
+
+    var last_block = &self.blocks.items[self.blocks.items.len - 1];
+
+    if (last_block.lines.items.len >= last_block.lines.capacity) {
+        try self.blocks.append(self.allocator, .init(self.allocator, 500));
+        last_block = &self.blocks.items[self.blocks.items.len - 1];
+    }
+
+    const arina = last_block.arina.allocator();
+    const utf8_buff = try arina.dupe(u8, utf8);
+
+    last_block.lines.append(self.allocator, .{
+        .utf8 = utf8_buff,
+    });
+
+    self.total_lines += 1;
+
+    if (self.total_lines > self.max_lines) {
+        var first_block = &self.blocks.items[0];
+        first_block.lines.items = first_block.lines.items[1..];
+        self.total_lines -= 1;
+
+        if (first_block.lines.items.len == 0) {
+            first_block.deinit();
+            self.blocks.orderedRemove(0);
+        }
+    }
 }
 
 pub fn newLine(self: *Scrollback) !void {

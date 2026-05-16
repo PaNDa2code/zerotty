@@ -21,6 +21,79 @@ pub const Grid = struct {
         max_cells: usize = 2 * 1024 * 1024,
     };
 
+    pub const Iter = struct {
+        grid: *const Grid,
+
+        screen_cols: usize,
+        screen_rows: usize,
+
+        scroll_offset: usize,
+
+        current_x: usize = 0,
+        current_y: usize = 0,
+
+        pub const Item = struct {
+            x: usize,
+            y: usize,
+            cell: Cell,
+        };
+
+        pub fn next(self: *Iter) ?Item {
+            if (self.current_y >= self.screen_rows) return null;
+
+            const x = self.current_x;
+            const y = self.current_y;
+
+            var cell: Cell = .{
+                .unicode = 0,
+                .bg_color = .black,
+                .fg_color = .white,
+                .flags = .{},
+            };
+
+            const total_rows = self.grid.rows_list.items.len;
+
+            if (total_rows > 0) {
+                if (self.getLogicalRowIndex(y, total_rows)) |logical_y| {
+                    const row = self.grid.rows_list.items[logical_y];
+
+                    if (x < row.cells_len) {
+                        const physical_idx = row.cells_offset + x;
+                        cell = self.grid.backing_store[physical_idx];
+                    }
+                }
+            }
+
+            self.current_x += 1;
+            if (self.current_x >= self.screen_cols) {
+                self.current_x = 0;
+                self.current_y += 1;
+            }
+
+            return .{ .x = x, .y = y, .cell = cell };
+        }
+        fn getLogicalRowIndex(self: *const Iter, screen_y: usize, total_rows: usize) ?usize {
+            if (total_rows < self.screen_rows) {
+                // TERMINAL STARTUP BEHAVIOR:
+                // Text is top-aligned. Screen Y maps directly to Logical Y.
+                if (screen_y < total_rows) {
+                    return screen_y;
+                }
+                return null; // Blank lines at the bottom of the screen
+            } else {
+                // TERMINAL SCROLLING BEHAVIOR:
+                // Text is bottom-aligned and pushed up.
+                const absolute_bottom = total_rows - 1 - self.scroll_offset;
+                const visual_distance_from_bottom = (self.screen_rows - 1) - screen_y;
+
+                if (absolute_bottom >= visual_distance_from_bottom) {
+                    return absolute_bottom - visual_distance_from_bottom;
+                }
+                return null; // Blank lines at the top of the screen (if scrolled way past history)
+            }
+        }
+    };
+
     pub fn init(allocator: std.mem.Allocator, options: GridOptions) !Grid {
         const backing_store = try allocator.alloc(Cell, options.max_cells);
 
@@ -71,6 +144,20 @@ pub const Grid = struct {
             .cells_len = 0,
             .flags = .{},
         });
+    }
+
+    pub fn iter(
+        self: *const Grid,
+        screen_cols: usize,
+        screen_rows: usize,
+        scroll_offset: usize,
+    ) Iter {
+        return .{
+            .grid = self,
+            .screen_cols = screen_cols,
+            .screen_rows = screen_rows,
+            .scroll_offset = scroll_offset,
+        };
     }
 
     // fn grow_cols(self: *Grid, new_cols: usize) !void {}
