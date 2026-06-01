@@ -74,17 +74,31 @@ pub const WindowEvent = union(enum) {
 
 pub fn Queue(T: type, default: T, max_slots: comptime_int) type {
     return struct {
-        const Self = @This();
+        comptime {
+            if (!std.math.isPowerOfTwo(max_slots))
+                @compileError("Queue max_slots should be power of two");
+        }
 
-        queue: [max_slots]T = [1]T{default} ** max_slots,
-        len: usize = 0,
+        const Self = @This();
 
         pub const empty = Self{};
 
+        const max_mask = max_slots - 1;
+
+        queue: [max_slots]T = [1]T{default} ** max_slots,
+        read: usize = 0,
+        write: usize = 0,
+        count: usize = 0,
+
         pub fn pop(self: *Self) ?T {
-            if (self.len == 0) return null;
-            self.len -= 1;
-            return self.queue[self.len];
+            if (self.count == 0) return null;
+            const value = self.queue[self.read];
+
+            self.read += 1;
+            self.read &= max_mask;
+
+            self.count -= 1;
+            return value;
         }
 
         pub const PushError = error{
@@ -92,11 +106,13 @@ pub fn Queue(T: type, default: T, max_slots: comptime_int) type {
         };
 
         pub fn push(self: *Self, event: T) PushError!void {
-            if (self.len == max_slots)
-                return error.QueueIsFull;
+            if (self.count == max_slots) return error.QueueIsFull;
+            self.queue[self.write] = event;
 
-            self.queue[self.len] = event;
-            self.len += 1;
+            self.write += 1;
+            self.write &= max_mask;
+
+            self.count += 1;
         }
     };
 }
@@ -217,7 +233,7 @@ pub const InputContext = switch (Api) {
     else => void,
 };
 
-pub const MAX_EVENTS = 100;
+pub const MAX_EVENTS = 128;
 pub const POLL_LIMIT = MAX_EVENTS;
 
 pub const Window = WindowInterface(Backend);
