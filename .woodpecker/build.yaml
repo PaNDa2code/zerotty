@@ -1,0 +1,10 @@
+when:
+  - event: push
+    branch: master
+
+steps:
+  - name: build
+    image: ziglings/ziglang
+
+    commands:
+      - zig build
