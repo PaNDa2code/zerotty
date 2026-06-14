@@ -4,7 +4,7 @@ when:
 
 steps:
   - name: build
-    image: ziglings/ziglang
+    image: alpine
 
     commands:
       - apk update && apk add --no-cache \
@@ -16,5 +16,7 @@ steps:
           ca-certificates \
           bison \
           glslang
+
+      - curl -sSf https://raw.githubusercontent.com/MingFei2001/install-zig/refs/heads/main/install-zig.sh | bash
 
       - zig build
