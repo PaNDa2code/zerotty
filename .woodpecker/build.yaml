@@ -7,4 +7,14 @@ steps:
     image: ziglings/ziglang
 
     commands:
+      - apk update && apk add --no-cache \
+          sudo \
+          curl \
+          bash \
+          xz \
+          git \
+          ca-certificates \
+          bison \
+          glslang
+
       - zig build
