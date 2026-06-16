@@ -9,6 +9,7 @@ steps:
     commands:
       - |
         apk update && apk add --no-cache \
+          sudo \
           curl \
           bash \
           xz \
