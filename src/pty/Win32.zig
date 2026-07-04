@@ -142,9 +142,23 @@ pub fn resize(self: *Pty, size: PtySize) !void {
         self.h_pesudo_console,
         .{ .X = @bitCast(size.width), .Y = @bitCast(size.height) },
     );
-    if (hresult < 0) {
+    if (win32.zig.FAILED(hresult)) {
         return error.PtyResizeFailed;
     }
+}
+
+pub fn readFile(self: *Pty) std.Io.File {
+    return std.Io.File{
+        .handle = self.master_read,
+        .flags = .{ .nonblocking = true },
+    };
+}
+
+pub fn writeFile(self: *Pty) std.Io.File {
+    return std.Io.File{
+        .handle = self.master_write,
+        .flags = .{ .nonblocking = true },
+    };
 }
 
 const std = @import("std");

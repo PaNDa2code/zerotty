@@ -30,7 +30,7 @@ pub fn start(
     defer arina.deinit();
 
     return switch (os) {
-        .windows => self.startWindows(arina.allocator(), pty),
+        .windows => self.startWindows(io, environ_map, arina.allocator(), pty),
         .linux => self.startLinux(io, environ_map, arina.allocator(), pty),
         else => @compileError("Not supported"),
     };
@@ -57,7 +57,13 @@ pub fn deinit(self: *ChildProcess) void {
     self.* = .{ .exe_path = "" };
 }
 
-fn startWindows(self: *ChildProcess, arina: Allocator, pty: ?*Pty) !void {
+fn startWindows(
+    self: *ChildProcess,
+    io: std.Io,
+    environ_map: *std.process.Environ.Map,
+    arina: Allocator,
+    pty: ?*Pty,
+) !void {
     var startup_info_ex = std.mem.zeroes(win32thread.STARTUPINFOEXW);
     startup_info_ex.StartupInfo.cb = @sizeOf(win32thread.STARTUPINFOEXW);
 
@@ -85,20 +91,31 @@ fn startWindows(self: *ChildProcess, arina: Allocator, pty: ?*Pty) !void {
         ) == 0) {
             return error.UpdateProcThreadAttributeFailed;
         }
-        self.stdin = .{ .handle = _pty.master_write };
-        self.stdout = .{ .handle = _pty.master_read };
-        self.stderr = .{ .handle = _pty.master_read };
+        self.stdin = .{
+            .handle = _pty.master_write,
+            .flags = .{ .nonblocking = false },
+        };
+        self.stdout = .{
+            .handle = _pty.master_read,
+            .flags = .{ .nonblocking = false },
+        };
+        self.stderr = .{
+            .handle = _pty.master_read,
+            .flags = .{ .nonblocking = false },
+        };
     }
 
     var proc_info = std.mem.zeroes(win32thread.PROCESS_INFORMATION);
 
-    const path = try findPathAlloc(arina, self.exe_path) orelse self.exe_path;
+    const path = try findPathAlloc(io, environ_map, arina, self.exe_path) orelse self.exe_path;
 
     const path_absolute =
         if (std.fs.path.isAbsoluteWindows(path))
             path
         else
-            try std.fs.realpathAlloc(arina, path);
+            @panic("not yet");
+
+    // try std.Io.Dir.realPathFileAbsoluteAlloc(io, path, arina);
 
     const pathW = try std.unicode.utf8ToUtf16LeAllocZ(arina, path_absolute);
 
@@ -107,7 +124,7 @@ fn startWindows(self: *ChildProcess, arina: Allocator, pty: ?*Pty) !void {
     var env_block: ?*anyopaque = null;
     if (self.env_map) |envmap| {
         var buffer = try std.ArrayList(u8).initCapacity(arina, 1024);
-        var writer = buffer.writer(arina);
+        var writer = std.Io.Writer.fromArrayList(&buffer);
 
         var it = envmap.iterator();
         while (it.next()) |entry| {

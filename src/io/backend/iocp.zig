@@ -4,8 +4,8 @@ pub const Context = struct {
     iocp: windows.HANDLE,
 
     pub fn setup(self: *Self) !void {
-        self.iocp =
-            try CreateIoCompletionPort(INVALID_HANDLE_VALUE, null, 0, 0);
+        self.iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, null, 0, 0) orelse
+            return error.SetupFailed;
     }
 
     pub fn close(self: *const Self) void {
@@ -13,7 +13,7 @@ pub const Context = struct {
     }
 
     pub fn register(self: *const Self, req: *const Request) !void {
-        _ = try CreateIoCompletionPort(req.handle, self.iocp, @intFromPtr(req), 0);
+        _ = CreateIoCompletionPort(req.handle, self.iocp, @intFromPtr(req), 0);
     }
 
     /// The `Request` must outlive its dequeuing.
@@ -67,11 +67,11 @@ pub const Context = struct {
         );
 
         switch (stat) {
-            .Normal => {
+            0 => {
                 res.* = @intCast(bytes);
                 return @ptrFromInt(request_address);
             },
-            .Timeout => return null,
+            // .Timeout => return null,
             else => return windows.unexpectedError(windows.GetLastError()),
         }
     }
@@ -84,17 +84,18 @@ const Request = root.Request;
 const Operation = root.Operation;
 const Result = root.Result;
 
+const win32 = @import("win32");
 const windows = @import("std").os.windows;
 const kernel32 = windows.kernel32;
 const HANDLE = windows.HANDLE;
 const INVALID_HANDLE_VALUE = windows.INVALID_HANDLE_VALUE;
 const INFINITE = windows.INFINITE;
-const OVERLAPPED = windows.OVERLAPPED;
-const CreateIoCompletionPort = windows.CreateIoCompletionPort;
-const GetQueuedCompletionStatus = windows.GetQueuedCompletionStatus;
+const OVERLAPPED = win32.system.io.OVERLAPPED;
+const CreateIoCompletionPort = win32.system.io.CreateIoCompletionPort;
+const GetQueuedCompletionStatus = win32.system.io.GetQueuedCompletionStatus;
 const CloseHandle = windows.CloseHandle;
-const ReadFile = kernel32.ReadFile;
-const WriteFile = kernel32.WriteFile;
+const ReadFile = win32.storage.file_system.ReadFile;
+const WriteFile = win32.storage.file_system.WriteFile;
 
 test "iocp overlapped pipe write test (Windows)" {
     const std = @import("std");

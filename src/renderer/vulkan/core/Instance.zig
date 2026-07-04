@@ -30,8 +30,8 @@ pub fn init(
 
     const vkb = vk.BaseWrapper.load(struct {
         pub fn load(_: vk.Instance, procname: [*:0]const u8) vk.PfnVoidFunction {
-            var lib = std.DynLib.openZ(vk_lib_path) catch unreachable;
-            const symbol = lib.lookup(*anyopaque, std.mem.span(procname));
+            const lib = DynamicLibrary.init(vk_lib_path) catch unreachable;
+            const symbol = lib.getProcAddress(procname);
             return @ptrCast(symbol);
         }
     }.load);

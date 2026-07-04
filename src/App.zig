@@ -56,7 +56,7 @@ pub fn init(
     );
 
     const buf = try allocator.alloc(u8, 1024);
-    try event_loop.read(terminal.shell.stdout.?, buf, ptyReadCallback, terminal);
+    try event_loop.read(terminal.pty.readFile(), buf, ptyReadCallback, terminal);
 
     return .{
         .io = io,
@@ -103,6 +103,13 @@ pub fn run(self: *App) !void {
                     try self.renderer.resizeSurface(
                         size.width,
                         size.height,
+                    );
+
+                    try self.terminal.pty.resize(
+                        .{
+                            .width = @intCast(size.width / 20),
+                            .height = @intCast(size.height / 20),
+                        },
                     );
                 },
                 .input => |input_event| {

@@ -31,6 +31,12 @@ pub fn open(self: *Pty, options: PtyOptions) !void {
     self.master = master;
     self.slave = slave;
     self.child = null;
+
+    if (builtin.os.tag == .linux) {
+        // SET O_NONBLOCK flag
+        const master_flags = std.os.linux.fcntl(master, 3, 0);
+        _ = std.os.linux.fcntl(master, 4, master_flags | 0x0080);
+    }
 }
 
 pub fn close(self: *Pty) void {
@@ -47,12 +53,29 @@ pub fn resize(self: *Pty, size: PtySize) !void {
         .ypixel = 0,
     };
 
-    if (std.os.linux.ioctl(self.master, 0x5414, @intFromPtr(&ws)) < 0) {
+    const err =
+        std.posix.system.ioctl(self.master, std.posix.system.T.IOCSWINSZ, @intFromPtr(&ws));
+
+    if (err < 0) {
         return error.PtyResizeFailed;
     }
 
     if (self.child) |child_id|
         try posix.kill(child_id, posix.SIG.WINCH);
+}
+
+pub fn readFile(self: *Pty) std.Io.File {
+    return std.Io.File{
+        .handle = self.master,
+        .flags = .{ .nonblocking = builtin.os.tag == .linux },
+    };
+}
+
+pub fn writeFile(self: *Pty) std.Io.File {
+    return std.Io.File{
+        .handle = self.master,
+        .flags = .{ .nonblocking = builtin.os.tag == .linux },
+    };
 }
 
 const std = @import("std");
