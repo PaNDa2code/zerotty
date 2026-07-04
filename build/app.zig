@@ -235,10 +235,12 @@ pub fn setupApp(
     }
 
     if (config.window_system == .xcb) {
-        if (target.query.isNativeOs()) {
+        if (target.query.isNative()) {
             modules.get("window").?.resolved_target = target;
             modules.get("window").?.linkSystemLibrary("xcb", .{});
             modules.get("window").?.linkSystemLibrary("xkbcommon", .{});
+        } else {
+            return error.SystemLibrariesUnavailable;
         }
     }
 

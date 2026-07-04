@@ -32,6 +32,15 @@ pub fn build(b: *Build) !void {
         "Disable debugging for renderer backends (Vulkan validation layers, OpenGL debug callbacks)",
     ) orelse !comptime_check;
 
+    if (dist_json_path) |json_path| {
+        try config_mod.jsonFileToStep(b, b.default_step, json_path, optimize, use_llvm);
+        return;
+    } else {
+        const check_step = b.step("check", "default step for zls to run");
+        try config_mod.jsonFileToStep(b, check_step, "build/check_configs.json", .Debug, use_llvm);
+        return;
+    }
+
     const native_config = config_mod.AppConfig{
         .use_llvm = use_llvm,
         .comptime_check = comptime_check,
@@ -43,13 +52,6 @@ pub fn build(b: *Build) !void {
     // Setup native app build
     const native_build = try app_mod.setupApp(b, target, optimize, native_config);
     b.installArtifact(native_build.exe);
-
-    if (dist_json_path) |json_path| {
-        try config_mod.jsonFileToStep(b, b.default_step, json_path, optimize);
-    } else {
-        const check_step = b.step("check", "default step for zls to run");
-        try config_mod.jsonFileToStep(b, check_step, "build/check_configs.json", .Debug);
-    }
 
     // -------------------------------------------------------------------------
     // Run Step
