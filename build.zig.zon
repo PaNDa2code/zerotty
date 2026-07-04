@@ -23,8 +23,8 @@
             .hash = "TrueType-0.0.0-Ne-mWMxxAQDit1oHfxlK2lkZAX8P7Wsa2SBPaR_xSpc8",
         },
         .zigwin32 = .{
-            .url = "git+https://github.com/marlersoft/zigwin32#9d399c0895de4746c1fcab366841e2ab031b0429",
-            .hash = "zigwin32-25.0.28-preview-AAAAANd_5APbcon3QqoYfLKnJ13fiBGJSGq9YrVZsfI-",
+            .url = "git+https://github.com/marlersoft/zigwin32#ec98bb4d9eea532320a8551720a9e3ec6de64994",
+            .hash = "win32-25.0.28-preview-mX5pFWMt5QPTVIGh3r2-OpPunpcCCjApyRbA6Zn6WALH",
             .lazy = true,
         },
         .zig_openpty = .{
@@ -32,11 +32,11 @@
             .hash = "zig_openpty-2.0.2-5hNBiUxFAAAuqg54_Wzpp8LyoSde031tm46Xd28nliCK",
             .lazy = true,
         },
-        .zigglgen = .{
-            .url = "git+https://github.com/castholm/zigglgen#259f5b98ae7b09067f663ebe5a2f523ecea1b314",
-            .hash = "zigglgen-0.4.0-bmyqLTJ6LgDqTGk7h4OfNjAwj8g1-OIKSoq2sqkqniR5",
-            .lazy = true,
-        },
+        // .zigglgen = .{
+        //     .url = "git+https://github.com/castholm/zigglgen#259f5b98ae7b09067f663ebe5a2f523ecea1b314",
+        //     .hash = "zigglgen-0.4.0-bmyqLTJ6LgDqTGk7h4OfNjAwj8g1-OIKSoq2sqkqniR5",
+        //     .lazy = true,
+        // },
         .vulkan_headers = .{
             .url = "https://github.com/KhronosGroup/Vulkan-Headers/archive/refs/tags/v1.4.338.tar.gz",
             .hash = "N-V-__8AAMZuLQIcPe--JSv0kn_Ga8tsjgbkaojW0OHW2Rfd",
@@ -61,11 +61,11 @@
             .hash = "glslang-1.4.309-eMn68KLGCQDAuHVUzugaYOOEhbkyHmN526R7mHIq9YUs",
             .lazy = true,
         },
-        .xcb = .{
-            .url = "git+https://github.com/PaNDa2code/xcb_zig#b38f8534ac3112961e57dba53c97781eddf42832",
-            .hash = "xcb-0.1.17-6nhs4N6dAgAw9NlVIuY555PIZ9XrQfGIZYhzcfUlJm_P",
-            .lazy = true,
-        },
+        // .xcb = .{
+        //     .url = "git+https://github.com/PaNDa2code/xcb_zig#b38f8534ac3112961e57dba53c97781eddf42832",
+        //     .hash = "xcb-0.1.17-6nhs4N6dAgAw9NlVIuY555PIZ9XrQfGIZYhzcfUlJm_P",
+        //     .lazy = true,
+        // },
         .xkbcommon = .{
             .url = "https://github.com/allyourcodebase/xkbcommon/archive/refs/tags/v1.31.1.tar.gz",
             .hash = "xkbcommon-1.13.1-gwljwTZSAACow_g5Kdrdl6w4dzmBS4U0jnKiFsF2uqvL",

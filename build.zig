@@ -18,41 +18,29 @@ pub const WindowSystem = enum {
     // web,
 };
 
-pub fn build(b: *Build) !void {
-    // -------------------------------------------------------------------------
-    // Target & Optimization
-    // -------------------------------------------------------------------------
-    const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{});
+pub const AppConfig = struct {
+    use_llvm: bool,
+    comptime_check: bool,
+    render_backend: RenderBackend,
+    window_system: WindowSystem,
+    disable_renderer_debug: bool,
+};
 
-    // const debug_mode = optimize == .Debug;
+var io = std.Io.Threaded.global_single_threaded.io();
+
+pub fn setupApp(
+    b: *Build,
+    target: Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    config: AppConfig,
+) !struct { exe: *Build.Step.Compile, modules: std.StringHashMap(*Build.Module) } {
     const target_tag = target.result.os.tag;
-    const is_native = target.query.isNativeOs();
-    const is_gnu = target.result.isGnuLibC();
-    const linkage: std.builtin.LinkMode = if (is_gnu and is_native) .dynamic else .static;
-
-    // -------------------------------------------------------------------------
-    // Build Options
-    // -------------------------------------------------------------------------
-    const use_llvm = b.option(bool, "use_llvm", "") orelse (target_tag == .windows);
-    const comptime_check = b.option(bool, "comptime-check", "") orelse false;
-    const render_backend = b.option(RenderBackend, "render-backend", "") orelse DEFAULT_RENDER_BACKEND;
-
-    const default_window_system: WindowSystem = .glfw;
-
-    const window_system = b.option(WindowSystem, "window-system", "") orelse default_window_system;
-
-    const disable_renderer_debug = b.option(
-        bool,
-        "disable-renderer-debug",
-        "Disable debugging for renderer backends (Vulkan validation layers, OpenGL debug callbacks)",
-    ) orelse !comptime_check;
 
     const options = b.addOptions();
-    options.addOption(RenderBackend, "render-backend", render_backend);
-    options.addOption(WindowSystem, "window-system", window_system);
-    options.addOption(bool, "renderer-debug", !disable_renderer_debug);
-    options.addOption(bool, "comptime_check", comptime_check);
+    options.addOption(RenderBackend, "render-backend", config.render_backend);
+    options.addOption(WindowSystem, "window-system", config.window_system);
+    options.addOption(bool, "renderer-debug", !config.disable_renderer_debug);
+    options.addOption(bool, "comptime_check", config.comptime_check);
     const options_mod = options.createModule();
 
     // -------------------------------------------------------------------------
@@ -67,7 +55,7 @@ pub fn build(b: *Build) !void {
     const machfreetype_dep = b.dependency("mach_freetype", .{
         .target = target,
         .optimize = optimize,
-        .use_llvm = use_llvm,
+        .use_llvm = config.use_llvm,
     });
     const machfreetype_mod = machfreetype_dep.module("mach-freetype");
     const machharfbuzz_mod = machfreetype_dep.module("mach-harfbuzz");
@@ -75,114 +63,79 @@ pub fn build(b: *Build) !void {
     const zigimg_dep = b.dependency("zigimg", .{ .target = target, .optimize = optimize });
     const zigimg_mod = zigimg_dep.module("zigimg");
 
-    // const webgpu_headers = b.dependency("webgpu_headers", .{});
-
     // -------------------------------------------------------------------------
-    // Internal Modules Definition
+    // Internal Modules Definition & Wiring
     // -------------------------------------------------------------------------
-    const input_mod = b.createModule(.{ .root_source_file = b.path("src/input/root.zig") });
-    const window_mod = b.createModule(.{ .root_source_file = b.path("src/window/root.zig") });
-    const pty_mod = b.createModule(.{ .root_source_file = b.path("src/pty/root.zig") });
-    const childprocess_mod = b.createModule(.{ .root_source_file = b.path("src/ChildProcess.zig") });
-    const color_mod = b.createModule(.{ .root_source_file = b.path("src/color.zig") });
-    const grid_mod = b.createModule(.{ .root_source_file = b.path("src/Grid.zig") });
-    const cursor_mod = b.createModule(.{ .root_source_file = b.path("src/Cursor.zig") });
-    const dynamiclibrary_mod = b.createModule(.{ .root_source_file = b.path("src/DynamicLibrary.zig") });
-    const io_mod = b.createModule(.{ .root_source_file = b.path("src/io/root.zig") });
-    const math_mod = b.createModule(.{ .root_source_file = b.path("src/renderer/common/math.zig") });
-    const font_mod = b.createModule(.{ .root_source_file = b.path("src/font/root.zig") });
-    const assets_mod = b.createModule(.{ .root_source_file = b.path("assets/assets.zig") });
-    const renderer_mod = b.createModule(.{ .root_source_file = b.path("src/renderer/root.zig") });
-    const circulararray_mod = b.createModule(.{ .root_source_file = b.path("src/circular_array/root.zig") });
-    const assetsmanager_mod = b.createModule(.{ .root_source_file = b.path("src/AssetsManager.zig") });
+    var modules = std.StringHashMap(*Build.Module).init(b.allocator);
 
+    const ModuleDef = struct {
+        name: []const u8,
+        path: []const u8,
+        deps: []const []const u8 = &.{},
+    };
+
+    const internal_modules = [_]ModuleDef{
+        .{ .name = "input", .path = "src/input/root.zig" },
+        .{ .name = "window", .path = "src/window/root.zig", .deps = &.{ "build_options", "input", "zigimg", "assets", "renderer" } },
+        .{ .name = "pty", .path = "src/pty/root.zig", .deps = &.{"build_options"} },
+        .{ .name = "ChildProcess", .path = "src/ChildProcess.zig", .deps = &.{"pty"} },
+        .{ .name = "color", .path = "src/color.zig" },
+        .{ .name = "grid", .path = "src/Grid.zig" },
+        .{ .name = "cursor", .path = "src/Cursor.zig" },
+        .{ .name = "DynamicLibrary", .path = "src/DynamicLibrary.zig" },
+        .{ .name = "io", .path = "src/io/root.zig" },
+        .{ .name = "math", .path = "src/renderer/common/math.zig" },
+        .{ .name = "font", .path = "src/font/root.zig", .deps = &.{ "build_options", "math", "TrueType", "mach-freetype", "mach-harfbuzz", "zigimg", "assets", "AssetsManager" } },
+        .{ .name = "assets", .path = "assets/assets.zig" },
+        .{ .name = "renderer", .path = "src/renderer/root.zig", .deps = &.{ "build_options", "font", "grid", "cursor", "color", "window", "math", "assets", "DynamicLibrary", "AssetsManager" } },
+        .{ .name = "circular_array", .path = "src/circular_array/root.zig" },
+        .{ .name = "AssetsManager", .path = "src/AssetsManager.zig" },
+    };
+
+    // First pass: Create all modules and add to lookup map
+    for (internal_modules) |def| {
+        const mod = b.createModule(.{ .root_source_file = b.path(def.path) });
+        try modules.put(def.name, mod);
+    }
+
+    // Add external dependencies to the lookup map
+    try modules.put("build_options", options_mod);
+    try modules.put("vtparse", vtparse_mod);
+    try modules.put("TrueType", truetype_mod);
+    try modules.put("mach-freetype", machfreetype_mod);
+    try modules.put("mach-harfbuzz", machharfbuzz_mod);
+    try modules.put("zigimg", zigimg_mod);
+
+    // Dynamic external dependencies depending on OS target
+    if (config.comptime_check or target_tag == .windows) {
+        if (b.lazyDependency("zigwin32", .{})) |dep| {
+            const win32_mod = dep.module("win32");
+            try modules.put("win32", win32_mod);
+        }
+    }
+
+    if (config.comptime_check or target_tag == .linux) {
+        if (b.lazyDependency("zig_openpty", .{})) |dep| {
+            const openpty_mod = dep.module("openpty");
+            try modules.put("openpty", openpty_mod);
+        }
+    }
+
+    // Compress fonts assets using system tar command and feed it to AssetsManager module as anonymous import
     const assets_compress_run = b.addSystemCommand(&.{
         "tar",
         "-a",
-        // "-I",
-        // "zstd --ultra -22 --long=27 -T0",
         "-cf",
     });
-
     assets_compress_run.setCwd(b.path("assets"));
-
     const assets_archive_path = assets_compress_run.addOutputFileArg("assets.tar.zst");
-
     assets_compress_run.addDirectoryArg(b.path("assets/fonts"));
 
-    assetsmanager_mod.addAnonymousImport("assets.tar.zst", .{
+    modules.get("AssetsManager").?.addAnonymousImport("assets.tar.zst", .{
         .root_source_file = assets_archive_path,
     });
 
-    // -------------------------------------------------------------------------
-    // Internal Module Wiring (Imports)
-    // -------------------------------------------------------------------------
-
-    // Window imports
-    window_mod.addImport("build_options", options_mod);
-    window_mod.addImport("input", input_mod);
-    window_mod.addImport("zigimg", zigimg_mod);
-    window_mod.addImport("assets", assets_mod);
-    window_mod.addImport("renderer", renderer_mod);
-
-    // PTY imports
-    pty_mod.addImport("build_options", options_mod);
-
-    // ChildProcess imports
-    childprocess_mod.addImport("pty", pty_mod);
-
-    // Font imports
-    font_mod.addImport("build_options", options_mod);
-    font_mod.addImport("math", math_mod);
-    font_mod.addImport("TrueType", truetype_mod);
-    font_mod.addImport("mach-freetype", machfreetype_mod);
-    font_mod.addImport("mach-harfbuzz", machharfbuzz_mod);
-    font_mod.addImport("zigimg", zigimg_mod);
-    font_mod.addImport("assets", assets_mod);
-    font_mod.addImport("AssetsManager", assetsmanager_mod);
-
-    // Renderer imports
-    renderer_mod.addImport("build_options", options_mod);
-    renderer_mod.addImport("font", font_mod);
-    renderer_mod.addImport("grid", grid_mod);
-    renderer_mod.addImport("cursor", cursor_mod);
-    renderer_mod.addImport("color", color_mod);
-    renderer_mod.addImport("window", window_mod);
-    renderer_mod.addImport("math", math_mod);
-    renderer_mod.addImport("assets", assets_mod);
-    renderer_mod.addImport("DynamicLibrary", dynamiclibrary_mod);
-    renderer_mod.addImport("AssetsManager", assetsmanager_mod);
-    // renderer_mod.addIncludePath(webgpu_headers.path("."));
-
-    // -------------------------------------------------------------------------
-    // Conditional System Dependencies
-    // -------------------------------------------------------------------------
-
-    // Windows Dependencies
-    if (comptime_check or target_tag == .windows) {
-        if (b.lazyDependency("zigwin32", .{})) |dep| {
-            const win32_mod = dep.module("win32");
-            window_mod.addImport("win32", win32_mod);
-            renderer_mod.addImport("win32", win32_mod);
-            dynamiclibrary_mod.addImport("win32", win32_mod);
-            pty_mod.addImport("win32", win32_mod);
-            childprocess_mod.addImport("win32", win32_mod);
-        }
-    }
-
-    // Linux Dependencies
-    if (comptime_check or target_tag == .linux) {
-        if (b.lazyDependency("zig_openpty", .{})) |dep| {
-            const openpty_mod = dep.module("openpty");
-            pty_mod.addImport("openpty", openpty_mod);
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // Backend Specific Setup
-    // -------------------------------------------------------------------------
-
-    // Shaders
+    // Shaders Compilation
     const compiled_shaders = @import("build/shaders.zig").compiledShadersPathes(
         b,
         b.path("src/renderer/shaders"),
@@ -190,29 +143,27 @@ pub fn build(b: *Build) !void {
             "cell.frag", "cell.vert",
             "text.frag", "text.vert",
         },
-        render_backend,
+        config.render_backend,
     ) catch unreachable;
-    @import("build/shaders.zig").addCompiledShadersToModule(compiled_shaders, assets_mod);
+    @import("build/shaders.zig").addCompiledShadersToModule(compiled_shaders, modules.get("assets").?);
 
     // Backend Bindings
-    switch (render_backend) {
+    switch (config.render_backend) {
         .d3d11 => {},
         .opengl => {
             const gl_mod = createOpenGLBindings(b, target);
-            renderer_mod.addImport("gl", gl_mod);
+            try modules.put("gl", gl_mod);
         },
         .vulkan => {
             const core_mod = b.createModule(.{ .root_source_file = b.path("src/renderer/vulkan/core/root.zig") });
             const memory_mod = b.createModule(.{ .root_source_file = b.path("src/renderer/vulkan/core/memory/root.zig") });
 
-            core_mod.addImport("DynamicLibrary", dynamiclibrary_mod);
+            core_mod.addImport("DynamicLibrary", modules.get("DynamicLibrary").?);
 
-            renderer_mod.addImport("core", core_mod);
-            renderer_mod.addImport("memory", memory_mod);
+            try modules.put("core", core_mod);
+            try modules.put("memory", memory_mod);
 
             const vulkan_headers = b.lazyDependency("vulkan_headers", .{});
-
-            // Resolve Vulkan dependency based on headers presence
             const vulkan_dep = if (vulkan_headers) |vk_headers|
                 b.lazyDependency("vulkan", .{ .registry = vk_headers.path("registry/vk.xml") })
             else
@@ -222,78 +173,101 @@ pub fn build(b: *Build) !void {
                 if (vulkan_dep) |dep| {
                     const mod = dep.module("vulkan-zig");
                     core_mod.addImport("vulkan", mod);
-                    renderer_mod.addImport("vulkan", mod);
+                    try modules.put("vulkan", mod);
                 }
             }
         },
     }
 
-    // -------------------------------------------------------------------------
-    // Application Assembly
-    // -------------------------------------------------------------------------
+    // Second pass: Wire module dependencies
+    for (internal_modules) |def| {
+        const mod = modules.get(def.name).?;
+        for (def.deps) |dep_name| {
+            if (modules.get(dep_name)) |dep_mod| {
+                mod.addImport(dep_name, dep_mod);
+            }
+        }
+    }
 
-    const imports = [_]Build.Module.Import{
-        .{ .name = "vtparse", .module = vtparse_mod },
-        .{ .name = "assets", .module = assets_mod },
-        .{ .name = "io", .module = io_mod },
-        .{ .name = "pty", .module = pty_mod },
-        .{ .name = "grid", .module = grid_mod },
-        .{ .name = "math", .module = math_mod },
-        .{ .name = "font", .module = font_mod },
-        .{ .name = "color", .module = color_mod },
-        .{ .name = "input", .module = input_mod },
-        .{ .name = "window", .module = window_mod },
-        .{ .name = "cursor", .module = cursor_mod },
-        .{ .name = "renderer", .module = renderer_mod },
-        .{ .name = "ChildProcess", .module = childprocess_mod },
-        .{ .name = "DynamicLibrary", .module = dynamiclibrary_mod },
-        .{ .name = "circular_array", .module = circulararray_mod },
-        .{ .name = "AssetsManager", .module = assetsmanager_mod },
-    };
+    // Wire target-specific dependencies dynamically
+    if (modules.get("win32")) |win32_mod| {
+        modules.get("window").?.addImport("win32", win32_mod);
+        modules.get("renderer").?.addImport("win32", win32_mod);
+        modules.get("DynamicLibrary").?.addImport("win32", win32_mod);
+        modules.get("pty").?.addImport("win32", win32_mod);
+        modules.get("ChildProcess").?.addImport("win32", win32_mod);
+        modules.get("io").?.addImport("win32", win32_mod);
+    }
 
-    // Create Executable
+    if (modules.get("openpty")) |openpty_mod| {
+        modules.get("pty").?.addImport("openpty", openpty_mod);
+    }
+
+    if (config.render_backend == .vulkan) {
+        if (modules.get("vulkan")) |vk_mod| {
+            modules.get("renderer").?.addImport("vulkan", vk_mod);
+        }
+        if (modules.get("core")) |core_mod| {
+            modules.get("renderer").?.addImport("core", core_mod);
+        }
+        if (modules.get("memory")) |mem_mod| {
+            modules.get("renderer").?.addImport("memory", mem_mod);
+        }
+    }
+
+    if (config.render_backend == .opengl) {
+        if (modules.get("gl")) |gl_mod| {
+            modules.get("renderer").?.addImport("gl", gl_mod);
+        }
+    }
+
+    // Create Executable module
     const exe_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
         .link_libc = true,
-        .imports = &imports,
     });
 
     exe_mod.addImport("build_options", options_mod);
 
-    if (window_system == .xlib) {
-        window_mod.linkSystemLibrary("X11", .{ .needed = true });
-        if (render_backend == .opengl) {
-            renderer_mod.linkSystemLibrary("GL", .{});
+    // Import all relevant internal and external modules to the main application
+    const app_imports = [_][]const u8{
+        "vtparse",      "assets",         "io",             "pty",
+        "grid",         "math",           "font",           "color",
+        "input",        "window",         "cursor",         "renderer",
+        "ChildProcess", "DynamicLibrary", "circular_array", "AssetsManager",
+    };
+    for (app_imports) |name| {
+        if (modules.get(name)) |mod| {
+            exe_mod.addImport(name, mod);
         }
     }
 
-    if (window_system == .xcb) {
+    // Link system libraries to the modules that need them
+    if (config.window_system == .xlib) {
+        modules.get("window").?.linkSystemLibrary("X11", .{ .needed = true });
+        if (config.render_backend == .opengl) {
+            modules.get("renderer").?.linkSystemLibrary("GL", .{});
+        }
+    }
+
+    if (config.window_system == .xcb) {
         if (target.query.isNativeOs()) {
-            window_mod.resolved_target = target;
-            window_mod.linkSystemLibrary("xcb", .{});
-            window_mod.linkSystemLibrary("xkbcommon", .{});
-        } else {
-            if (b.lazyDependency("xcb", .{
-                .target = target,
-                .optimize = optimize,
-                .linkage = linkage,
-            })) |dep| {
-                window_mod.linkLibrary(dep.artifact("xcb"));
-            }
+            modules.get("window").?.resolved_target = target;
+            modules.get("window").?.linkSystemLibrary("xcb", .{});
+            modules.get("window").?.linkSystemLibrary("xkbcommon", .{});
         }
     }
 
-    if (window_system == .glfw) {
+    if (config.window_system == .glfw) {
         if (b.lazyDependency("glfw_zig", .{
             .target = target,
             .optimize = optimize,
         })) |dep| {
             const glfw_lib = dep.artifact("glfw");
-
-            window_mod.linkLibrary(glfw_lib);
-            renderer_mod.linkLibrary(glfw_lib);
+            modules.get("window").?.linkLibrary(glfw_lib);
+            modules.get("renderer").?.linkLibrary(glfw_lib);
         }
     }
 
@@ -308,11 +282,11 @@ pub fn build(b: *Build) !void {
     const exe = b.addExecutable(.{
         .name = "zerotty",
         .root_module = exe_mod,
-        .use_llvm = use_llvm,
+        .use_llvm = config.use_llvm,
     });
 
     // Windows Specific EXE settings
-    if (window_system == .win32) {
+    if (config.window_system == .win32) {
         if (optimize != .Debug) {
             exe.subsystem = .Windows;
             exe.mingw_unicode_entry_point = true;
@@ -321,12 +295,49 @@ pub fn build(b: *Build) !void {
     }
     exe_mod.addWin32ResourceFile(.{ .file = b.path("assets/zerotty.rc") });
 
-    b.installArtifact(exe);
+    return .{ .exe = exe, .modules = modules };
+}
+
+pub fn build(b: *Build) !void {
+    // -------------------------------------------------------------------------
+    // Target & Optimization
+    // -------------------------------------------------------------------------
+    const target = b.standardTargetOptions(.{});
+    const optimize = b.standardOptimizeOption(.{});
+
+    const target_tag = target.result.os.tag;
+
+    // -------------------------------------------------------------------------
+    // Build Options
+    // -------------------------------------------------------------------------
+    const use_llvm = b.option(bool, "use_llvm", "") orelse (target_tag == .windows);
+    const comptime_check = b.option(bool, "comptime-check", "") orelse false;
+    const render_backend = b.option(RenderBackend, "render-backend", "") orelse DEFAULT_RENDER_BACKEND;
+    const window_system = b.option(WindowSystem, "window-system", "") orelse .glfw;
+    const dist_json_path = b.option([]const u8, "dist-json", "multi-build config list json file");
+
+    const disable_renderer_debug = b.option(
+        bool,
+        "disable-renderer-debug",
+        "Disable debugging for renderer backends (Vulkan validation layers, OpenGL debug callbacks)",
+    ) orelse !comptime_check;
+
+    const native_config = AppConfig{
+        .use_llvm = use_llvm,
+        .comptime_check = comptime_check,
+        .render_backend = render_backend,
+        .window_system = window_system,
+        .disable_renderer_debug = disable_renderer_debug,
+    };
+
+    // Setup native app build
+    const native_build = try setupApp(b, target, optimize, native_config);
+    b.installArtifact(native_build.exe);
 
     // -------------------------------------------------------------------------
     // Run Step
     // -------------------------------------------------------------------------
-    const run_cmd = b.addRunArtifact(exe);
+    const run_cmd = b.addRunArtifact(native_build.exe);
     run_cmd.step.dependOn(b.getInstallStep());
     if (b.args) |args| {
         run_cmd.addArgs(args);
@@ -335,38 +346,80 @@ pub fn build(b: *Build) !void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
+    _ = try addTargetToStep(b, null);
+
     // -------------------------------------------------------------------------
     // Testing
     // -------------------------------------------------------------------------
-
     const test_step = b.step("test_all", "will run all submodules test");
+    const app_imports = [_][]const u8{
+        "vtparse",        "assets",        "io",     "pty",    "grid",     "math",         "font",
+        "color",          "input",         "window", "cursor", "renderer", "ChildProcess", "DynamicLibrary",
+        "circular_array", "AssetsManager",
+    };
 
-    for (imports) |import| {
-        const test_name = std.fmt.allocPrint(
-            b.allocator,
-            "test_{s}",
-            .{import.name},
-        ) catch @panic("OOM");
+    for (app_imports) |name| {
+        if (native_build.modules.get(name)) |mod| {
+            const test_name = b.fmt("test_{s}", .{name});
+            const test_desc = b.fmt("run module {s} test", .{name});
+            const test_mod_step = b.step(test_name, test_desc);
 
-        const test_desc = std.fmt.allocPrint(
-            b.allocator,
-            "run module {s} test",
-            .{import.name},
-        ) catch @panic("OOM");
+            mod.resolved_target = target;
 
-        const test_mod_step = b.step(test_name, test_desc);
+            const unit_test = b.addTest(.{
+                .name = test_name,
+                .root_module = mod,
+            });
 
-        import.module.resolved_target = target;
+            const run_unit_test = b.addRunArtifact(unit_test);
+            test_mod_step.dependOn(&run_unit_test.step);
+            test_step.dependOn(test_mod_step);
+        }
+    }
+}
 
-        const unit_test = b.addTest(.{
-            .name = test_name,
-            .root_module = import.module,
+const TargetConfigJson = struct {
+    name: []const u8,
+    target: []const u8,
+    window_system: WindowSystem,
+    render_backend: RenderBackend,
+};
+
+fn addTargetToStep(
+    b: *std.Build,
+    step: *std.Build.Step,
+    targets: ?[]TargetConfigJson,
+) !*std.Build.Step {
+    const dist_targets = if (targets) |t| t else blk: {
+        const check_buffer = try b.allocator.alloc(u8, 2048);
+        const check_configs_file = try std.Io.Dir.cwd().openFile(io, "build/check_configs.json", .{});
+        const check_configs_data_len = try check_configs_file.readPositionalAll(io, check_buffer, 0);
+        const json_parsed = try std.json.parseFromSlice([]TargetConfigJson, b.allocator, check_buffer[0..check_configs_data_len], .{});
+        break :blk json_parsed.value;
+    };
+
+    for (dist_targets) |t_cfg| {
+        const resolved_target = b.resolveTargetQuery(try .parse(.{ .arch_os_abi = t_cfg.target }));
+        const dist_config = AppConfig{
+            .use_llvm = true,
+            .comptime_check = false,
+            .render_backend = t_cfg.render_backend,
+            .window_system = t_cfg.window_system,
+            .disable_renderer_debug = true,
+        };
+
+        const dist_build = try setupApp(b, resolved_target, .Debug, dist_config);
+
+        const install_dir = b.addInstallArtifact(dist_build.exe, .{
+            .dest_dir = .{
+                .override = .{ .custom = b.fmt("dist/{s}", .{t_cfg.name}) },
+            },
         });
 
-        const run_unit_test = b.addRunArtifact(unit_test);
-        test_mod_step.dependOn(&run_unit_test.step);
-        test_step.dependOn(test_mod_step);
+        step.dependOn(&install_dir.step);
     }
+
+    return check_step;
 }
 
 // -------------------------------------------------------------------------

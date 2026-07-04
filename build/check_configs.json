@@ -1,0 +1,29 @@
+[
+  {
+    "name": "x86_64-linux-xcb",
+    "target": "x86_64-linux-gnu",
+    "window_system": "xcb",
+    "render_backend": "vulkan"
+  },
+
+  {
+    "name": "x86_64-windows-win32",
+    "target": "x86_64-windows-gnu",
+    "window_system": "win32",
+    "render_backend": "vulkan"
+  },
+
+  {
+    "name": "x86_64-linux-glfw",
+    "target": "x86_64-linux-gnu",
+    "window_system": "glfw",
+    "render_backend": "vulkan"
+  },
+
+  {
+    "name": "x86_64-windows-glfw",
+    "target": "x86_64-windows-gnu",
+    "window_system": "glfw",
+    "render_backend": "vulkan"
+  }
+]
