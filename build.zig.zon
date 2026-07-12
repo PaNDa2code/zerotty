@@ -61,13 +61,13 @@
             .hash = "glslang-1.4.309-eMn68KLGCQDAuHVUzugaYOOEhbkyHmN526R7mHIq9YUs",
             .lazy = true,
         },
-        // .xcb = .{
-        //     .url = "git+https://github.com/PaNDa2code/xcb_zig#b38f8534ac3112961e57dba53c97781eddf42832",
-        //     .hash = "xcb-0.1.17-6nhs4N6dAgAw9NlVIuY555PIZ9XrQfGIZYhzcfUlJm_P",
-        //     .lazy = true,
-        // },
+        .xcb = .{
+            .url = "git+https://github.com/PaNDa2code/xcb_zig#29751d4ba7ada865be905546a7313480f7b59bc0",
+            .hash = "xcb-0.1.17-6nhs4MWdAgC-EX_lD9X5-8KMhyXLiH_1UmQ9Lsta-zd7",
+            .lazy = true,
+        },
         .xkbcommon = .{
-            .url = "https://github.com/allyourcodebase/xkbcommon/archive/refs/tags/v1.31.1.tar.gz",
+            .url = "git+https://github.com/allyourcodebase/xkbcommon#e9ebf5c40a437be0423e981ea898ed3530f6b998",
             .hash = "xkbcommon-1.13.1-gwljwTZSAACow_g5Kdrdl6w4dzmBS4U0jnKiFsF2uqvL",
             .lazy = true,
         },

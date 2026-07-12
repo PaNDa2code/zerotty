@@ -25,14 +25,14 @@ pub fn init(
     const vk_lib_path: [*:0]const u8 = switch (builtin.os.tag) {
         .windows => "C:\\Windows\\System32\\vulkan-1.dll",
         .linux => "libvulkan.so.1",
-        else => {},
+        else => @compileError("not implemented"),
     };
 
     const vkb = vk.BaseWrapper.load(struct {
         pub fn load(_: vk.Instance, procname: [*:0]const u8) vk.PfnVoidFunction {
             const lib = DynamicLibrary.init(vk_lib_path) catch unreachable;
             const symbol = lib.getProcAddress(procname);
-            return @ptrCast(symbol);
+            return @ptrCast(@alignCast(symbol));
         }
     }.load);
 
@@ -68,7 +68,7 @@ pub fn init(
     };
 
     const instance_info = vk.InstanceCreateInfo{
-        .p_application_info = &.{
+        .p_application_info = &vk.ApplicationInfo{
             .p_application_name = "zerotty",
             .application_version = 0,
             .api_version = api_version,

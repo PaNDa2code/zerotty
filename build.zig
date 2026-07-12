@@ -5,7 +5,6 @@ const config_mod = @import("build/config.zig");
 const app_mod = @import("build/app.zig");
 const tests_mod = @import("build/tests.zig");
 
-
 var io = std.Io.Threaded.global_single_threaded.io();
 
 pub fn build(b: *Build) !void {
@@ -38,7 +37,6 @@ pub fn build(b: *Build) !void {
     } else {
         const check_step = b.step("check", "default step for zls to run");
         try config_mod.jsonFileToStep(b, check_step, "build/check_configs.json", .Debug, use_llvm);
-        return;
     }
 
     const native_config = config_mod.AppConfig{
@@ -64,7 +62,6 @@ pub fn build(b: *Build) !void {
 
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
-
 
     try tests_mod.addTests(b, native_build, target);
 }

@@ -12,7 +12,7 @@ pub const Context = struct {
         flags: *u32,
         dropped: *u32,
         array: [*]u32,
-        mmap_ptr: [*]align(std.heap.pageSize()) u8,
+        mmap_ptr: [*]align(std.heap.page_size_max) u8,
         mmap_size: usize,
     };
 
@@ -23,7 +23,7 @@ pub const Context = struct {
         entries: *u32,
         overflow: *u32,
         cqes: [*]linux.io_uring_cqe,
-        mmap_ptr: [*]align(std.heap.pageSize()) u8,
+        mmap_ptr: [*]align(std.heap.page_size_max) u8,
         mmap_size: usize,
     };
 

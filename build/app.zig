@@ -240,7 +240,18 @@ pub fn setupApp(
             modules.get("window").?.linkSystemLibrary("xcb", .{});
             modules.get("window").?.linkSystemLibrary("xkbcommon", .{});
         } else {
-            return error.SystemLibrariesUnavailable;
+            if (b.lazyDependency("xcb", .{
+                .target = target,
+                .optimize = optimize,
+            })) |dep| {
+                modules.get("window").?.linkLibrary(dep.artifact("xcb"));
+            }
+            if (b.lazyDependency("xkbcommon", .{
+                .target = target,
+                .optimize = optimize,
+            })) |dep| {
+                modules.get("input").?.linkLibrary(dep.artifact("xkbcommon"));
+            }
         }
     }
 
