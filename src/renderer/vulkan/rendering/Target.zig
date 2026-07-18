@@ -42,4 +42,4 @@ pub fn deinit(self: *const Target, device: *const core.Device) void {
 
 const std = @import("std");
 const vk = @import("vulkan");
-const core = @import("core");
+const core = @import("../core/root.zig");

@@ -22,8 +22,6 @@ pub const Renderer = genaric.GenaricRenderer(BackendImpl);
 
 pub const vertex = @import("vertex.zig");
 
-test {
-    const std = @import("std");
-    std.testing.refAllDeclsRecursive(Renderer);
-    std.testing.refAllDeclsRecursive(@import("spirv.zig"));
+comptime {
+    @import("std").testing.refAllDecls(@This());
 }

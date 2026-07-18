@@ -277,7 +277,7 @@ pub fn parseSpirv(shader_bytes: []const u8) !SpirvParseResult {
 }
 
 test "SPIR-V Parser" {
-    const spv_bytes align(4) = @import("assets").shaders.text_frag;
+    const spv_bytes align(4) = @import("zerotty").assets.shaders.text_frag;
 
     const spv_slice: []align(4) const u8 = @alignCast(spv_bytes[0..]);
 

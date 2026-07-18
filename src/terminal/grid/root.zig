@@ -1,5 +1,5 @@
 const std = @import("std");
-const color = @import("color");
+const color = @import("zerotty").terminal.color;
 
 pub const Grid = struct {
     allocator: std.mem.Allocator,

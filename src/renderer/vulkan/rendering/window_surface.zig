@@ -3,7 +3,7 @@ const vk = @import("vulkan");
 
 const build_options = @import("build_options");
 
-const Instance = @import("core").Instance;
+const Instance = @import("../core/root.zig").Instance;
 
 pub const SurfaceCreationInfo = union(enum) {
     win32: struct {
@@ -121,7 +121,7 @@ pub fn createWindowSurface(
     }
 }
 
-const window = @import("window");
+const window = @import("zerotty").system.window;
 
 const c = @cImport({
     @cDefine("GLFW_INCLUDE_NONE", "");

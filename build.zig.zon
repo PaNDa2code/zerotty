@@ -15,8 +15,8 @@
             .path = "./external/vtparse",
         },
         .zg = .{
-            .url = "https://codeberg.org/atman/zg/archive/v0.15.3.tar.gz",
-            .hash = "zg-0.15.2-oGqU3PlHtAIe8e9FTY8FDZcl329U2LYuDvRaREomHIwH",
+            .url = "https://codeberg.org/atman/zg/archive/v0.16.0.tar.gz",
+            .hash = "zg-0.15.3-oGqU3BaetgIIRXXxyGsXtvmYgi1XLf4HHvHswqsgLo-Y",
         },
         .TrueType = .{
             .url = "git+https://codeberg.org/andrewrk/TrueType#b0f9867671a14ce4ed75a05a7e52c927623095e5",

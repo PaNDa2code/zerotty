@@ -5,33 +5,27 @@ pub fn addTests(
     native_build: anytype,
     target: std.Build.ResolvedTarget,
 ) !void {
-
     // -------------------------------------------------------------------------
     // Testing
     // -------------------------------------------------------------------------
-    const test_step = b.step("test_all", "will run all submodules test");
-    const app_imports = [_][]const u8{
-        "vtparse",        "assets",        "io",     "pty",    "grid",     "math",         "font",
-        "color",          "input",         "window", "cursor", "renderer", "ChildProcess", "DynamicLibrary",
-        "circular_array", "AssetsManager",
-    };
+    const test_step = b.step("test", "Run all tests");
+    const test_all_step = b.step("test_all", "Run all tests");
+    test_all_step.dependOn(test_step);
 
-    for (app_imports) |name| {
-        if (native_build.modules.get(name)) |mod| {
-            const test_name = b.fmt("test_{s}", .{name});
-            const test_desc = b.fmt("run module {s} test", .{name});
-            const test_mod_step = b.step(test_name, test_desc);
+    if (native_build.modules.get("zerotty")) |mod| {
+        const test_name = "test_zerotty";
+        mod.resolved_target = target;
 
-            mod.resolved_target = target;
+        const unit_test = b.addTest(.{
+            .name = test_name,
+            .root_module = mod,
+            .test_runner = .{
+                .mode = .simple,
+                .path = b.path("tests/simple_runner.zig"),
+            },
+        });
 
-            const unit_test = b.addTest(.{
-                .name = test_name,
-                .root_module = mod,
-            });
-
-            const run_unit_test = b.addRunArtifact(unit_test);
-            test_mod_step.dependOn(&run_unit_test.step);
-            test_step.dependOn(test_mod_step);
-        }
+        const run_unit_test = b.addRunArtifact(unit_test);
+        test_step.dependOn(&run_unit_test.step);
     }
 }

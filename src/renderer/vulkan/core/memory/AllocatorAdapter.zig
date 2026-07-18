@@ -139,9 +139,7 @@ const vk = @import("vulkan");
 const Allocator = std.mem.Allocator;
 
 test AllocatorAdapter {
-    var vk_allocator: AllocatorAdapter = undefined;
-    vk_allocator.initInPlace(std.testing.allocator);
-
+    const vk_allocator = try AllocatorAdapter.init(std.testing.allocator);
     defer vk_allocator.deinit();
 
     const callbacks = vk_allocator.vkAllocatorCallbacks();

@@ -129,7 +129,7 @@ pub fn getHandles(self: *const Window) !root.WindowHandles {
 
 const std = @import("std");
 const root = @import("root.zig");
-const Renderer = @import("renderer");
+const Renderer = @import("zerotty").renderer.Renderer;
 
 const Allocator = std.mem.Allocator;
 

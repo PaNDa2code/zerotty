@@ -59,5 +59,5 @@ pub fn descriptorInfo(self: *const Texture) vk.DescriptorImageInfo {
 
 const std = @import("std");
 const vk = @import("vulkan");
-const core = @import("core");
+const core = @import("../core/root.zig");
 const memory = core.memory;

@@ -48,5 +48,6 @@ pub const TextUniform = extern struct {
     baseline: f32,
 };
 
-const math = @import("math");
-const color = @import("color");
+const zerotty = @import("zerotty");
+const math = zerotty.math;
+const color = zerotty.terminal.color;

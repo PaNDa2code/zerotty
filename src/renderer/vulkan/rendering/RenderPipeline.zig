@@ -137,9 +137,10 @@ pub fn deinit(self: *RenderPipeline, device: *const core.Device, allocator: std.
 
 const std = @import("std");
 const vk = @import("vulkan");
-const assets = @import("assets");
+const zerotty = @import("zerotty");
+const assets = zerotty.assets;
 
-const core = @import("core");
+const core = @import("../core/root.zig");
 
 const vertex = @import("../../root.zig").vertex;
 

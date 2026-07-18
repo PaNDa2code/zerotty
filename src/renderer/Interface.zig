@@ -54,8 +54,9 @@ inner: *anyopaque,
 vtable: VTable,
 
 const std = @import("std");
-const color = @import("color");
-const win = @import("window");
+const zerotty = @import("zerotty");
+const color = zerotty.terminal.color;
+const win = zerotty.system.window;
 const TrueType = @import("TrueType");
 
 const RGBA = color.RGBA;

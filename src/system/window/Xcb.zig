@@ -373,12 +373,13 @@ fn get_atom(conn: *c.xcb_connection_t, atom_name: []const u8) ?c.xcb_atom_t {
 }
 
 const std = @import("std");
-const Renderer = @import("renderer");
+const zerotty = @import("zerotty");
+const Renderer = zerotty.renderer.Renderer;
 
 const Allocator = std.mem.Allocator;
 
 const zigimg = @import("zigimg");
-const assets = @import("assets");
+const assets = zerotty.assets;
 const c = @cImport({
     @cInclude("xcb/xcb.h");
     @cInclude("X11/keysym.h");
@@ -387,4 +388,4 @@ const c = @cImport({
 
 const root = @import("root.zig");
 
-const input = @import("input");
+const input = zerotty.system.input;

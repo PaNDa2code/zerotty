@@ -29,7 +29,7 @@ pub fn build(b: *Build) !void {
         bool,
         "disable-renderer-debug",
         "Disable debugging for renderer backends (Vulkan validation layers, OpenGL debug callbacks)",
-    ) orelse !comptime_check;
+    ) orelse (optimize != .Debug);
 
     if (dist_json_path) |json_path| {
         try config_mod.jsonFileToStep(b, b.default_step, json_path, optimize, use_llvm);

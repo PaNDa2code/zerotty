@@ -61,7 +61,7 @@ pub const ResizeEvent = struct {
     is_live: bool = false, // user is still resizing
 };
 
-pub const InputEvent = @import("input").InputEvent;
+pub const InputEvent = @import("zerotty").system.input.InputEvent;
 
 pub const WindowEvent = union(enum) {
     resize: ResizeEvent,
@@ -229,7 +229,7 @@ const Backend = switch (Api) {
 };
 
 pub const InputContext = switch (Api) {
-    .xlib, .xcb => @import("input").Xkb,
+    .xlib, .xcb => @import("zerotty").system.input.Xkb,
     else => void,
 };
 
@@ -237,8 +237,6 @@ pub const MAX_EVENTS = 128;
 pub const POLL_LIMIT = MAX_EVENTS;
 
 pub const Window = WindowInterface(Backend);
-
-const test_alloc = std.testing.allocator;
 
 comptime {
     if (comptime_check) {

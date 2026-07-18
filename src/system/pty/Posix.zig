@@ -88,5 +88,5 @@ const PtyOptions = pty.PtyOptions;
 
 pub const Fd = posix.fd_t;
 
-const ChildProcess = @import("ChildProcess");
+const ChildProcess = @import("zerotty").system.ChildProcess;
 const win32 = @import("win32");

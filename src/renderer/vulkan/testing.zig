@@ -1,9 +1,10 @@
 const std = @import("std");
-const core = @import("core");
+const core = @import("core/root.zig");
 
-var mutex: std.Thread.Mutex = .{};
+var mutex: std.atomic.Mutex = .unlocked;
 
-const allocator = std.heap.c_allocator;
+const allocator = std.testing.allocator;
+
 var vk_alloc: ?*core.memory.AllocatorAdapter = null;
 var instance: ?core.Instance = null;
 var device: ?core.Device = null;
@@ -44,7 +45,9 @@ pub fn getTestDevice() *const core.Device {
 }
 
 pub fn getTestDeviceLocked() *const core.Device {
-    mutex.lock();
+    while (!mutex.tryLock()) {
+        std.Thread.yield() catch {};
+    }
     return getTestDevice();
 }
 

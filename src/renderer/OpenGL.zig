@@ -3,7 +3,7 @@ const OpenGL = @This();
 const std = @import("std");
 const builtin = @import("builtin");
 const root = @import("root.zig");
-const win = @import("window");
+const win = @import("zerotty").system.window;
 const gl = @import("gl");
 
 context: OpenGLContext,

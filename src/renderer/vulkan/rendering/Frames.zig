@@ -234,7 +234,7 @@ pub fn submit(
 
 const std = @import("std");
 const vk = @import("vulkan");
-const core = @import("core");
+const core = @import("../core/root.zig");
 
 const root = @import("../../root.zig");
 const vertex = @import("../../vertex.zig");

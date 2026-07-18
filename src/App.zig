@@ -260,13 +260,15 @@ fn ptyReadCallback(event: *myio.EventLoop.Event, len: usize, user_data: ?*anyopa
 
 const std = @import("std");
 const builtin = @import("builtin");
-const myio = @import("io");
-const win = @import("window");
-const font = @import("font");
-const assets = @import("assets");
-const Terminal = @import("Terminal.zig");
-const AssetsManager = @import("AssetsManager");
-const TextInstance = @import("renderer").vertex.TextInstance;
-const Renderer = @import("renderer").Renderer;
+const zerotty = @import("zerotty");
+
+const myio = zerotty.system.io;
+const win = zerotty.system.window;
+const font = zerotty.font;
+const assets = zerotty.assets;
+const Terminal = zerotty.terminal.Terminal;
+const AssetsManager = zerotty.AssetsManager;
+const TextInstance = zerotty.renderer.vertex.TextInstance;
+const Renderer = zerotty.renderer.Renderer;
 
 const os_tag = builtin.os.tag;

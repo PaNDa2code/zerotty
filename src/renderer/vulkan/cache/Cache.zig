@@ -221,9 +221,10 @@ fn transitionImageLayout(
 
 const std = @import("std");
 const vk = @import("vulkan");
-const core = @import("core");
+const zerotty = @import("zerotty");
+const core = @import("../core/root.zig");
 const memory = core.memory;
-const font = @import("font");
+const font = zerotty.font;
 const Texture = @import("Texture.zig");
 
 test Cache {

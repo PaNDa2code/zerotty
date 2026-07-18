@@ -1,9 +1,10 @@
 const std = @import("std");
-const win = @import("window");
+const zerotty = @import("zerotty");
+const win = zerotty.system.window;
 const root = @import("root.zig");
-const color = @import("color");
+const color = zerotty.terminal.color;
 const vertex = @import("vertex.zig");
-const font = @import("font");
+const font = zerotty.font;
 
 const OpenGL = @import("OpenGL.zig");
 const Vulkan = @import("Vulkan.zig");

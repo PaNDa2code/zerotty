@@ -7,7 +7,7 @@ pub const GlyphInfo = extern struct {
 };
 
 buffer: []u8,
-glyph_lookup_map: std.AutoArrayHashMap(u32, GlyphInfo),
+glyph_lookup_map: std.AutoArrayHashMapUnmanaged(u32, GlyphInfo),
 
 height: usize,
 width: usize,
@@ -29,7 +29,7 @@ pub const CreateError = TrueType.GlyphBitmapError || Allocator.Error || SaveAtla
 pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32, to: u32) CreateError!Atlas {
     const glyphs_count = to - from;
 
-    const font_buffer = @import("assets").fonts.@"FiraCodeNerdFontMono-Regular.ttf";
+    const font_buffer = zerotty.assets.fonts.@"FiraCodeNerdFontMono-Regular.ttf";
 
     const ttf = try TrueType.load(font_buffer);
     const scale = ttf.scaleForPixelHeight(@floatFromInt(cell_height));
@@ -51,7 +51,7 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
     if (builtin.mode == .Debug)
         @memset(pixels, 0);
 
-    var glyph_map = std.AutoArrayHashMap(u32, GlyphInfo).init(allocator);
+    var glyph_map: std.AutoArrayHashMapUnmanaged(u32, GlyphInfo) = .empty;
 
     var line_height: u32 = 0;
     var pin: Vec2(u32) = .zero;
@@ -90,7 +90,7 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
             .bearing = .{ .x = dims.off_x, .y = dims.off_y },
         };
 
-        try glyph_map.put(@intCast(codepoint), glyph_info);
+        try glyph_map.put(allocator, @intCast(codepoint), glyph_info);
 
         // Advance to next position
         pin.x += dims.width + padding_x;
@@ -118,10 +118,10 @@ pub fn create(allocator: Allocator, cell_height: u16, cell_width: u16, from: u32
 
 pub fn deinit(self: *Atlas, allocator: Allocator) void {
     allocator.free(self.buffer);
-    self.glyph_lookup_map.deinit();
+    self.glyph_lookup_map.deinit(allocator);
 }
 
-const SaveAtlasError = std.fs.File.OpenError || std.io.AnyWriter.Error;
+const SaveAtlasError = std.Io.File.OpenError || std.io.AnyWriter.Error;
 
 pub fn saveAtlas(
     allocator: Allocator,
@@ -145,12 +145,13 @@ test Atlas {
 
 const std = @import("std");
 const builtin = @import("builtin");
-const AssetsManager = @import("AssetsManager");
+const zerotty = @import("zerotty");
+const AssetsManager = zerotty.AssetsManager;
 const assets_manager = &AssetsManager.instance;
 const zigimg = @import("zigimg");
 const Allocator = std.mem.Allocator;
 
-const math = @import("math");
+const math = zerotty.math;
 const Vec2 = math.Vec2;
 
 const TrueType = @import("TrueType");

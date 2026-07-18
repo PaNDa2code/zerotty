@@ -106,9 +106,9 @@ pub fn getSurfaceExtent(self: *RenderContext, width: u32, height: u32) !vk.Exten
 const std = @import("std");
 const vk = @import("vulkan");
 
-const core = @import("core");
-
-const window = @import("window");
+const core = @import("../core/root.zig");
+const zerotty = @import("zerotty");
+const window = zerotty.system.window;
 const window_surface = @import("window_surface.zig");
 const SurfaceCreationInfo = window_surface.SurfaceCreationInfo;
 const createWindowSurface = window_surface.createWindowSurface;

@@ -169,9 +169,10 @@ fn handleSGR(term: *Terminal, state: *const vt.ParserData) void {
 const std = @import("std");
 const log = std.log.scoped(.vtparser);
 const vt = @import("vtparse");
-const color = @import("color");
-const font = @import("font");
-const Pty = @import("pty").Pty;
-const ChildProcess = @import("ChildProcess");
+const zerotty = @import("zerotty");
+const color = zerotty.terminal.color;
+const font = zerotty.font;
+const Pty = zerotty.system.pty.Pty;
+const ChildProcess = zerotty.system.ChildProcess;
 const Scrollback = @import("Scrollback.zig");
 const Grid = @import("grid/root.zig").Grid;

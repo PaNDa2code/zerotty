@@ -188,7 +188,7 @@ pub const Context = struct {
 
     pub fn dequeue(self: *const Self, res: *i32) !*const Request {
         const ret = linux.io_uring_enter(self.fd, 0, 1, linux.IORING_ENTER_GETEVENTS, null);
-        if (linux.E.init(ret) != .SUCCESS) {
+        if (@as(linux.E, @enumFromInt(ret)) != .SUCCESS) {
             return error.DequeueFailed;
         }
 

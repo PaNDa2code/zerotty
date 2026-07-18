@@ -39,5 +39,5 @@ pub fn glyphBitmap(
 }
 
 const std = @import("std");
-const root = @import("font");
+const root = @import("zerotty").font;
 const Font = @import("Font.zig");

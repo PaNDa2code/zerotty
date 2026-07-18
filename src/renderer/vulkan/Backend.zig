@@ -419,7 +419,8 @@ pub fn setCell(
 
 const std = @import("std");
 const builtin = @import("builtin");
-const assets = @import("assets");
+const zerotty = @import("zerotty");
+const assets = zerotty.assets;
 const build_options = @import("build_options");
 
 const os_tag = builtin.os.tag;
@@ -429,14 +430,14 @@ const root = @import("../root.zig");
 
 const core = @import("core/root.zig");
 
-const win = @import("window");
+const win = zerotty.system.window;
 const RenderContext = @import("rendering/RenderContext.zig");
 const RenderPipeline = @import("rendering/RenderPipeline.zig");
 const RenderResources = @import("rendering/Resources.zig");
 const Allocator = std.mem.Allocator;
-const color = @import("color");
-const DynamicLibrary = @import("DynamicLibrary");
-const Grid = @import("grid");
-const Atlas = @import("font").Atlas;
+const color = zerotty.terminal.color;
+const DynamicLibrary = zerotty.system.DynamicLibrary;
+const Grid = zerotty.terminal.grid.Grid;
+const Atlas = zerotty.font.Atlas;
 
 const vertex = root.vertex;

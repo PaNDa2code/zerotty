@@ -10,7 +10,7 @@ vki: vk.InstanceWrapper,
 
 vk_allocator: ?*const vk.AllocationCallbacks,
 
-debug_messenger: if (builtin.mode == .Debug) vk.DebugUtilsMessengerEXT else void,
+debug_messenger: if (builtin.mode == .Debug and renderer_debug) vk.DebugUtilsMessengerEXT else void,
 
 pub const InitError = std.mem.Allocator.Error ||
     vk.BaseWrapper.CreateInstanceError ||
@@ -46,7 +46,7 @@ pub fn init(
 
     const slices = [_][]const [*:0]const u8{
         required_extensions,
-    } ++ if (builtin.mode == .Debug) [_][]const [*:0]const u8{&debug_extentions} else .{};
+    } ++ if (builtin.mode == .Debug and renderer_debug) [_][]const [*:0]const u8{&debug_extentions} else .{};
 
     const extensions = try std.mem.concatMaybeSentinel(allocator, [*:0]const u8, &slices, null);
     defer allocator.free(extensions);
@@ -88,7 +88,7 @@ pub fn init(
         vkb.dispatch.vkGetInstanceProcAddr.?,
     );
 
-    const debug_messenger = if (builtin.mode == .Debug)
+    const debug_messenger = if (builtin.mode == .Debug and renderer_debug)
         try debug.debugMessenger(
             &vki,
             handle,
@@ -123,4 +123,6 @@ const builtin = @import("builtin");
 
 const debug = @import("debug.zig");
 
-const DynamicLibrary = @import("DynamicLibrary");
+const DynamicLibrary = @import("zerotty").system.DynamicLibrary;
+
+const renderer_debug = @import("build_options").@"renderer-debug";

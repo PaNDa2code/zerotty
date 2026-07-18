@@ -33,10 +33,10 @@ pub const Result = struct {
 };
 
 test Backend {
-    std.testing.refAllDeclsRecursive(Backend);
+    std.testing.refAllDecls(Backend);
 }
 
 test EventLoop {
-    std.testing.refAllDeclsRecursive(EventLoop);
+    std.testing.refAllDecls(EventLoop);
 }
 

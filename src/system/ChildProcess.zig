@@ -307,7 +307,15 @@ test ChildProcess {
         .args = &.{},
     };
 
-    try child.start(std.testing.allocator, &pty);
+    var map = try std.testing.environ
+        .createMap(std.testing.allocator);
+
+    try child.start(
+        std.testing.io,
+        &map,
+        std.testing.allocator,
+        &pty,
+    );
     defer child.terminate();
     // try child.wait();
 }
@@ -327,7 +335,7 @@ const win32thread = win32.system.threading;
 const win32fs = win32.storage.file_system;
 const win32mem = win32.system.memory;
 
-const Pty = @import("pty").Pty;
+const Pty = @import("zerotty").system.pty.Pty;
 
 const File = std.Io.File;
 const Allocator = std.mem.Allocator;

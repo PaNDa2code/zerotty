@@ -420,13 +420,14 @@ pub fn commitBatch(self: *Vulkan, count: usize) !void {
 
 const std = @import("std");
 const vk = @import("vulkan");
+const zerotty = @import("zerotty");
 
 const root = @import("root.zig");
 
-const core = @import("core");
-const win = @import("window");
-const color = @import("color");
-const font = @import("font");
+const core = @import("vulkan/core/root.zig");
+const win = zerotty.system.window;
+const color = zerotty.terminal.color;
+const font = zerotty.font;
 const vertex = @import("vertex.zig");
 
 const RenderContext = @import("vulkan/rendering/RenderContext.zig");
@@ -437,6 +438,6 @@ const Target = @import("vulkan/rendering/Target.zig");
 
 const Cache = @import("vulkan/cache/Cache.zig");
 
-test Vulkan {
-    std.testing.refAllDeclsRecursive(Cache);
+comptime {
+    std.testing.refAllDecls(Cache);
 }
