@@ -24,9 +24,9 @@ steps:
 
       - curl -sSfL https://zigcli.liujiacai.net/install.sh | sh -s -- --install-dir "$TEMP_BIN_DIR"
 
-      - export PATH="$TEMP_BIN_DIR:$PATH"
+      - mkdir -p ~/.cache/zig/p/
 
-      - zigfetch .
+      - $TEMP_BIN_DIR/zigfetch .
 
       - zig build
 
