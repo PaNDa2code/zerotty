@@ -3,7 +3,7 @@ when:
     branch: master
 
 steps:
-  - name: build
+  - name: check build and run tests
     image: alpine
 
     commands:
@@ -21,3 +21,5 @@ steps:
       - curl -sSf https://raw.githubusercontent.com/MingFei2001/install-zig/refs/heads/main/install-zig.sh | bash
 
       - zig build
+
+      - zig build test

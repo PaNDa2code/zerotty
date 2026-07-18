@@ -139,6 +139,7 @@ pub const Grid = struct {
     pub fn appendRow(self: *Grid) !void {
         self.visable_rows += 1;
 
+        // TODO: handle overflowing
         self.rows_list.appendAssumeCapacity(.{
             .cells_offset = self.cells_count,
             .cells_len = 0,

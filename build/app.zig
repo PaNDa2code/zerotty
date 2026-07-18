@@ -225,11 +225,14 @@ pub fn setupApp(
     // Windows Specific EXE settings
     if (config.window_system == .win32) {
         if (optimize != .Debug) {
-            exe.subsystem = .Windows;
+            exe.subsystem = .windows;
             exe.mingw_unicode_entry_point = true;
         }
-        exe.bundle_compiler_rt = true;
     }
+
+    exe.bundle_compiler_rt =
+        optimize == .Debug or optimize == .ReleaseSafe;
+
     exe_mod.addWin32ResourceFile(.{ .file = b.path("assets/zerotty.rc") });
 
     return .{ .exe = exe, .modules = modules, .target = target };

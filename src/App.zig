@@ -91,6 +91,11 @@ pub fn run(self: *App) !void {
         self.window.poll();
         try self.io_event_loop.poll(0);
 
+        const shell_exit =
+            try self.terminal.shell.wait(false);
+
+        if (shell_exit == .ended) break;
+
         while (self.window.nextEvent()) |event| {
             std.log.debug("event: {any}", .{event});
 

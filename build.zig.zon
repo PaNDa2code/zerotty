@@ -38,13 +38,13 @@
         //     .lazy = true,
         // },
         .vulkan_headers = .{
-            .url = "https://github.com/KhronosGroup/Vulkan-Headers/archive/refs/tags/v1.4.338.tar.gz",
-            .hash = "N-V-__8AAMZuLQIcPe--JSv0kn_Ga8tsjgbkaojW0OHW2Rfd",
+            .url = "https://github.com/KhronosGroup/Vulkan-Headers/archive/refs/tags/v1.4.357.tar.gz",
+            .hash = "N-V-__8AAO2WewIbm0OeFBxoD5LxmEzZigF1yXmgGLuahMD5",
             .lazy = true,
         },
         .vulkan = .{
-            .url = "git+https://github.com/Snektron/vulkan-zig#5234ae68d1ac143b3ebd1a6e2e40aaa0ef7693c7",
-            .hash = "vulkan-0.0.0-r7Ytx7t9AwBjKG7tnhReEVo0P2fvstTc8G_0qF8iog_V",
+            .url = "https://github.com/Snektron/vulkan-zig/archive/057180744c666bb62e20877fe106422784a5e29a.tar.gz",
+            .hash = "vulkan-0.0.0-r7Ytx_6DAwDB1QJAbIew5IzR2PiiAtJENX5kdJHf449X",
             .lazy = true,
         },
         .emsdk = .{

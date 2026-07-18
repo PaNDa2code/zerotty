@@ -190,16 +190,7 @@ pub fn endFrame(self: *Vulkan) !void {
             .baseline = 28.0,
         };
 
-        var copy_cmd = try frame.command_pool.allocBuffer(.secondary);
-
-        try copy_cmd.beginSecondary(
-            null,
-            null,
-            0,
-            .{ .one_time_submit_bit = true },
-        );
-
-        try copy_cmd.copyBuffer(
+        try frame.main_cmd.copyBuffer(
             self.frames.uniform_stage.handle,
             frame.uniform_buffer.handle,
             &.{
@@ -210,10 +201,6 @@ pub fn endFrame(self: *Vulkan) !void {
                 },
             },
         );
-
-        try copy_cmd.end();
-
-        try frame.main_cmd.executeCommand(copy_cmd.handle);
 
         for (0..2) |i| {
             try frame.descriptor_sets[i].prepare();
@@ -337,17 +324,12 @@ pub fn cacheGlyphs(
         return error.MemoryMapFailed;
     @memcpy(stage_slice[0..bitmap_pool.len], bitmap_pool);
 
-    var copy_cmd = try frame.command_pool.allocBuffer(.secondary);
-    try copy_cmd.beginSecondary(null, null, 0, .{ .one_time_submit_bit = true });
     try self.cache.recordCopyCmd(
-        &copy_cmd,
+        &frame.main_cmd,
         &self.glyph_staging_buffer,
         self.render_context.allocator_adapter.allocator,
         entries,
     );
-    try copy_cmd.end();
-
-    try frame.main_cmd.executeCommand(copy_cmd.handle);
 }
 
 pub fn reserveBatch(self: *Vulkan, count: usize) ![]vertex.TextInstance {
@@ -382,8 +364,6 @@ pub fn commitBatch(self: *Vulkan, count: usize) !void {
                 .exclusive,
             );
         }
-        var copy_cmd = try frame.command_pool.allocBuffer(.secondary);
-
         const copy_regons = [_]vk.BufferCopy{
             .{
                 .src_offset = 0,
@@ -392,22 +372,11 @@ pub fn commitBatch(self: *Vulkan, count: usize) !void {
             },
         };
 
-        try copy_cmd.beginSecondary(
-            null,
-            null,
-            0,
-            .{ .one_time_submit_bit = true },
-        );
-
-        try copy_cmd.copyBuffer(
+        try frame.main_cmd.copyBuffer(
             self.staging_buffer.handle,
             frame.vertex_buffer.handle,
             &copy_regons,
         );
-
-        try copy_cmd.end();
-
-        try frame.main_cmd.executeCommand(copy_cmd.handle);
 
         try frame.main_cmd.bindVertexBuffer(
             &frame.vertex_buffer,
@@ -439,5 +408,5 @@ const Target = @import("vulkan/rendering/Target.zig");
 const Cache = @import("vulkan/cache/Cache.zig");
 
 comptime {
-    std.testing.refAllDecls(Cache);
+    _ = Cache;
 }

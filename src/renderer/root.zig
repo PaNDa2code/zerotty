@@ -21,6 +21,7 @@ const BackendImpl = switch (Api) {
 pub const Renderer = genaric.GenaricRenderer(BackendImpl);
 
 pub const vertex = @import("vertex.zig");
+pub const spirv = @import("spirv.zig");
 
 comptime {
     @import("std").testing.refAllDecls(@This());

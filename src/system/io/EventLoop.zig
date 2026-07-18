@@ -92,7 +92,7 @@ pub fn poll(self: *EventLoop, timeout_ms: u32) !void {
     const event: *Event = @fieldParentPtr("request", @constCast(completed_req));
 
     if (event.completion_callback) |cb| {
-        switch (cb(event, @intCast(res), event.user_data)) {
+        switch (cb(event, @intCast(@as(u32, @bitCast(res))), event.user_data)) {
             .destroy => {
                 self.free_events.appendAssumeCapacity(
                     (@intFromPtr(event) - @intFromPtr(self.event_pool.ptr)) / @sizeOf(Event),

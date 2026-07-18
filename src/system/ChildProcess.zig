@@ -44,10 +44,15 @@ pub fn terminate(self: *ChildProcess) void {
     }
 }
 
-pub fn wait(self: *const ChildProcess) !void {
+pub const WaitResult = union(enum) {
+    ended: u32,
+    running,
+};
+
+pub fn wait(self: *const ChildProcess, block: bool) !WaitResult {
     return switch (os) {
-        .windows => self.waitWindows(),
-        .linux, .macos => self.waitLinux(),
+        .windows => self.waitWindows(block),
+        .linux, .macos => self.waitLinux(block),
         else => @compileError("Not supported"),
     };
 }
@@ -159,9 +164,26 @@ fn terminateWindows(self: *ChildProcess) void {
     _ = win32thread.TerminateProcess(self.id, 0);
 }
 
-fn waitWindows(self: *const ChildProcess) !void {
-    if (win32thread.WaitForSingleObject(self.id, std.math.maxInt(u32)) != 0) {
-        return error.WatingFailed;
+fn waitWindows(self: *const ChildProcess, block: bool) !WaitResult {
+    const err = win32thread.WaitForSingleObject(
+        self.id,
+        if (block) std.math.maxInt(u32) else 0,
+    );
+
+    switch (err) {
+        .NO_ERROR => {
+            var exit_code: u32 = 0;
+
+            const ret = win32thread.GetExitCodeProcess(self.id, &exit_code);
+
+            if (ret == 0)
+                return error.GetProcessExitCodeFailed;
+
+            return .{ .ended = @intCast(exit_code) };
+        },
+        .WAIT_TIMEOUT => return .running,
+        .WAIT_FAILED => return error.WaitFailed,
+        else => return error.Unexpected,
     }
 }
 
@@ -238,8 +260,23 @@ fn terminatePosix(self: *ChildProcess) void {
     _ = posix.kill(self.id, posix.SIG.KILL) catch {};
 }
 
-fn waitLinux(self: *const ChildProcess) !void {
-    _ = linux.waitpid(self.id, 0);
+fn waitLinux(self: *const ChildProcess, block: bool) !WaitResult {
+    var status: u32 = 0;
+    const res = linux.waitpid(
+        self.id,
+        &status,
+        if (!block) linux.W.NOHANG else 0,
+    );
+
+    const err = posix.errno(res);
+
+    if (err != .SUCCESS)
+        return error.WaitFailed;
+
+    if (res == 0)
+        return .running;
+
+    return .{ .ended = @intCast(linux.W.EXITSTATUS(status)) };
 }
 
 fn findPathAlloc(
@@ -316,8 +353,12 @@ test ChildProcess {
         std.testing.allocator,
         &pty,
     );
-    defer child.terminate();
-    // try child.wait();
+
+    try std.testing.expectEqual(WaitResult.running, try child.wait(false));
+
+    child.terminate();
+
+    try std.testing.expect(try child.wait(true) == .ended);
 }
 
 const std = @import("std");
