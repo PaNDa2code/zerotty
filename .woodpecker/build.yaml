@@ -20,7 +20,11 @@ steps:
 
       - curl -sSf https://raw.githubusercontent.com/MingFei2001/install-zig/refs/heads/main/install-zig.sh | bash
 
-      - curl -sSfL https://zigcli.liujiacai.net/install.sh | bash
+      - TEMP_BIN_DIR=$(mktemp -d)
+
+      - curl -sSfL https://zigcli.liujiacai.net/install.sh | sh -s -- --install-dir "$TEMP_BIN_DIR"
+
+      - export PATH="$TEMP_BIN_DIR:$PATH"
 
       - zigfetch .
 
