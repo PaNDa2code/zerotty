@@ -20,6 +20,10 @@ steps:
 
       - curl -sSf https://raw.githubusercontent.com/MingFei2001/install-zig/refs/heads/main/install-zig.sh | bash
 
+      - curl -sSfL https://zigcli.liujiacai.net/install.sh | bash
+
+      - zigfetch .
+
       - zig build
 
       - zig build test
