@@ -23,8 +23,8 @@ pub const SurfaceCreationInfo = union(enum) {
     },
     headless: void,
 
-    pub fn fromWindowHandles(handles: window.WindowHandles) SurfaceCreationInfo {
-        return switch (window.Api) {
+    pub fn fromWindowHandles(handles: platform.WindowNativeHandles) SurfaceCreationInfo {
+        return switch (build_options.@"window-system") {
             .win32 => .{
                 .win32 = .{ .hwnd = @ptrCast(handles.hwnd), .hinstance = @ptrCast(handles.hinstance) },
             },
@@ -81,12 +81,15 @@ pub fn createWindowSurface(
     if (build_options.@"window-system" == .glfw) {
         var surface: vk.SurfaceKHR = .null_handle;
 
-        _ = c.glfwCreateWindowSurface(
+        const vkres = c.glfwCreateWindowSurface(
             @ptrFromInt(@intFromEnum(instance.handle)),
             @ptrCast(surface_creation_info.glfw.window),
             @ptrCast(instance.vk_allocator),
             @ptrCast(&surface),
         );
+
+        if (vkres != c.VK_SUCCESS or surface == .null_handle)
+            return error.WindowSurfaceCreationFalied;
 
         return surface;
     }
@@ -121,7 +124,7 @@ pub fn createWindowSurface(
     }
 }
 
-const window = @import("zerotty").system.window;
+const platform = @import("zerotty").system.platform;
 
 const c = @cImport({
     @cDefine("GLFW_INCLUDE_NONE", "");

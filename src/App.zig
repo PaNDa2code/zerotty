@@ -5,7 +5,7 @@ allocator: std.mem.Allocator,
 
 io_event_loop: myio.EventLoop,
 
-window: *win.Window,
+platform: Platform,
 renderer: Renderer,
 
 buf: []u8,
@@ -16,18 +16,24 @@ pub fn init(
     io: std.Io,
     environ_map: *std.process.Environ.Map,
 ) !App {
-    const window = try win.Window.initAlloc(allocator, .{
+    var platform = Platform.init(allocator);
+
+    try platform.createWindow(.{
         .title = "zerotty",
         .height = 600,
         .width = 800,
     });
 
-    const renderer = try Renderer.init(allocator, window.getHandles(), .{
-        .surface_width = window.w.width,
-        .surface_height = window.w.height,
-        .grid_rows = 100,
-        .grid_cols = 100,
-    });
+    const renderer = try Renderer.init(
+        allocator,
+        try platform.getWindowNativeHandles(),
+        .{
+            .surface_width = 600,
+            .surface_height = 800,
+            .grid_rows = 100,
+            .grid_cols = 100,
+        },
+    );
 
     const terminal = try allocator.create(Terminal);
 
@@ -61,7 +67,8 @@ pub fn init(
     return .{
         .io = io,
         .allocator = allocator,
-        .window = window,
+
+        .platform = platform,
         .renderer = renderer,
 
         .io_event_loop = event_loop,
@@ -88,7 +95,9 @@ pub fn run(self: *App) !void {
     const ttf = font_ttf.ttf;
 
     while (running) {
-        self.window.poll();
+        try self.platform.pollEvents();
+        const events_queue = self.platform.eventQueue();
+
         try self.io_event_loop.poll(0);
 
         const shell_exit =
@@ -96,7 +105,7 @@ pub fn run(self: *App) !void {
 
         if (shell_exit == .ended) break;
 
-        while (self.window.nextEvent()) |event| {
+        while (events_queue.pop()) |event| {
             std.log.debug("event: {any}", .{event});
 
             switch (event) {
@@ -144,8 +153,8 @@ pub fn run(self: *App) !void {
         const cell_w = 19;
         const cell_h = 32;
 
-        const actual_visible_cols = self.window.w.width / cell_w;
-        const actual_visible_rows = self.window.w.height / cell_h;
+        const actual_visible_cols = self.platform.current_window.?.width / cell_w;
+        const actual_visible_rows = self.platform.current_window.?.height / cell_h;
 
         var grid_iter = self.terminal.grid.iter(
             actual_visible_cols,
@@ -202,8 +211,8 @@ pub fn run(self: *App) !void {
         try self.renderer.setViewport(
             0,
             0,
-            self.window.width(),
-            self.window.height(),
+            self.platform.current_window.?.width,
+            self.platform.current_window.?.height,
         );
 
         self.renderer.clear(.black);
@@ -237,7 +246,7 @@ pub fn run(self: *App) !void {
 
             var buf: [255]u8 = undefined;
             const title = try std.fmt.bufPrintZ(&buf, "zerotty - FPS: {:.02}", .{fps});
-            try self.window.setTitle(title);
+            try self.platform.current_window.?.setTitle(title);
 
             frames = 0;
             timer.nanoseconds = 0;
@@ -247,9 +256,10 @@ pub fn run(self: *App) !void {
 
 pub fn deinit(self: *App) void {
     self.renderer.deinit();
-    self.window.destroy(self.allocator);
+    // self.window.destroy(self.allocator);
     self.terminal.deinit(self.allocator);
     self.allocator.free(self.buf);
+    self.io_event_loop.deinit(self.allocator);
 
     self.allocator.destroy(self.terminal);
 
@@ -268,7 +278,7 @@ const builtin = @import("builtin");
 const zerotty = @import("zerotty");
 
 const myio = zerotty.system.io;
-const win = zerotty.system.window;
+const Platform = zerotty.system.platform.Platform;
 const font = zerotty.font;
 const assets = zerotty.assets;
 const Terminal = zerotty.terminal.Terminal;

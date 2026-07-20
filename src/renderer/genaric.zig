@@ -1,6 +1,6 @@
 const std = @import("std");
 const zerotty = @import("zerotty");
-const win = zerotty.system.window;
+const platform = zerotty.system.platform;
 const root = @import("root.zig");
 const color = zerotty.terminal.color;
 const vertex = @import("vertex.zig");
@@ -18,7 +18,7 @@ pub fn GenaricRenderer(Impl: type) type {
         pub const InitError = Impl.InitError;
         pub fn init(
             alloc: std.mem.Allocator,
-            window_handles: win.WindowHandles,
+            window_handles: platform.WindowNativeHandles,
             settings: root.RendererSettings,
         ) InitError!Self {
             const inner = try Impl.init(alloc, window_handles, .{}, settings);

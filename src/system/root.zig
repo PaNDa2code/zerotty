@@ -1,7 +1,8 @@
 pub const pty = @import("pty/root.zig");
-pub const window = @import("window/root.zig");
 pub const io = @import("io/root.zig");
 pub const input = @import("input/root.zig");
+
+pub const platform = @import("platform/root.zig");
 
 pub const ChildProcess = @import("ChildProcess.zig");
 pub const CircularBuffer = @import("CircularBuffer.zig");

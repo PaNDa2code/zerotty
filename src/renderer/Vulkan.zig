@@ -22,8 +22,8 @@ instance_count: u32 = 0,
 
 pub fn init(
     allocator: std.mem.Allocator,
-    window_handles: win.WindowHandles,
-    _: win.WindowRequirements,
+    window_handles: platform.WindowNativeHandles,
+    _: platform.WindowRendererRequirements,
     settings: root.RendererSettings,
 ) InitError!Vulkan {
     const render_context = try RenderContext.init(allocator, window_handles);
@@ -394,7 +394,7 @@ const zerotty = @import("zerotty");
 const root = @import("root.zig");
 
 const core = @import("vulkan/core/root.zig");
-const win = zerotty.system.window;
+const platform = zerotty.system.platform;
 const color = zerotty.terminal.color;
 const font = zerotty.font;
 const vertex = @import("vertex.zig");

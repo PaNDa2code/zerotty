@@ -10,6 +10,14 @@ window: *c.GLFWwindow = undefined,
 
 event_queue: *root.EventQueue = undefined,
 
+pub fn nextEvent(self: *Window) ?root.Event {
+    return self.event_queue.pop();
+}
+
+pub fn destroy(self: *Window, allocator: Allocator) void {
+    self.close();
+    allocator.destroy(self);
+}
 pub fn new(title: []const u8, height: u32, width: u32) Window {
     return .{
         .title = title,
@@ -18,7 +26,7 @@ pub fn new(title: []const u8, height: u32, width: u32) Window {
     };
 }
 
-pub fn open(self: *Window, allocator: Allocator) !void {
+pub fn open(self: *Window, allocator: Allocator, event_queue: *root.EventQueue) !void {
     if (@import("builtin").mode == .Debug)
         _ = c.glfwSetErrorCallback(callbacks.errorCallback);
 
@@ -56,6 +64,8 @@ pub fn open(self: *Window, allocator: Allocator) !void {
 
     if (render_backend == .opengl)
         c.glfwMakeContextCurrent(self.window);
+
+    self.event_queue = event_queue;
 }
 
 pub fn setTitle(self: *Window, title: []const u8) !void {
@@ -66,7 +76,7 @@ pub fn setTitle(self: *Window, title: []const u8) !void {
 
 pub fn poll(_: *Window) void {
     var counter: usize = 0;
-    while (counter < root.POLL_LIMIT) : (counter += 1) {
+    while (counter < root.EventQueue.limit) : (counter += 1) {
         c.glfwPollEvents();
     }
 }
@@ -92,7 +102,7 @@ const callbacks = struct {
             return;
         }
 
-        const event = root.WindowEvent{
+        const event = root.Event{
             .input = .{
                 .keyboard = .{
                     .type = if (action == c.GLFW_PRESS)
@@ -112,7 +122,7 @@ const callbacks = struct {
     fn char(glfw_window: ?*c.GLFWwindow, codepoint: c_uint) callconv(.c) void {
         const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
 
-        const event = root.WindowEvent{
+        const event = root.Event{
             .input = .{
                 .utf8_codepoint = @intCast(codepoint),
             },
@@ -127,7 +137,7 @@ const callbacks = struct {
         window.height = @intCast(height);
         window.width = @intCast(width);
 
-        const event = root.WindowEvent{
+        const event = root.Event{
             .resize = .{
                 .height = @intCast(height),
                 .width = @intCast(width),
@@ -156,9 +166,8 @@ const callbacks = struct {
 
 const std = @import("std");
 
-const root = @import("root.zig");
-
-const render_backend = @import("build_options").@"render-backend"; 
+const root = @import("zerotty").system.platform;
+const render_backend = @import("build_options").@"render-backend";
 
 const c = @cImport({
     if (render_backend != .opengl)

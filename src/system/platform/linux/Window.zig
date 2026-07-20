@@ -10,15 +10,23 @@ wm_delete_window_atom: c.xcb_atom_t = 0,
 wm_name_atom: c.xcb_atom_t = 0,
 wm_state_hidden_atom: c.xcb_atom_t = 0,
 
-xkb: input.keyboard.Xkb = undefined,
+input: Input = undefined,
 
 exit: bool = false,
 title: []const u8,
 height: u32,
 width: u32,
 
-event_queue: *root.EventQueue = undefined,
+event_queue: root.EventQueue = .empty,
 
+pub fn nextEvent(self: *Window) ?root.WindowEvent {
+    return self.event_queue.pop();
+}
+
+pub fn destroy(self: *Window, allocator: Allocator) void {
+    self.close();
+    allocator.destroy(self);
+}
 const log = std.log.scoped(.window);
 
 pub fn new(title: []const u8, height: u32, width: u32) Window {
@@ -189,7 +197,7 @@ pub fn open(self: *Window, allocator: Allocator) !void {
 
     self.opacity_atom = get_atom(self.connection, "_NET_WM_WINDOW_OPACITY") orelse return;
 
-    self.xkb = try .init();
+    self.input = try .init();
 }
 
 /// set window opacity value from 0.0 to 1.0
@@ -386,6 +394,6 @@ const c = @cImport({
     @cInclude("stdlib.h");
 });
 
-const root = @import("root.zig");
+const root = @import("../root.zig");
 
-const input = zerotty.system.input;
+const Input = @import("Input.zig");

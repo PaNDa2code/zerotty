@@ -11,7 +11,7 @@ queue: core.Queue,
 allocator_adapter: *core.memory.AllocatorAdapter,
 device_allocator: *core.memory.DeviceAllocator,
 
-pub fn init(allocator: std.mem.Allocator, window_handles: window.WindowHandles) !RenderContext {
+pub fn init(allocator: std.mem.Allocator, window_handles: platform.WindowNativeHandles) !RenderContext {
     const allocator_adapter = try core.memory.AllocatorAdapter.init(allocator);
 
     const surface_creation_info = SurfaceCreationInfo.fromWindowHandles(window_handles);
@@ -108,7 +108,7 @@ const vk = @import("vulkan");
 
 const core = @import("../core/root.zig");
 const zerotty = @import("zerotty");
-const window = zerotty.system.window;
+const platform = zerotty.system.platform;
 const window_surface = @import("window_surface.zig");
 const SurfaceCreationInfo = window_surface.SurfaceCreationInfo;
 const createWindowSurface = window_surface.createWindowSurface;

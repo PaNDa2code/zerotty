@@ -10,8 +10,16 @@ width: u32,
 
 resizing: bool = false,
 
-event_queue: *root.EventQueue = undefined,
+event_queue: root.EventQueue = .empty,
 
+pub fn nextEvent(self: *Window) ?root.WindowEvent {
+    return self.event_queue.pop();
+}
+
+pub fn destroy(self: *Window, allocator: Allocator) void {
+    self.close();
+    allocator.destroy(self);
+}
 pub fn new(title: []const u8, height: u32, width: u32) Window {
     return .{
         .title = title,
@@ -265,7 +273,7 @@ pub fn getHandles(self: *const Window) root.WindowHandles {
 }
 
 const std = @import("std");
-const root = @import("root.zig");
+const root = @import("../root.zig");
 
 const win32 = @import("win32");
 const win32fnd = win32.foundation;
