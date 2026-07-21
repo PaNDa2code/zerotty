@@ -58,7 +58,7 @@ pub const Context = struct {
         var bytes: u32 = 0;
         var overlapped: ?*OVERLAPPED = null;
         var request_address: usize = 0;
-        const stat = GetQueuedCompletionStatus(
+        const ret = GetQueuedCompletionStatus(
             self.iocp,
             &bytes,
             &request_address,
@@ -66,14 +66,15 @@ pub const Context = struct {
             timeout_ms,
         );
 
-        switch (stat) {
-            0 => {
-                res.* = @intCast(bytes);
-                return @ptrFromInt(request_address);
-            },
-            // .Timeout => return null,
-            else => return windows.unexpectedError(windows.GetLastError()),
+        if (ret != 0) {
+            res.* = @intCast(bytes);
+            return @ptrFromInt(request_address);
         }
+
+        return switch (windows.GetLastError()) {
+            .WAIT_TIMEOUT => null,
+            else => |err| return windows.unexpectedError(err),
+        };
     }
 };
 

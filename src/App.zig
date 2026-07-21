@@ -18,20 +18,26 @@ pub fn init(
 ) !App {
     var platform = Platform.init(allocator);
 
+    const initial_width = 800;
+    const initial_height = 600;
+
     try platform.createWindow(.{
         .title = "zerotty",
-        .height = 600,
-        .width = 800,
+        .height = initial_height,
+        .width = initial_width,
     });
+
+    const initial_cols = initial_width / 19;
+    const initial_rows = initial_height / 32;
 
     const renderer = try Renderer.init(
         allocator,
         try platform.getWindowNativeHandles(),
         .{
-            .surface_width = 600,
-            .surface_height = 800,
-            .grid_rows = 100,
-            .grid_cols = 100,
+            .surface_height = initial_height,
+            .surface_width = initial_width,
+            .grid_rows = initial_rows,
+            .grid_cols = initial_cols,
         },
     );
 
@@ -51,13 +57,13 @@ pub fn init(
         if (os_tag == .linux) .{
             .shell_path = "/bin/bash",
             .shell_args = &.{ "bash", "--norc", "--noprofile" },
-            .rows = 100,
-            .cols = 100,
+            .rows = initial_rows,
+            .cols = initial_cols,
         } else if (os_tag == .windows) .{
             .shell_path = "cmd.exe",
             .shell_args = &.{"cmd"},
-            .rows = 100,
-            .cols = 100,
+            .rows = initial_rows,
+            .cols = initial_cols,
         },
     );
 
@@ -118,13 +124,17 @@ pub fn run(self: *App) !void {
                         size.width,
                         size.height,
                     );
+                    const cols = @max(1, size.width / 19);
+                    const rows = @max(1, size.height / 32);
 
                     try self.terminal.pty.resize(
                         .{
-                            .width = @intCast(size.width / 20),
-                            .height = @intCast(size.height / 20),
+                            .width = @intCast(cols),
+                            .height = @intCast(rows),
                         },
                     );
+
+                    try self.terminal.grid.resizeVisable(self.allocator, rows, cols);
                 },
                 .input => |input_event| {
                     switch (input_event) {
@@ -134,8 +144,16 @@ pub fn run(self: *App) !void {
                             try self.terminal.shell.stdin.?.writeStreamingAll(self.io, buff[0..len]);
                         },
                         .keyboard => |key_event| {
-                            if (key_event.type == .press and key_event.code == 28)
-                                try self.terminal.shell.stdin.?.writeStreamingAll(self.io, "\r\n");
+                            if (key_event.type == .press or key_event.type == .repeat) {
+                                switch (key_event.code) {
+                                    28 => try self.terminal.shell.stdin.?.writeStreamingAll(self.io, "\r\n"),
+                                    103 => self.terminal.grid.scrollUp(1),
+                                    108 => self.terminal.grid.scrollDown(1),
+                                    else => {
+                                        self.terminal.grid.scrollToBottom();
+                                    },
+                                }
+                            }
                         },
                         else => {},
                     }
@@ -150,17 +168,7 @@ pub fn run(self: *App) !void {
         var pixels_pool: std.ArrayList(u8) = .empty;
         defer pixels_pool.deinit(self.allocator);
 
-        const cell_w = 19;
-        const cell_h = 32;
-
-        const actual_visible_cols = self.platform.current_window.?.width / cell_w;
-        const actual_visible_rows = self.platform.current_window.?.height / cell_h;
-
-        var grid_iter = self.terminal.grid.iter(
-            actual_visible_cols,
-            actual_visible_rows,
-            0,
-        );
+        var grid_iter = self.terminal.grid.iterator();
 
         while (grid_iter.next()) |item| {
             if (item.cell.unicode == 0 or item.cell.unicode == ' ')
@@ -256,7 +264,7 @@ pub fn run(self: *App) !void {
 
 pub fn deinit(self: *App) void {
     self.renderer.deinit();
-    // self.window.destroy(self.allocator);
+    self.platform.deinit();
     self.terminal.deinit(self.allocator);
     self.allocator.free(self.buf);
     self.io_event_loop.deinit(self.allocator);

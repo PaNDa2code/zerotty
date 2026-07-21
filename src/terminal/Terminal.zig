@@ -1,5 +1,7 @@
 const Terminal = @This();
 
+allocator: std.mem.Allocator,
+
 pty: Pty,
 shell: ChildProcess,
 grid: Grid,
@@ -30,6 +32,10 @@ pub fn init(
     try pty.open(.{
         .shell = .bash,
         .async_io = true,
+        .size = .{
+            .height = @intCast(settings.rows),
+            .width = @intCast(settings.cols),
+        },
     });
 
     var shell = ChildProcess{
@@ -38,15 +44,14 @@ pub fn init(
     };
     try shell.start(io, environ_map, allocator, &pty);
 
-    const grid = try Grid.init(allocator, .{
-        .visable_columns = settings.cols,
-        .visable_rows = settings.rows,
-    });
-
     return .{
         .pty = pty,
         .shell = shell,
-        .grid = grid,
+        .allocator = allocator,
+        .grid = .{
+            .visable_rows = settings.rows,
+            .rows_width = settings.cols,
+        },
         .vtparser = .init(vtparserCallback, null),
     };
 }
@@ -54,7 +59,7 @@ pub fn init(
 pub fn deinit(self: *Terminal, _: std.mem.Allocator) void {
     self.pty.close();
     self.shell.terminate();
-    self.grid.deinit();
+    self.grid.deinit(self.allocator);
 }
 
 fn vtparserCallback(state: *const vt.ParserData, to_action: vt.Action, char: u8, user_data: ?*anyopaque) void {
@@ -66,7 +71,7 @@ fn vtparserCallback(state: *const vt.ParserData, to_action: vt.Action, char: u8,
             }
         },
         .PRINT => {
-            terminal.grid.appendCell(.{
+            terminal.grid.putChar(terminal.allocator, .{
                 .fg_color = terminal.current_style.fg_color,
                 .bg_color = terminal.current_style.bg_color,
                 .flags = terminal.current_style.flags,
@@ -76,13 +81,10 @@ fn vtparserCallback(state: *const vt.ParserData, to_action: vt.Action, char: u8,
         .EXECUTE => {
             switch (char) {
                 0x0A => {
-                    terminal.grid.appendRow() catch unreachable;
+                    terminal.grid.linefeed(terminal.allocator) catch unreachable;
                 },
                 0x0D => {
-                    // TODO: handle carriage return if needed
-                    // Usually CR just moves cursor to column 0,
-                    // but since appendCell/appendRow handles it implicitly for now,
-                    // we might need more logic here later.
+                    terminal.grid.carriageReturn();
                 },
                 else => {},
             }

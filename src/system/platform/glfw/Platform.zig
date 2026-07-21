@@ -17,6 +17,14 @@ pub fn init(allocator: std.mem.Allocator) Platform {
     };
 }
 
+pub fn deinit(self: *Platform) void {
+    if (self.current_window) |w|
+        self.allocator.destroy(w);
+
+    if (self.event_queue) |q|
+        self.allocator.destroy(q);
+}
+
 pub fn createWindow(self: *Platform, options: root.WindowOptions) !void {
     const win = try self.allocator.create(Window);
 

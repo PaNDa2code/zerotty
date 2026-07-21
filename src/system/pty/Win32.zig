@@ -142,9 +142,11 @@ pub fn resize(self: *Pty, size: PtySize) !void {
         self.h_pesudo_console,
         .{ .X = @bitCast(size.width), .Y = @bitCast(size.height) },
     );
-    if (win32.zig.FAILED(hresult)) {
-        return error.PtyResizeFailed;
-    }
+    
+    _ = hresult;
+    // if (win32.zig.FAILED(hresult)) {
+    //     return error.PtyResizeFailed;
+    // }
 }
 
 pub fn readFile(self: *Pty) std.Io.File {
