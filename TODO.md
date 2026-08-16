@@ -7,7 +7,7 @@
 ### Renderer:
 
 - [ ] stable renderer interface (dynamic runtime backend)
-- [ ] vulkan backend
+- [x] vulkan backend
 - [x] opengl backend
 - [ ] GPU font rastrizer
 - [ ] kitty graphics protocol support
@@ -25,9 +25,9 @@
 
 - [x] pty
 - [x] memory mapped buffer
-- [x] asynchronous io backend
-- [ ] asynchronous event loop (IO, Window Events)
-- [ ] keyboard and mouse input handler
+- [ ] asynchronous io backend
+- [x] asynchronous event loop (IO, Window Events)
+- [x] keyboard and mouse input handler
 - [ ] C#, Python or any interpreted programming language for plugins interfaces
 - [ ] ConEmu "Progress Bar" sequences
 

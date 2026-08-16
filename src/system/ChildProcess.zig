@@ -12,7 +12,6 @@ id: switch (os) {
 
 exe_path: []const u8,
 args: []const []const u8 = &.{""},
-env_map: ?std.process.Environ.Map = null,
 cwd: ?[]const u8 = null,
 
 stdin: ?File = null,
@@ -127,17 +126,16 @@ fn startWindows(
     const cwd = if (self.cwd) |cwd_path| (try std.unicode.utf8ToUtf16LeAllocZ(arina, cwd_path)).ptr else null;
 
     var env_block: ?*anyopaque = null;
-    if (self.env_map) |envmap| {
-        var buffer = try std.ArrayList(u8).initCapacity(arina, 1024);
-        var writer = std.Io.Writer.fromArrayList(&buffer);
 
-        var it = envmap.iterator();
-        while (it.next()) |entry| {
-            try writer.print("{}={}\x00", .{ entry.key_ptr, entry.value_ptr });
-        }
-        try writer.writeByte(0);
-        env_block = buffer.items.ptr;
+    var buffer = try std.ArrayList(u8).initCapacity(arina, 1024);
+    var writer = std.Io.Writer.fromArrayList(&buffer);
+
+    var it = environ_map.iterator();
+    while (it.next()) |entry| {
+        try writer.print("{}={}\x00", .{ entry.key_ptr, entry.value_ptr });
     }
+    try writer.writeByte(0);
+    env_block = buffer.items.ptr;
 
     if (win32thread.CreateProcessW(
         pathW.ptr,
@@ -194,9 +192,6 @@ fn startLinux(
     arina: std.mem.Allocator,
     pty: ?*Pty,
 ) !void {
-    const slave_fd = pty.?.slave;
-    const master_fd = pty.?.master;
-
     const path = try findPathAlloc(io, environ_map, arina, self.exe_path) orelse self.exe_path;
     const path_absolute =
         if (std.fs.path.isAbsolutePosix(path))
@@ -210,11 +205,9 @@ fn startLinux(
         argsZ[i] = try arina.dupeZ(u8, arg);
     }
 
-    const env_map = self.env_map orelse std.process.Environ.Map.init(arina);
-
     const envZ: [*:null]const ?[*:0]u8 = envz: {
-        const envZ = try arina.allocSentinel(?[*:0]u8, env_map.count(), null);
-        var it = env_map.iterator();
+        const envZ = try arina.allocSentinel(?[*:0]u8, environ_map.count(), null);
+        var it = environ_map.iterator();
         var i: usize = 0;
         while (it.next()) |entry| : (i += 1) {
             envZ[i] = try std.fmt.allocPrintSentinel(
@@ -232,25 +225,30 @@ fn startLinux(
     if (pid < 0) return error.ForkFailed;
 
     if (pid != 0) {
-        self.stdin = .{ .handle = master_fd, .flags = .{ .nonblocking = true } };
-        self.stdout = .{ .handle = master_fd, .flags = .{ .nonblocking = true } };
-        self.stderr = .{ .handle = master_fd, .flags = .{ .nonblocking = true } };
+        if (pty) |p| {
+            self.stdin = .{ .handle = p.master, .flags = .{ .nonblocking = true } };
+            self.stdout = .{ .handle = p.master, .flags = .{ .nonblocking = true } };
+            self.stderr = .{ .handle = p.master, .flags = .{ .nonblocking = true } };
+            _ = linux.close(p.slave);
+
+            pty.?.child = @truncate(pid);
+        }
         self.id = @truncate(pid);
-        _ = linux.close(slave_fd);
-        pty.?.child = @truncate(pid);
         return;
     }
 
     // TODO: implement macOS syscalls
     _ = linux.setsid();
-    _ = linux.ioctl(slave_fd, 0x540E, @as(usize, 0));
+    if (pty) |p| {
+        _ = linux.ioctl(p.slave, 0x540E, @as(usize, 0));
 
-    _ = linux.dup2(slave_fd, linux.STDIN_FILENO);
-    _ = linux.dup2(slave_fd, linux.STDOUT_FILENO);
-    _ = linux.dup2(slave_fd, linux.STDERR_FILENO);
+        _ = linux.dup2(p.slave, linux.STDIN_FILENO);
+        _ = linux.dup2(p.slave, linux.STDOUT_FILENO);
+        _ = linux.dup2(p.slave, linux.STDERR_FILENO);
 
-    _ = linux.close(master_fd);
-    _ = linux.close(slave_fd);
+        _ = linux.close(p.master);
+        _ = linux.close(p.slave);
+    }
 
     const ret = linux.execve(pathZ, argsZ, envZ);
     _ = linux.exit(@intCast(ret));
@@ -333,6 +331,31 @@ pub fn unsetEvnVar(self: *ChildProcess, name: []const u8) void {
 }
 
 test ChildProcess {
+    var child: ChildProcess = .{
+        .exe_path = if (os == .windows) "cmd" else "bash",
+        .args = &.{},
+    };
+
+    var map = try std.testing.environ
+        .createMap(std.testing.allocator);
+    defer map.deinit();
+
+    try child.start(
+        std.testing.io,
+        &map,
+        std.testing.allocator,
+        null,
+    );
+    defer child.deinit();
+
+    try std.testing.expectEqual(.running, try child.wait(false));
+
+    child.terminate();
+
+    try std.testing.expect(try child.wait(true) == .ended);
+}
+
+test "ChildProcess + Pty" {
     var pty: Pty = undefined;
     try pty.open(.{
         .size = .{ .height = 100, .width = 100 },
@@ -346,6 +369,7 @@ test ChildProcess {
 
     var map = try std.testing.environ
         .createMap(std.testing.allocator);
+    defer map.deinit();
 
     try child.start(
         std.testing.io,
@@ -353,8 +377,9 @@ test ChildProcess {
         std.testing.allocator,
         &pty,
     );
+    defer child.deinit();
 
-    try std.testing.expectEqual(WaitResult.running, try child.wait(false));
+    try std.testing.expectEqual(.running, try child.wait(false));
 
     child.terminate();
 

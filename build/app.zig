@@ -127,6 +127,9 @@ pub fn setupApp(
         &.{
             "cell.frag", "cell.vert",
             "text.frag", "text.vert",
+            "raster_pass0.comp",
+            "raster_pass1.comp",
+            "raster_pass2.comp",
         },
         config.render_backend,
     ) catch unreachable;
@@ -222,6 +225,13 @@ pub fn setupApp(
         .use_llvm = config.use_llvm,
     });
 
+    if (optimize != .Debug) {
+        exe.lto = .full;
+        exe.root_module.strip = true;
+        exe.link_gc_sections = true;
+        exe.bundle_compiler_rt = true;
+    }
+
     // Windows Specific EXE settings
     if (config.window_system == .win32) {
         if (optimize != .Debug) {
@@ -229,9 +239,6 @@ pub fn setupApp(
             exe.mingw_unicode_entry_point = true;
         }
     }
-
-    exe.bundle_compiler_rt =
-        optimize == .Debug or optimize == .ReleaseSafe;
 
     exe_mod.addWin32ResourceFile(.{ .file = b.path("assets/zerotty.rc") });
 

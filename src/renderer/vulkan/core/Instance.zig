@@ -125,4 +125,6 @@ const debug = @import("debug.zig");
 
 const DynamicLibrary = @import("zerotty").system.DynamicLibrary;
 
-const renderer_debug = @import("build_options").@"renderer-debug";
+const renderer_debug =
+    @import("build_options").@"renderer-debug" and
+    !builtin.is_test and builtin.mode == .Debug;

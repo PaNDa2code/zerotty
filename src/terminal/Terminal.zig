@@ -7,6 +7,14 @@ shell: ChildProcess,
 grid: Grid,
 vtparser: vt.VTParser,
 
+/// progress bar value from 0-100
+progress: u32 = 0,
+/// progress bar state
+progress_state: ProgressBarState = .remove,
+
+ocs_buffer: [64]u8 = [1]u8{0} ** 64,
+ocs_buffer_len: usize = 0,
+
 color_palette: color.ansi.Palette = .default,
 
 current_style: struct {
@@ -20,6 +28,14 @@ pub const TerminalSettings = struct {
     shell_args: []const []const u8 = &.{},
     rows: u32,
     cols: u32,
+};
+
+pub const ProgressBarState = enum(u3) {
+    remove = 0,
+    set = 1,
+    @"error" = 2,
+    indeterminate = 3,
+    pause = 4,
 };
 
 pub fn init(
@@ -77,6 +93,37 @@ fn vtparserCallback(state: *const vt.ParserData, to_action: vt.Action, char: u8,
                 .flags = terminal.current_style.flags,
                 .unicode = @intCast(char),
             }) catch unreachable;
+        },
+        .OSC_START => {
+            terminal.ocs_buffer_len = 0;
+        },
+        .OSC_PUT => {
+            std.debug.assert(terminal.ocs_buffer_len < terminal.ocs_buffer.len);
+
+            terminal.ocs_buffer[terminal.ocs_buffer_len] = char;
+            terminal.ocs_buffer_len += 1;
+        },
+        .OSC_END => {
+            const payload = terminal.ocs_buffer[0..terminal.ocs_buffer_len];
+
+            if (std.mem.startsWith(u8, payload, "9;4;")) {
+                const args = payload[4..];
+
+                var it = std.mem.splitScalar(u8, args, ';');
+
+                const state_str = it.next() orelse return;
+                const state_int = std.fmt.parseInt(u3, state_str, 10) catch return;
+
+                const progress_str = it.next() orelse "0";
+                const progress_int = std.fmt.parseInt(u32, progress_str, 10) catch return;
+
+                terminal.progress_state = @enumFromInt(state_int);
+                terminal.progress = @min(progress_int, 100);
+
+                log.debug("progress: {} {}%", .{terminal.progress_state, terminal.progress});
+
+                return;
+            }
         },
         .EXECUTE => {
             switch (char) {

@@ -21,7 +21,7 @@ pub fn init(
     const initial_width = 800;
     const initial_height = 600;
 
-    try platform.createWindow(.{
+    _ = try platform.createWindow(.{
         .title = "zerotty",
         .height = initial_height,
         .width = initial_width,
@@ -146,16 +146,28 @@ pub fn run(self: *App) !void {
                         .keyboard => |key_event| {
                             if (key_event.type == .press or key_event.type == .repeat) {
                                 switch (key_event.code) {
-                                    28 => try self.terminal.shell.stdin.?.writeStreamingAll(self.io, "\r\n"),
-                                    103 => self.terminal.grid.scrollUp(1),
-                                    108 => self.terminal.grid.scrollDown(1),
+                                    28, 36 => try self.terminal.shell.stdin.?.writeStreamingAll(self.io, "\r\n"),
+                                    103, 111 => self.terminal.grid.scrollUp(1),
+                                    108, 116 => self.terminal.grid.scrollDown(1),
                                     else => {
                                         self.terminal.grid.scrollToBottom();
                                     },
                                 }
                             }
                         },
-                        else => {},
+                        .mouse => |mouse_event| {
+                            switch (mouse_event) {
+                                .scroll => |scroll| {
+                                    const lines: i32 = @intFromFloat(scroll.y_offset * 1.0);
+
+                                    if (lines > 0)
+                                        self.terminal.grid.scrollUp(@intCast(lines))
+                                    else if (lines < 0)
+                                        self.terminal.grid.scrollDown(@intCast(-lines));
+                                },
+                                else => {},
+                            }
+                        },
                     }
                 },
                 else => {},

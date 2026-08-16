@@ -58,6 +58,7 @@ pub fn open(self: *Window, allocator: Allocator, event_queue: *root.EventQueue) 
     _ = c.glfwSetWindowCloseCallback(self.window, callbacks.windowClose);
     _ = c.glfwSetKeyCallback(self.window, callbacks.key);
     _ = c.glfwSetCharCallback(self.window, callbacks.char);
+    _ = c.glfwSetScrollCallback(self.window, callbacks.scroll);
     _ = c.glfwSetWindowIconifyCallback(self.window, callbacks.iconify);
 
     c.glfwShowWindow(self.window);
@@ -127,6 +128,19 @@ const callbacks = struct {
                 .utf8_codepoint = @intCast(codepoint),
             },
         };
+
+        window.event_queue.push(event) catch unreachable;
+    }
+
+    fn scroll(glfw_window: ?*c.GLFWwindow, xoffset: f64, yoffset: f64) callconv(.c) void {
+        const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
+
+        const event = root.Event{ .input = .{
+            .mouse = .{ .scroll = .{
+                .x_offset = @floatCast(xoffset),
+                .y_offset = @floatCast(yoffset),
+            } },
+        } };
 
         window.event_queue.push(event) catch unreachable;
     }

@@ -3,7 +3,7 @@ const core = @import("core/root.zig");
 
 var mutex: std.atomic.Mutex = .unlocked;
 
-const allocator = std.testing.allocator;
+const allocator = std.heap.c_allocator;
 
 var vk_alloc: ?*core.memory.AllocatorAdapter = null;
 var instance: ?core.Instance = null;
