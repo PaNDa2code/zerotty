@@ -153,8 +153,14 @@ fn createDevice(
         else
             [_][*:0]const u8{};
 
+    const disc_index_features = vk.PhysicalDeviceDescriptorIndexingFeatures{
+        .runtime_descriptor_array = .true,
+        .descriptor_binding_partially_bound = .true,
+    };
+
     const sync2_features = vk.PhysicalDeviceSynchronization2Features{
         .synchronization_2 = .true,
+        .p_next = @constCast(&disc_index_features),
     };
 
     const device_features = vk.PhysicalDeviceFeatures{};

@@ -6,8 +6,8 @@ const color = zerotty.terminal.color;
 const vertex = @import("vertex.zig");
 const font = zerotty.font;
 
-const OpenGL = @import("OpenGL.zig");
-const Vulkan = @import("Vulkan.zig");
+const OpenGL = @import("opengl/Renderer.zig");
+const Vulkan = @import("vulkan/Renderer.zig");
 
 pub fn GenaricRenderer(Impl: type) type {
     return struct {

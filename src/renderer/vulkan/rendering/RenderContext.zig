@@ -19,7 +19,14 @@ pub fn init(allocator: std.mem.Allocator, window_handles: platform.WindowNativeH
     var arina = std.heap.ArenaAllocator.init(allocator);
     defer arina.deinit();
 
-    const instance_extensions = try surface_creation_info.instanceExtensionsAlloc(arina.allocator());
+    const instance_surface_extensions = try surface_creation_info.instanceExtensionsAlloc(arina.allocator());
+
+    const instance_extensions = try std.mem.concat(arina.allocator(), [*:0]const u8, &.{
+        instance_surface_extensions,
+        &.{
+            "VK_KHR_get_physical_device_properties2",
+        },
+    });
 
     const instance = try allocator.create(core.Instance);
     instance.* = try core.Instance.init(
@@ -32,12 +39,21 @@ pub fn init(allocator: std.mem.Allocator, window_handles: platform.WindowNativeH
 
     const surface = try createWindowSurface(instance, surface_creation_info);
 
+    const surface_device_extentions = SurfaceCreationInfo.deviceExtensions();
+
+    const device_extentions = try std.mem.concat(arina.allocator(), [*:0]const u8, &.{
+        surface_device_extentions,
+        &.{
+            "VK_EXT_descriptor_indexing",
+        },
+    });
+
     const device = try allocator.create(core.Device);
     device.* = try .init(
         allocator,
         instance,
         surface,
-        SurfaceCreationInfo.deviceExtensions(),
+        device_extentions,
     );
     errdefer device.deinit();
 

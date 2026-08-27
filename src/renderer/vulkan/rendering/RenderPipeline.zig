@@ -7,6 +7,7 @@ renderpass: core.RenderPass,
 pub const DisplayInfo = struct {
     image_attachemnt_format: vk.Format,
     extent: vk.Extent2D,
+    final_layout: vk.ImageLayout = .present_src_khr,
 };
 
 pub const DescriptorSetInfo = struct {
@@ -45,7 +46,7 @@ pub fn init(
         .stencil_load_op = .dont_care,
         .stencil_store_op = .dont_care,
         .initial_layout = .undefined,
-        .final_layout = .present_src_khr,
+        .final_layout = display_info.final_layout,
     });
 
     try renderpass_builder.addSubpass(.{

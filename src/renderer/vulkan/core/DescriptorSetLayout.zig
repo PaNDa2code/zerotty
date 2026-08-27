@@ -3,10 +3,11 @@ const DescriptorSetLayout = @This();
 handle: vk.DescriptorSetLayout,
 bindings: []const vk.DescriptorSetLayoutBinding,
 
-pub const Builder = DescriptorSetLayoutBuilder(&.{});
+pub const Builder = DescriptorSetLayoutBuilder(&.{}, .{});
 
 fn DescriptorSetLayoutBuilder(
     comptime Bindings: []const vk.DescriptorSetLayoutBinding,
+    comptime BindingFlags: vk.DescriptorSetLayoutCreateFlags,
 ) type {
     return struct {
         pub fn addBinding(
@@ -20,13 +21,19 @@ fn DescriptorSetLayoutBuilder(
                 .descriptor_type = descriptor_type,
                 .descriptor_count = descriptor_count,
                 .stage_flags = stage_flags,
-            }});
+            }}, BindingFlags);
+        }
+
+        pub fn setFlags(
+            comptime binding_flags: vk.DescriptorBindingFlags,
+        ) type {
+            return DescriptorSetLayout(Bindings, binding_flags);
         }
 
         pub fn build(
             device: *const Device,
         ) InitError!DescriptorSetLayout {
-            return DescriptorSetLayout.init(device, Bindings);
+            return DescriptorSetLayout.init(device, Bindings, BindingFlags);
         }
     };
 }
@@ -36,10 +43,12 @@ pub const InitError = vk.DeviceWrapper.CreateDescriptorSetLayoutError;
 pub fn init(
     device: *const Device,
     bindings: []const vk.DescriptorSetLayoutBinding,
+    flags: vk.DescriptorSetLayoutCreateFlags,
 ) InitError!DescriptorSetLayout {
     const descriptor_set_layout_info = vk.DescriptorSetLayoutCreateInfo{
         .binding_count = @intCast(bindings.len),
         .p_bindings = bindings.ptr,
+        .flags = flags,
     };
 
     const descriptor_set_layout =

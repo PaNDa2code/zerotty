@@ -1,4 +1,4 @@
-const Frames = @This();
+const FrameManager = @This();
 
 pub const FrameResources = struct {
     command_pool: core.CommandPool,
@@ -12,7 +12,6 @@ pub const FrameResources = struct {
     descriptor_pool: core.DescriptorPool,
     descriptor_sets: []core.DescriptorSet,
 
-    image_index: u32,
     pending_copy_count: usize = 0,
 };
 
@@ -24,32 +23,15 @@ device_allocator: *core.memory.DeviceAllocator,
 resources: []FrameResources,
 current_frame: usize = 0,
 
-images_in_flight: []vk.Fence,
-
-image_available: []vk.Semaphore,
-render_finished: []vk.Semaphore,
+device: *const core.Device,
 
 pub fn init(
     device: *const core.Device,
     device_allocator: *core.memory.DeviceAllocator,
     allocator: std.mem.Allocator,
     max_frames_in_flight: usize,
-    images_count: usize,
-) !Frames {
+) !FrameManager {
     const resources = try allocator.alloc(FrameResources, max_frames_in_flight);
-
-    const image_available = try allocator.alloc(vk.Semaphore, max_frames_in_flight);
-    for (0..max_frames_in_flight) |i| {
-        image_available[i] = try device.createSemaphore();
-    }
-
-    const render_finished = try allocator.alloc(vk.Semaphore, images_count);
-    for (0..images_count) |i| {
-        render_finished[i] = try device.createSemaphore();
-    }
-
-    const images_in_flight = try allocator.alloc(vk.Fence, images_count);
-    @memset(images_in_flight, .null_handle);
 
     const descriptor_set_layouts = try allocator.alloc(core.DescriptorSetLayout, 2);
     errdefer allocator.free(descriptor_set_layouts);
@@ -60,8 +42,7 @@ pub fn init(
     errdefer descriptor_set_layouts[0].deinit(device);
 
     descriptor_set_layouts[1] = try core.DescriptorSetLayout.Builder
-        .addBinding(0, .combined_image_sampler, 64, .{ .fragment_bit = true })
-        .setFlags(.{ .partially_bound_bit = true })
+        .addBinding(0, .combined_image_sampler, 255, .{ .fragment_bit = true })
         .build(device);
     errdefer descriptor_set_layouts[1].deinit(device);
 
@@ -116,23 +97,13 @@ pub fn init(
         .resources = resources,
         .descriptor_layouts = descriptor_set_layouts,
         .device_allocator = device_allocator,
-        .images_in_flight = images_in_flight,
-
-        .image_available = image_available,
-        .render_finished = render_finished,
-
+        .device = device,
         .uniform_stage = staging,
     };
 }
 
-pub fn deinit(self: *Frames, device: *const core.Device, allocator: std.mem.Allocator) void {
-    for (self.image_available) |sem| {
-        device.destroySemaphore(sem);
-    }
-
-    for (self.render_finished) |sem| {
-        device.destroySemaphore(sem);
-    }
+pub fn deinit(self: *FrameManager, allocator: std.mem.Allocator) void {
+    const device = self.device;
 
     for (self.descriptor_layouts) |layout| {
         layout.deinit(device);
@@ -152,84 +123,24 @@ pub fn deinit(self: *Frames, device: *const core.Device, allocator: std.mem.Allo
         allocator.free(frame.descriptor_sets);
     }
 
-    allocator.free(self.images_in_flight);
-    allocator.free(self.render_finished);
-    allocator.free(self.image_available);
     allocator.free(self.resources);
     allocator.free(self.descriptor_layouts);
 
     self.uniform_stage.deinit(self.device_allocator);
 }
 
-pub fn frameBegin(
-    self: *Frames,
-    device: *const core.Device,
-    swapchain: *const core.Swapchain,
-) !*FrameResources {
+pub fn beginFrame(self: *FrameManager) !*FrameResources {
     const frame = &self.resources[self.current_frame];
 
-    const image_available = self.image_available[self.current_frame];
-
-    _ = try device.waitFence(frame.in_flight_fence, std.math.maxInt(u64));
-    _ = try device.resetFence(frame.in_flight_fence);
-
-    const acquire_result = try swapchain.acquireNextImage(
-        std.math.maxInt(u64),
-        image_available,
-        .null_handle,
-    );
-
-    const image_index =
-        switch (acquire_result) {
-            .success, .suboptimal_khr => |index| index,
-            else => unreachable,
-        };
-
-    const image_fence = self.images_in_flight[image_index];
-    if (image_fence != .null_handle and
-        image_fence != frame.in_flight_fence)
-    {
-        _ = try device.waitFence(image_fence, std.math.maxInt(u64));
-    }
-    self.images_in_flight[image_index] = frame.in_flight_fence;
+    _ = try self.device.waitFence(frame.in_flight_fence, std.math.maxInt(u64));
+    _ = try self.device.resetFence(frame.in_flight_fence);
 
     try frame.command_pool.reset(false);
 
-    frame.image_index = image_index;
     return frame;
 }
 
-pub fn endFrame(_: *Frames) void {}
-
-pub fn submit(
-    self: *Frames,
-    graphics_queue: *const core.Queue,
-    present_queue: ?*const core.Queue,
-    swapchain: *const core.Swapchain,
-) !void {
-    const frame = &self.resources[self.current_frame];
-
-    const image_index = frame.image_index;
-    const image_available = self.image_available[self.current_frame];
-    const render_finished = self.render_finished[frame.image_index];
-    const in_flight_fence = frame.in_flight_fence;
-
-    try graphics_queue.submitOne(
-        &frame.main_cmd,
-        image_available,
-        render_finished,
-        .{ .color_attachment_output_bit = true },
-        in_flight_fence,
-    );
-
-    var queue = present_queue orelse graphics_queue;
-
-    _ = try queue.presentOne(
-        swapchain,
-        render_finished,
-        image_index,
-    );
-
+pub fn advanceFrame(self: *FrameManager) void {
     self.current_frame = (self.current_frame + 1) % self.resources.len;
 }
 

@@ -2,7 +2,7 @@ const OpenGL = @This();
 
 const std = @import("std");
 const builtin = @import("builtin");
-const root = @import("root.zig");
+const root = @import("../root.zig");
 const win = @import("zerotty").system.window;
 const gl = @import("gl");
 
@@ -37,10 +37,10 @@ pub fn deinit(self: *OpenGL) void {
     self.context.destroy();
 }
 
-const createProcTable = @import("opengl/proc_table.zig").createProcTable;
+const createProcTable = @import("proc_table.zig").createProcTable;
 
 const OpenGLContext = switch (builtin.os.tag) {
-    .windows => @import("opengl/WGLContext.zig"),
-    .linux => @import("opengl/GLXContext.zig"),
+    .windows => @import("WGLContext.zig"),
+    .linux => @import("GLXContext.zig"),
     else => void,
 };

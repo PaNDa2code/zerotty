@@ -1,20 +1,20 @@
-const Vulkan = @This();
+const Renderer = @This();
 
 pub const InitError = anyerror;
 
 render_context: RenderContext,
 render_pipeline: RenderPipeline,
-frames: Frames,
+frame_manager: FrameManager,
 
-swapchain: core.Swapchain,
-targets: []Target,
+swapchain_target: *SwapchainTarget,
+render_target: RenderTarget,
 
 cache: Cache,
 staging_buffer: core.Buffer,
 glyph_staging_buffer: core.Buffer,
 
-current_frame: ?*Frames.FrameResources,
-current_image: u32,
+current_frame: ?*FrameManager.FrameResources,
+frame_info: ?RenderTarget.FrameInfo,
 
 bg_color: color.RGBA,
 
@@ -25,10 +25,13 @@ pub fn init(
     window_handles: platform.WindowNativeHandles,
     _: platform.WindowRendererRequirements,
     settings: root.RendererSettings,
-) InitError!Vulkan {
+) InitError!Renderer {
     const render_context = try RenderContext.init(allocator, window_handles);
 
-    const swapchain = try core.Swapchain.init(
+    const swapchain_target_ptr = try allocator.create(SwapchainTarget);
+    errdefer allocator.destroy(swapchain_target_ptr);
+
+    swapchain_target_ptr.* = try SwapchainTarget.init(
         render_context.instance,
         render_context.device,
         allocator,
@@ -40,33 +43,30 @@ pub fn init(
                 .width = settings.surface_width,
             },
         },
+        2,
     );
 
-    const images_count = swapchain.images.len;
-
-    const frames = try Frames.init(
+    const frame_manager = try FrameManager.init(
         render_context.device,
         render_context.device_allocator,
         allocator,
         2,
-        swapchain.images.len,
     );
 
     const render_pipeline = try RenderPipeline.init(
         allocator,
         render_context.device,
         .{
-            .image_attachemnt_format = swapchain.surface_format.format,
-            .extent = swapchain.extent,
+            .image_attachemnt_format = swapchain_target_ptr.swapchain.surface_format.format,
+            .extent = swapchain_target_ptr.swapchain.extent,
+            .final_layout = .present_src_khr,
         },
-        .{ .descriptor_set_layouts = frames.descriptor_layouts },
+        .{ .descriptor_set_layouts = frame_manager.descriptor_layouts },
     );
 
-    const targets = try allocator.alloc(Target, images_count);
+    try swapchain_target_ptr.ensureFramebuffers(&render_pipeline.renderpass);
 
-    for (0..images_count) |i| {
-        targets[i] = Target.init(swapchain.image_views[i]);
-    }
+    const render_target = swapchain_target_ptr.interface();
 
     // see src/font/root.zig
     var cache = Cache.init(2048, 2048, 255);
@@ -91,49 +91,49 @@ pub fn init(
     return .{
         .render_context = render_context,
         .render_pipeline = render_pipeline,
-        .swapchain = swapchain,
-        .frames = frames,
-        .targets = targets,
+        .swapchain_target = swapchain_target_ptr,
+        .render_target = render_target,
+        .frame_manager = frame_manager,
         .cache = cache,
         .staging_buffer = staging_buffer,
         .glyph_staging_buffer = glyph_staging_buffer,
-        .current_image = 0,
         .current_frame = null,
+        .frame_info = null,
         .bg_color = .black,
     };
 }
 
-pub fn deinit(self: *Vulkan) void {
+pub fn deinit(self: *Renderer) void {
     const device = self.render_context.device;
     const allocator = self.render_context.allocator_adapter.allocator;
-    const device_allocator = self.render_context.device_allocator;
-
-    const images_count = self.swapchain.images.len;
 
     device.waitIdle() catch {};
 
-    for (0..images_count) |i| {
-        self.targets[i].deinit(device);
-    }
-    allocator.free(self.targets);
-
-    self.staging_buffer.deinit(device_allocator);
-    self.glyph_staging_buffer.deinit(device_allocator);
-    self.cache.deinit(allocator, device_allocator);
-    self.frames.deinit(device, allocator);
+    self.render_target.deinit();
+    allocator.destroy(self.swapchain_target);
+    self.staging_buffer.deinit(self.render_context.device_allocator);
+    self.glyph_staging_buffer.deinit(self.render_context.device_allocator);
+    self.cache.deinit(allocator, self.render_context.device_allocator);
+    self.frame_manager.deinit(allocator);
 
     self.render_pipeline.deinit(device, allocator);
-    self.swapchain.deinit(allocator);
     self.render_context.deinit();
 }
 
-pub fn beginFrame(self: *Vulkan) !void {
-    const frame = self.frames.frameBegin(self.render_context.device, &self.swapchain) catch |err| blk: {
-        if (err == error.OutOfDateKHR)
-            try self.resizeSurface(0, 0);
-        break :blk try self.frames.frameBegin(self.render_context.device, &self.swapchain);
+pub fn beginFrame(self: *Renderer) !void {
+    const frame = self.frame_manager.beginFrame() catch |err| {
+        return err;
     };
     self.current_frame = frame;
+
+    self.frame_info = self.render_target.acquireFrame(frame.in_flight_fence) catch |err| blk: {
+        if (err == error.TargetNotReady) {
+            try self.resizeSurface(0, 0);
+            break :blk try self.render_target.acquireFrame(frame.in_flight_fence);
+        }
+        return err;
+    };
+    const info = self.frame_info.?;
 
     const cmd = &frame.main_cmd;
 
@@ -152,8 +152,8 @@ pub fn beginFrame(self: *Vulkan) !void {
     const viewport = vk.Viewport{
         .x = 0,
         .y = 0,
-        .width = @floatFromInt(self.swapchain.extent.width),
-        .height = @floatFromInt(self.swapchain.extent.height),
+        .width = @floatFromInt(info.extent.width),
+        .height = @floatFromInt(info.extent.height),
         .min_depth = 0,
         .max_depth = 1,
     };
@@ -161,20 +161,20 @@ pub fn beginFrame(self: *Vulkan) !void {
 
     const scissor = vk.Rect2D{
         .offset = .{ .x = 0, .y = 0 },
-        .extent = self.swapchain.extent,
+        .extent = info.extent,
     };
     try cmd.setScissor(scissor);
 }
 
-pub fn endFrame(self: *Vulkan) !void {
+pub fn endFrame(self: *Renderer) !void {
     if (self.current_frame) |frame| {
-        const staging_uniform_ptr = self.frames.uniform_stage
+        const info = self.frame_info orelse return error.FrameDidNotStart;
+
+        const staging_uniform_ptr = self.frame_manager.uniform_stage
             .hostPtr(vertex.TextUniform) orelse unreachable;
 
-        const screen_extent = self.swapchain.extent;
-
-        const screen_w = @as(f32, @floatFromInt(screen_extent.width));
-        const screen_h = @as(f32, @floatFromInt(screen_extent.height));
+        const screen_w: f32 = @floatFromInt(info.extent.width);
+        const screen_h: f32 = @floatFromInt(info.extent.height);
 
         const atlas_w: f32 = 2048;
         const atlas_h: f32 = 2048;
@@ -191,7 +191,7 @@ pub fn endFrame(self: *Vulkan) !void {
         };
 
         try frame.main_cmd.copyBuffer(
-            self.frames.uniform_stage.handle,
+            self.frame_manager.uniform_stage.handle,
             frame.uniform_buffer.handle,
             &.{
                 .{
@@ -224,15 +224,9 @@ pub fn endFrame(self: *Vulkan) !void {
                 .{ .color = .{ .float_32 = self.bg_color.floatArray() } },
             };
 
-            const image_index = frame.image_index;
-            const framebuffer = try self.targets[image_index].frameBuffer(
-                &self.render_pipeline.renderpass,
-                self.swapchain.extent,
-            );
-
             try frame.main_cmd.beginRenderPass(
                 &self.render_pipeline.renderpass,
-                framebuffer,
+                info.framebuffer,
                 &clear_values,
                 .@"inline",
             );
@@ -244,20 +238,26 @@ pub fn endFrame(self: *Vulkan) !void {
 
         try frame.main_cmd.end();
     } else return error.FrameDidNotStart;
+}
 
+pub fn presnt(self: *Renderer) !void {
+    if (self.current_frame) |frame| {
+        self.render_target.presentFrame(.{
+            .queue = &self.render_context.queue,
+            .cmd = &frame.main_cmd,
+            .in_flight_fence = frame.in_flight_fence,
+        }) catch {};
+    }
+    self.frame_manager.advanceFrame();
     self.current_frame = null;
+    self.frame_info = null;
 }
 
-pub fn presnt(self: *Vulkan) !void {
-    const queue = self.render_context.queue;
-    try self.frames.submit(&queue, null, &self.swapchain);
-}
-
-pub fn clear(self: *Vulkan, bg_color: color.RGBA) void {
+pub fn clear(self: *Renderer, bg_color: color.RGBA) void {
     self.bg_color = bg_color;
 }
 
-pub fn setViewport(self: *Vulkan, x: u32, y: u32, width: u32, height: u32) !void {
+pub fn setViewport(self: *Renderer, x: u32, y: u32, width: u32, height: u32) !void {
     const viewport = vk.Viewport{
         .x = @floatFromInt(x),
         .y = @floatFromInt(y),
@@ -278,30 +278,27 @@ pub fn setViewport(self: *Vulkan, x: u32, y: u32, width: u32, height: u32) !void
     }
 }
 
-pub fn resizeSurface(self: *Vulkan, width: u32, height: u32) !void {
+pub fn resizeSurface(self: *Renderer, width: u32, height: u32) !void {
     try self.render_context.device.waitIdle();
 
     const new_extent = try self.render_context.getSurfaceExtent(width, height);
 
-    if (self.swapchain.extent.width == new_extent.width and
-        self.swapchain.extent.height == new_extent.height)
+    if (self.swapchain_target.swapchain.extent.width == new_extent.width and
+        self.swapchain_target.swapchain.extent.height == new_extent.height)
     {
         return;
     }
 
-    try self.swapchain.recreate(
+    try self.swapchain_target.recreate(
         self.render_context.allocator_adapter.allocator,
         new_extent,
     );
 
-    for (0..self.swapchain.images.len) |i| {
-        self.targets[i].deinit(self.render_context.device);
-        self.targets[i] = Target.init(self.swapchain.image_views[i]);
-    }
+    try self.swapchain_target.ensureFramebuffers(&self.render_pipeline.renderpass);
 }
 
 pub fn cacheGlyphs(
-    self: *Vulkan,
+    self: *Renderer,
     entries: []font.GlyphAtlasEntry,
     bitmap_pool: []const u8,
 ) !void {
@@ -332,7 +329,7 @@ pub fn cacheGlyphs(
     );
 }
 
-pub fn reserveBatch(self: *Vulkan, count: usize) ![]vertex.TextInstance {
+pub fn reserveBatch(self: *Renderer, count: usize) ![]vertex.TextInstance {
     if (self.staging_buffer.mem_alloc == null or
         self.staging_buffer.mem_alloc.?.size < count * @sizeOf(vertex.TextInstance))
     {
@@ -349,7 +346,7 @@ pub fn reserveBatch(self: *Vulkan, count: usize) ![]vertex.TextInstance {
     return self.staging_buffer.hostSlice(vertex.TextInstance).?[0..count];
 }
 
-pub fn commitBatch(self: *Vulkan, count: usize) !void {
+pub fn commitBatch(self: *Renderer, count: usize) !void {
     if (self.current_frame) |frame| {
         if (frame.vertex_buffer.mem_alloc == null or
             frame.vertex_buffer.mem_alloc.?.size < count * @sizeOf(vertex.TextInstance))
@@ -391,22 +388,24 @@ const std = @import("std");
 const vk = @import("vulkan");
 const zerotty = @import("zerotty");
 
-const root = @import("root.zig");
-
-const core = @import("vulkan/core/root.zig");
+const core = @import("core/root.zig");
 const platform = zerotty.system.platform;
 const color = zerotty.terminal.color;
 const font = zerotty.font;
-const vertex = @import("vertex.zig");
+const vertex = @import("../vertex.zig");
 
-const RenderContext = @import("vulkan/rendering/RenderContext.zig");
-const RenderPipeline = @import("vulkan/rendering/RenderPipeline.zig");
-// const RenderResources = @import("vulkan/rendering/Resources.zig");
-const Frames = @import("vulkan/rendering/Frames.zig");
-const Target = @import("vulkan/rendering/Target.zig");
+const root = @import("../root.zig");
 
-const Cache = @import("vulkan/cache/Cache.zig");
+const RenderContext = @import("rendering/RenderContext.zig");
+const RenderPipeline = @import("rendering/RenderPipeline.zig");
+const FrameManager = @import("rendering/FrameManager.zig");
+const RenderTarget = @import("rendering/RenderTarget.zig");
+const SwapchainTarget = @import("rendering/target/swapchain_target.zig").SwapchainTarget;
+
+const Cache = @import("cache/Cache.zig");
 
 comptime {
     _ = Cache;
+    // _ = @import("vulkan/rendering/target/testing_target.zig");
+    // _ = @import("vulkan/rendering/golden_sample.zig");
 }

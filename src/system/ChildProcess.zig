@@ -57,7 +57,6 @@ pub fn wait(self: *const ChildProcess, block: bool) !WaitResult {
 }
 
 pub fn deinit(self: *ChildProcess) void {
-    if (self.env_map) |*map| map.deinit();
     self.* = .{ .exe_path = "" };
 }
 

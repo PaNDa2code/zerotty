@@ -5,8 +5,8 @@ pub const RendererSettings = struct {
     grid_cols: u32,
 };
 
-const OpenGLImpl = @import("OpenGL.zig");
-const VulanImpl = @import("Vulkan.zig");
+const OpenGLImpl = @import("opengl/Renderer.zig");
+const VulanImpl = @import("vulkan/Renderer.zig");
 
 const genaric = @import("genaric.zig");
 
