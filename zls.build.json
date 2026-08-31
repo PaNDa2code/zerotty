@@ -1,8 +1,8 @@
 {
   "build_options": [
     {
-      "name": "comptime-check",
-      "value": "true"
+      "name": "target",
+      "value": "aarch64-linux-android"
     }
   ]
 }

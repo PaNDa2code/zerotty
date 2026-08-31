@@ -85,6 +85,16 @@
             .url = "https://github.com/allyourcodebase/libxkbcommon/archive/refs/tags/1.13.1.tar.gz",
             .hash = "libxkbcommon-1.13.1-93LaF2x7AgDgSrr8xjRYrYGhtGhJKcZMuID3M95APvl1",
         },
+        .ndk_linux = .{
+            .url = "https://dl.google.com/android/repository/android-ndk-r27d-linux.zip",
+            .hash = "N-V-__8AAPD-aHo6C5xaK9iV34wP4ftinEtyGptdCFTTSBkC",
+            .lazy = true,
+        },
+        .android_cli_tools_linux = .{
+            .url = "https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip",
+            .hash = "N-V-__8AADIi1grtl68iBCtL5G0aLe3XM1gpQ1ExilnCyh2h",
+            .lazy = true,
+        },
     },
     .paths = .{
         "build.zig",

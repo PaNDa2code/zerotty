@@ -25,5 +25,12 @@
     "target": "x86_64-windows-gnu",
     "window_system": "glfw",
     "render_backend": "vulkan"
+  },
+
+  {
+    "name": "x86_64-android-android",
+    "target": "aarch64-linux-android",
+    "window_system": "glfw",
+    "render_backend": "vulkan"
   }
 ]

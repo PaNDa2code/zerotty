@@ -5,6 +5,8 @@ const config_mod = @import("build/config.zig");
 const app_mod = @import("build/app.zig");
 const tests_mod = @import("build/tests.zig");
 
+const android_mod = @import("build/android.zig");
+
 var io = std.Io.Threaded.global_single_threaded.io();
 
 pub fn build(b: *Build) !void {
@@ -15,15 +17,18 @@ pub fn build(b: *Build) !void {
     const optimize = b.standardOptimizeOption(.{});
 
     const target_tag = target.result.os.tag;
+    const is_android = target.result.abi.isAndroid();
 
     // -------------------------------------------------------------------------
     // Build Options
     // -------------------------------------------------------------------------
-    const use_llvm = b.option(bool, "use_llvm", "") orelse (target_tag == .windows);
+    const use_llvm = b.option(bool, "use_llvm", "") orelse (target_tag == .windows or is_android);
     const comptime_check = b.option(bool, "comptime-check", "") orelse false;
     const render_backend = b.option(config_mod.RenderBackend, "render-backend", "") orelse .vulkan;
     const window_system = b.option(config_mod.WindowSystem, "window-system", "") orelse .glfw;
     const dist_json_path = b.option([]const u8, "dist-json", "multi-build config list json file");
+
+    const android_archs = b.option([]const u8, "android_archs", "comma seprated target list for android") orelse "arm,aarch64,x86_64";
 
     const disable_renderer_debug = b.option(
         bool,
@@ -34,10 +39,17 @@ pub fn build(b: *Build) !void {
     if (dist_json_path) |json_path| {
         try config_mod.jsonFileToStep(b, b.default_step, json_path, optimize, use_llvm);
         return;
-    } else {
-        const check_step = b.step("check", "default step for zls to run");
-        try config_mod.jsonFileToStep(b, check_step, "build/check_configs.json", .Debug, use_llvm);
-    }
+    } else if (is_android) {
+        if (android_mod.buildAndroidApk(b, android_archs)) |apk| {
+            const install_dir = b.addInstallBinFile(apk, "zerotty.apk");
+            b.default_step.dependOn(&install_dir.step);
+        }
+        return;
+    } 
+    // else {
+    //     const check_step = b.step("check", "default step for zls to run");
+    //     try config_mod.jsonFileToStep(b, check_step, "build/check_configs.json", .Debug, use_llvm);
+    // }
 
     const native_config = config_mod.AppConfig{
         .use_llvm = use_llvm,
