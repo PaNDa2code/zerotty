@@ -21,21 +21,26 @@ pub const SurfaceCreationInfo = union(enum) {
     glfw: struct {
         window: *anyopaque,
     },
+    android: struct {
+        window: *anyopaque,
+    },
     headless: void,
 
     pub fn fromWindowHandles(handles: platform.WindowNativeHandles) SurfaceCreationInfo {
-        return switch (build_options.@"window-system") {
+        return switch (build_options.window) {
             .win32 => .{
                 .win32 = .{ .hwnd = @ptrCast(handles.hwnd), .hinstance = @ptrCast(handles.hinstance) },
             },
             .xcb => .{
                 .xcb = .{ .connection = @ptrCast(handles.connection), .window = @intCast(handles.window) },
             },
-            .xlib => .{
-                .xlib = .{ .window = handles.w, .dpy = @ptrCast(handles.display) },
-            },
             .glfw => .{
                 .glfw = .{
+                    .window = @ptrCast(handles.window),
+                },
+            },
+            .android => .{
+                .android = .{
                     .window = @ptrCast(handles.window),
                 },
             },
@@ -44,7 +49,7 @@ pub const SurfaceCreationInfo = union(enum) {
     }
 
     pub fn instanceExtensionsAlloc(self: SurfaceCreationInfo, allocator: std.mem.Allocator) ![]const [*:0]const u8 {
-        if (build_options.@"window-system" == .glfw) {
+        if (build_options.window == .glfw) {
             var count: u32 = 0;
             const extentions: [*]const [*:0]const u8 =
                 @ptrCast(c.glfwGetRequiredInstanceExtensions(&count));
@@ -78,7 +83,7 @@ pub fn createWindowSurface(
     instance: *const Instance,
     surface_creation_info: SurfaceCreationInfo,
 ) !vk.SurfaceKHR {
-    if (build_options.@"window-system" == .glfw) {
+    if (build_options.window == .glfw) {
         var surface: vk.SurfaceKHR = .null_handle;
 
         const vkres = c.glfwCreateWindowSurface(
@@ -115,6 +120,12 @@ pub fn createWindowSurface(
                 .dpy = @ptrCast(info.dpy),
             };
             return instance.vki.createXlibSurfaceKHR(instance.handle, &surface_info, instance.vk_allocator);
+        },
+        .android => |info| {
+            const surface_info = vk.AndroidSurfaceCreateInfoKHR{
+                .window = @ptrCast(info.window),
+            };
+            return instance.vki.createAndroidSurfaceKHR(instance.handle, &surface_info, instance.vk_allocator);
         },
         .headless => {
             const surface_info = vk.HeadlessSurfaceCreateInfoEXT{};

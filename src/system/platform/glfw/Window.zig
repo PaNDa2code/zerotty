@@ -32,8 +32,8 @@ pub fn open(self: *Window, allocator: Allocator, event_queue: *root.EventQueue) 
 
     _ = c.glfwInit();
 
-    if (render_backend != .opengl)
-        c.glfwWindowHint(c.GLFW_CLIENT_API, c.GLFW_NO_API);
+    // if (render_backend != .opengl)
+    c.glfwWindowHint(c.GLFW_CLIENT_API, c.GLFW_NO_API);
 
     const title = try allocator.dupeZ(u8, self.title);
     defer allocator.free(title);
@@ -63,8 +63,8 @@ pub fn open(self: *Window, allocator: Allocator, event_queue: *root.EventQueue) 
 
     c.glfwShowWindow(self.window);
 
-    if (render_backend == .opengl)
-        c.glfwMakeContextCurrent(self.window);
+    // if (render_backend == .opengl)
+    //     c.glfwMakeContextCurrent(self.window);
 
     self.event_queue = event_queue;
 }
@@ -181,11 +181,11 @@ const callbacks = struct {
 const std = @import("std");
 
 const root = @import("zerotty").system.platform;
-const render_backend = @import("build_options").@"render-backend";
+// const render_backend = @import("build_options").@"render-backend";
 
 const c = @cImport({
-    if (render_backend != .opengl)
-        @cDefine("GLFW_INCLUDE_NONE", "");
+    // if (render_backend != .opengl)
+    @cDefine("GLFW_INCLUDE_NONE", "");
 
     @cInclude("GLFW/glfw3.h");
 });

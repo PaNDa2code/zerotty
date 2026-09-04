@@ -20,15 +20,23 @@ pub fn init(
     display_info: DisplayInfo,
     descriptor_info: DescriptorSetInfo,
 ) !RenderPipeline {
+    const text_vert_data = try AssetsManager.instance
+        .getAlloc(allocator, "shaders/text.vert.spv");
+    defer allocator.free(text_vert_data);
+
+    const text_frag_data = try AssetsManager.instance
+        .getAlloc(allocator, "shaders/text.frag.spv");
+    defer allocator.free(text_frag_data);
+
     var vertex_shader = core.ShaderModule.init(
-        &assets.shaders.text_vert,
+        @alignCast(text_vert_data),
         "main",
         .vertex,
     );
     defer vertex_shader.deinit(device);
 
     var fragment_shader = core.ShaderModule.init(
-        &assets.shaders.text_frag,
+        @alignCast(text_frag_data),
         "main",
         .fragment,
     );
@@ -139,7 +147,7 @@ pub fn deinit(self: *RenderPipeline, device: *const core.Device, allocator: std.
 const std = @import("std");
 const vk = @import("vulkan");
 const zerotty = @import("zerotty");
-const assets = zerotty.assets;
+const AssetsManager = zerotty.AssetsManager;
 
 const core = @import("../core/root.zig");
 

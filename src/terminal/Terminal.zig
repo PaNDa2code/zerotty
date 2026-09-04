@@ -82,9 +82,38 @@ fn vtparserCallback(state: *const vt.ParserData, to_action: vt.Action, char: u8,
     const terminal: *Terminal = @ptrCast(@alignCast(user_data));
     switch (to_action) {
         .CSI_DISPATCH => {
-            if (char == 'm') {
-                terminal.handleSGR(state);
+            switch (char) {
+                'm' => handleSGR(terminal, state),
+
+                'A' => { // Cursor Up
+                    const n: usize = if (state.num_params > 0) @max(state.params[0], 1) else 1;
+                    cursorUp(terminal, n);
+                },
+                'B' => { // Cursor Down
+                    const n: usize = if (state.num_params > 0) @max(state.params[0], 1) else 1;
+                    cursorDown(terminal, n);
+                },
+                'C' => { // Cursor Right
+                    const n: usize = if (state.num_params > 0) @max(state.params[0], 1) else 1;
+                    cursorRight(terminal, n);
+                },
+                'D' => { // Cursor Left
+                    const n: usize = if (state.num_params > 0) @max(state.params[0], 1) else 1;
+                    cursorLeft(terminal, n);
+                },
+
+                'H', 'f' => {}, // Cursor Position (TODO)
+                'J' => {}, // Erase in Display (TODO)
+                'K' => {}, // Erase in Line (TODO)
+                'h' => {}, // Set Mode (ignore for now)
+                'l' => {}, // Reset Mode (ignore for now)
+                else => {},
             }
+        },
+        .ESC_DISPATCH => switch (char) {
+            '=' => {}, // Application Keypad (ignore)
+            '>' => {}, // Normal Keypad (ignore)
+            else => {},
         },
         .PRINT => {
             terminal.grid.putChar(terminal.allocator, .{
@@ -120,7 +149,7 @@ fn vtparserCallback(state: *const vt.ParserData, to_action: vt.Action, char: u8,
                 terminal.progress_state = @enumFromInt(state_int);
                 terminal.progress = @min(progress_int, 100);
 
-                log.debug("progress: {} {}%", .{terminal.progress_state, terminal.progress});
+                log.debug("progress: {} {}%", .{ terminal.progress_state, terminal.progress });
 
                 return;
             }
@@ -132,6 +161,9 @@ fn vtparserCallback(state: *const vt.ParserData, to_action: vt.Action, char: u8,
                 },
                 0x0D => {
                     terminal.grid.carriageReturn();
+                },
+                0x08 => { // Backspace - move cursor left
+                    backspace(terminal);
                 },
                 else => {},
             }
@@ -213,6 +245,33 @@ fn handleSGR(term: *Terminal, state: *const vt.ParserData) void {
     }
 
     log.debug("{any}", .{term.current_style});
+}
+
+fn cursorUp(terminal: *Terminal, n: usize) void {
+    if (n > terminal.grid.cursor_y)
+        terminal.grid.cursor_y = 0
+    else
+        terminal.grid.cursor_y -= n;
+}
+
+fn cursorDown(terminal: *Terminal, n: usize) void {
+    terminal.grid.cursor_y = @min(terminal.grid.cursor_y + n, terminal.grid.visable_rows -| 1);
+}
+
+fn cursorLeft(terminal: *Terminal, n: usize) void {
+    if (n > terminal.grid.cursor_x)
+        terminal.grid.cursor_x = 0
+    else
+        terminal.grid.cursor_x -= n;
+}
+
+fn cursorRight(terminal: *Terminal, n: usize) void {
+    terminal.grid.cursor_x = @min(terminal.grid.cursor_x + n, terminal.grid.rows_width -| 1);
+}
+
+fn backspace(terminal: *Terminal) void {
+    if (terminal.grid.cursor_x > 0)
+        terminal.grid.cursor_x -= 1;
 }
 
 const std = @import("std");

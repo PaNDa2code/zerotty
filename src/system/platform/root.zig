@@ -1,6 +1,6 @@
 const input = @import("../input/root.zig");
 
-const platform = @import("build_options").@"window-system";
+const platform = @import("build_options").@"window";
 
 pub const WindowNativeHandles = switch (platform) {
     .win32 => struct {
@@ -11,18 +11,18 @@ pub const WindowNativeHandles = switch (platform) {
         connection: *anyopaque,
         window: u32,
     },
-    .xlib => struct {
-        window: c_ulong,
-        display: *anyopaque,
-    },
     .glfw => struct {
         window: *anyopaque,
+    },
+    .android => struct {
+
     },
 };
 
 pub const Platform = switch (platform) {
     .glfw => @import("glfw/Platform.zig"),
-    .xcb, .xlib => @import("linux/Platform.zig"),
+    .xcb => @import("linux/Platform.zig"),
+    .android => @import("android/Platform.zig"),
     .win32 => @import("win32/Platform.zig"),
 };
 

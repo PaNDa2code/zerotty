@@ -242,7 +242,7 @@ fn getAndroidManifest(
     return write_file.getDirectory().path(b, "AndroidManifest.xml");
 }
 
-pub fn buildAndroidApk(b: *Build, archs: []const u8) ?Build.LazyPath {
+pub fn buildAndroidApk(b: *Build, root: *Build.Module, archs: []const u8) ?Build.LazyPath {
     const ndk_dep = b.lazyDependency("ndk_linux", .{}) orelse return null;
     const android_cli_dep = b.lazyDependency("android_cli_tools_linux", .{}) orelse return null;
 
@@ -295,6 +295,8 @@ pub fn buildAndroidApk(b: *Build, archs: []const u8) ?Build.LazyPath {
             .optimize = .ReleaseSmall,
             .root_source_file = b.path("src/android_main.zig"),
         });
+
+        mod.addImport("zerotty", root);
 
         ndk.importAndroidNativeGlue(b, mod, "android_native_glue", sysroot_include, sysroot_arch_include);
 

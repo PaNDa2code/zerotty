@@ -9,7 +9,7 @@ pub const ds = @import("ds/root.zig");
 pub const math = @import("renderer/common/math.zig");
 
 pub const AssetsManager = @import("AssetsManager.zig");
-pub const assets = @import("assets");
+// pub const assets = @import("assets");
 
 comptime {
     @import("std").testing.refAllDecls(@This());

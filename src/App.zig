@@ -16,6 +16,11 @@ pub fn init(
     io: std.Io,
     environ_map: *std.process.Environ.Map,
 ) !App {
+    AssetsManager.instance = try AssetsManager.init(
+        allocator,
+        AssetsManager.assets_archive,
+    );
+
     var platform = Platform.init(allocator);
 
     const initial_width = 800;
@@ -33,6 +38,7 @@ pub fn init(
     const renderer = try Renderer.init(
         allocator,
         try platform.getWindowNativeHandles(),
+        .{},
         .{
             .surface_height = initial_height,
             .surface_width = initial_width,
@@ -44,11 +50,6 @@ pub fn init(
     const terminal = try allocator.create(Terminal);
 
     var event_loop = try myio.EventLoop.init(allocator, 100);
-
-    AssetsManager.instance = try AssetsManager.init(
-        allocator,
-        AssetsManager.assets_archive,
-    );
 
     terminal.* = try Terminal.init(
         io,
@@ -95,7 +96,11 @@ pub fn run(self: *App) !void {
     var cache = font.Cache.init(self.allocator);
     defer cache.deinit();
 
-    const font_ttf = try font.Font.init(assets.fonts.@"FiraCodeNerdFontMono-Regular.ttf", 32, 32);
+    const fond_data = try AssetsManager.instance
+        .getAlloc(self.allocator, "fonts/FiraCodeNerdFontMono-Regular.ttf");
+    defer self.allocator.free(fond_data);
+
+    const font_ttf = try font.Font.init(fond_data, 32, 32);
     defer font_ttf.deinit();
 
     const ttf = font_ttf.ttf;
@@ -149,6 +154,7 @@ pub fn run(self: *App) !void {
                                     28, 36 => try self.terminal.shell.stdin.?.writeStreamingAll(self.io, "\r\n"),
                                     103, 111 => self.terminal.grid.scrollUp(1),
                                     108, 116 => self.terminal.grid.scrollDown(1),
+                                    14, 22 => try self.terminal.shell.stdin.?.writeStreamingAll(self.io, "\x7f"),
                                     else => {
                                         self.terminal.grid.scrollToBottom();
                                     },
@@ -283,7 +289,7 @@ pub fn deinit(self: *App) void {
 
     self.allocator.destroy(self.terminal);
 
-    AssetsManager.instance.deinit(self.allocator);
+    AssetsManager.instance.deinit();
 }
 
 fn ptyReadCallback(event: *myio.EventLoop.Event, len: usize, user_data: ?*anyopaque) myio.EventLoop.CallbackAction {
@@ -300,7 +306,6 @@ const zerotty = @import("zerotty");
 const myio = zerotty.system.io;
 const Platform = zerotty.system.platform.Platform;
 const font = zerotty.font;
-const assets = zerotty.assets;
 const Terminal = zerotty.terminal.Terminal;
 const AssetsManager = zerotty.AssetsManager;
 const TextInstance = zerotty.renderer.vertex.TextInstance;

@@ -142,7 +142,9 @@ pub fn open(self: *Window, allocator: Allocator) !void {
         return error.FlushFailed;
     }
 
-    var img = try zigimg.Image.fromMemory(allocator, assets.icons.@"logo_32x32.png");
+    const icon_data = try AssetsManger.instance.getAlloc(allocator, "logo_32x32.png");
+
+    var img = try zigimg.Image.fromMemory(allocator, icon_data);
     defer img.deinit(allocator);
 
     try img.convert(allocator, .bgra32);
@@ -387,7 +389,8 @@ const Renderer = zerotty.renderer.Renderer;
 const Allocator = std.mem.Allocator;
 
 const zigimg = @import("zigimg");
-const assets = zerotty.assets;
+const AssetsManger = zerotty.AssetsManager;
+
 const c = @cImport({
     @cInclude("xcb/xcb.h");
     @cInclude("X11/keysym.h");
