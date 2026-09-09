@@ -2,6 +2,9 @@ const std = @import("std");
 const Build = std.Build;
 const builtin = @import("builtin");
 
+const profiles_mod = @import("profile.zig");
+const Config = profiles_mod.ResolvedConfig;
+
 pub const Ndk = struct {
     cli_path: Build.LazyPath,
 
@@ -242,7 +245,7 @@ fn getAndroidManifest(
     return write_file.getDirectory().path(b, "AndroidManifest.xml");
 }
 
-pub fn buildAndroidApk(b: *Build, root: *Build.Module, archs: []const u8) ?Build.LazyPath {
+pub fn buildAndroidApk(b: *Build, root: *Build.Module, archs: []const u8, cfg: Config) ?Build.LazyPath {
     const ndk_dep = b.lazyDependency("ndk_linux", .{}) orelse return null;
     const android_cli_dep = b.lazyDependency("android_cli_tools_linux", .{}) orelse return null;
 
@@ -270,7 +273,7 @@ pub fn buildAndroidApk(b: *Build, root: *Build.Module, archs: []const u8) ?Build
         target_list.append(b.allocator, b.resolveTargetQuery(query)) catch @panic("OOM");
     }
 
-    const api_level: u32 = 30;
+    const api_level = 30;
 
     const so_dir = b.addWriteFiles();
 
@@ -279,30 +282,54 @@ pub fn buildAndroidApk(b: *Build, root: *Build.Module, archs: []const u8) ?Build
 
         const libc_file = ndk.createLibcFile(b, target, api_level) catch @panic("failed to create libc file");
 
+        const triple = ndkTriple(target.result.cpu.arch);
+
         const sysroot_include = ndk.cli_path.path(b, b.fmt(
             "toolchains/llvm/prebuilt/{s}/sysroot/usr/include",
             .{hostPrebuiltDir()},
         ));
 
-        const triple = ndkTriple(target.result.cpu.arch);
         const sysroot_arch_include = ndk.cli_path.path(b, b.fmt(
             "toolchains/llvm/prebuilt/{s}/sysroot/usr/include/{s}",
             .{ hostPrebuiltDir(), triple },
         ));
 
+        const sysroot_lib_dir = ndk.cli_path.path(b, b.fmt(
+            "toolchains/llvm/prebuilt/{s}/sysroot/usr/lib/{s}/{d}",
+            .{ hostPrebuiltDir(), triple, api_level },
+        ));
+
         const mod = b.createModule(.{
             .target = target,
-            .optimize = .ReleaseSmall,
+            .optimize = cfg.optimize,
             .root_source_file = b.path("src/android_main.zig"),
         });
 
         mod.addImport("zerotty", root);
+
+        const c_translate = b.addTranslateC(.{
+            .root_source_file = b.path("build/android.h"),
+            .optimize = cfg.optimize,
+            .target = cfg.target,
+        });
+
+        mod.addImport("android_c", c_translate.createModule());
+
+        mod.addLibraryPath(sysroot_lib_dir);
+
+        mod.linkSystemLibrary("android", .{});
+        mod.linkSystemLibrary("log", .{});
+        mod.linkSystemLibrary("EGL", .{});
+        mod.linkSystemLibrary("GLESv2", .{});
+        mod.linkSystemLibrary("OpenSLES", .{});
 
         ndk.importAndroidNativeGlue(b, mod, "android_native_glue", sysroot_include, sysroot_arch_include);
 
         const so = b.addLibrary(.{
             .name = name,
             .root_module = mod,
+            .linkage = .dynamic,
+            .use_llvm = cfg.use_llvm,
         });
 
         so.setLibCFile(libc_file);

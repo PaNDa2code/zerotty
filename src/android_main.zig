@@ -1,10 +1,62 @@
 const std = @import("std");
 const native = @import("android_native_glue");
 
+const App = @import("App.zig");
+
+pub const std_options = std.Options{
+    .logFn = androidLogFn,
+};
+
+extern fn __android_log_write(prio: AndroidLogPriority, tag: [*:0]const u8, text: [*:0]const u8) void;
+
+const AndroidLogPriority = enum(c_int) {
+    unknown = 0,
+    default,
+    verbose,
+    debug,
+    info,
+    warn,
+    @"error",
+    fatal,
+    silent,
+};
+
+const max_logging_bytes = 2048;
+
+fn androidLogFn(
+    comptime message_level: std.log.Level,
+    comptime scope: @EnumLiteral(),
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    const prio: AndroidLogPriority = switch (message_level) {
+        .debug => .debug,
+        .err => .@"error",
+        .info => .info,
+        .warn => .warn,
+    };
+    const tag = @tagName(scope);
+
+    var buffer: [max_logging_bytes]u8 = undefined;
+
+    const text = std.fmt.bufPrintSentinel(&buffer, format, args, 0) catch
+        std.debug.panic("max logging bytes is {}", .{max_logging_bytes});
+
+    __android_log_write(prio, tag.ptr, text.ptr);
+}
+
+pub const panic = std.debug.FullPanic(panicHandle);
+
+fn panicHandle(msg: []const u8, first_trace_addr: ?usize) noreturn {
+    std.debug.defaultPanic(msg, first_trace_addr);
+}
+
 export fn android_main(state: *native.android_app) callconv(.c) void {
     native.app_dummy();
 
-    const allocator = std.heap.smp_allocator;
+    std.log.debug("running android_main", .{});
+
+    const allocator = std.heap.c_allocator;
 
     var init = allocator.create(std.process.Init) catch @panic("OOM");
 
@@ -28,17 +80,61 @@ export fn android_main(state: *native.android_app) callconv(.c) void {
 
     state.userData = init;
     state.onAppCmd = onAppCmd;
+    state.onInputEvent = onInputEvent;
+
+    var app = App.init(init.gpa, init.io, init.environ_map) catch @panic("App creation failed");
+    defer app.deinit();
+
+    var events: c_int = undefined;
+    var source: [*c]native.android_poll_source = null;
+
+    while (true) {
+        const ident = native.ALooper_pollAll(-1, null, &events, @ptrCast(&source));
+
+        if (ident >= 0) {
+            if (source != null) {
+                if (source.*.process) |process_fn| {
+                    process_fn(state, source);
+                }
+            }
+        }
+
+        if (state.destroyRequested != 0) {
+            std.log.debug("App destruction requested. Exiting loop.", .{});
+            break;
+        }
+    }
 }
 
-fn onAppCmd(app_: [*c]native.android_app, cmd: i32) callconv(.c) void {
-    const app: *native.android_app = @ptrCast(app_);
+fn testAysnc() void {
+    std.log.debug("Hello from testAysnc", .{});
+}
+
+fn onAppCmd(_app: [*c]native.android_app, _cmd: i32) callconv(.c) void {
+    const app: *native.android_app = @ptrCast(_app);
     _ = app;
 
-    switch (@as(AppCmd, @enumFromInt(cmd))) {
+    const cmd = @as(AppCmd, @enumFromInt(_cmd));
+
+    switch (cmd) {
         .init_window => {},
         .term_window => {},
         else => {},
     }
+
+    std.log.debug("onAppCmd(app, {})", .{cmd});
+}
+
+fn onInputEvent(
+    _app: [*c]native.android_app,
+    _event: ?*native.AInputEvent,
+) callconv(.c) i32 {
+    const app: *native.android_app = @ptrCast(_app);
+    _ = app;
+
+    std.log.debug("onInputEvent(app, {any})", .{_event});
+
+    return 0;
 }
 
 const AppCmd = enum(i32) {

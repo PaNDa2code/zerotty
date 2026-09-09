@@ -36,7 +36,7 @@ pub fn buildAppStep(b: *Build, cfg: Config, check_only: bool) ?*Build.Step {
     const is_android = cfg.target.result.abi.isAndroid();
 
     if (is_android) {
-        const apk = buildAndroidApk(b, zerrotty_mod, "arm,aarch64,x86_64");
+        const apk = buildAndroidApk(b, zerrotty_mod, "aarch64", cfg);
         if (apk) |path| {
             const install_step = b.addInstallBinFile(path, "zerotty.apk");
             return &install_step.step;

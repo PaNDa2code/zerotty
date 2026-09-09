@@ -21,7 +21,7 @@ pub fn addOptions(b: *Build) CliCommand {
     const use_llvm = b.option(bool, "use_llvm", "use llvm backend to build the project");
     const build_proflie = b.option(BuildProfileEnum, "profile", "predefined profiles just for easier build");
 
-    const build_profile = if (build_proflie) |bp|
+    var build_profile = if (build_proflie) |bp|
         bp.getProfile()
     else
         BuildProfile{
@@ -31,6 +31,8 @@ pub fn addOptions(b: *Build) CliCommand {
             .window = .glfw,
             .use_llvm = use_llvm,
         };
+
+    build_profile.optimize = std_optimize;
 
     return .{
         .build = build_profile,

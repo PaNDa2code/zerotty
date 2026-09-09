@@ -42,9 +42,16 @@ pub fn wireCore(b: *Build, mod: *Build.Module, cfg: ResolvedConfig) void {
 pub fn wireVulkan(b: *Build, mod: *Build.Module) void {
     const vulkan_headers = b.lazyDependency("vulkan_headers", .{});
     const vulkan_dep = if (vulkan_headers) |vh|
-        b.lazyDependency("vulkan", .{ .registry = vh.path("registry/vk.xml") })
+        b.lazyDependency("vulkan", .{
+            .optimize = .Debug,
+            .target = "native",
+            .registry = vh.path("registry/vk.xml"),
+        })
     else
-        b.lazyDependency("vulkan", .{});
+        b.lazyDependency("vulkan", .{
+            .optimize = .Debug,
+            .target = "native",
+        });
 
     if (vulkan_headers != null) {
         if (vulkan_dep) |dep|
