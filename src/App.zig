@@ -11,15 +11,29 @@ renderer: Renderer,
 buf: []u8,
 terminal: *Terminal,
 
+const cell_height = 32;
+const cell_wedth = 19;
+
+fn bellAction(_app: ?*anyopaque) void {
+    const app: *App = @ptrCast(@alignCast(_app));
+    app.platform.current_window.?.requistAttention();
+}
+
 pub fn init(
     allocator: std.mem.Allocator,
     io: std.Io,
     environ_map: *std.process.Environ.Map,
 ) !App {
-    AssetsManager.instance = try AssetsManager.init(
-        allocator,
-        AssetsManager.assets_archive,
-    );
+    AssetsManager.instance =
+        if (builtin.mode == .ReleaseSmall)
+            try .decompressAndInit(
+                allocator,
+                AssetsManager.assets_archive,
+            )
+        else
+            .initFromTar(
+                AssetsManager.assets_tar,
+            );
 
     var platform = Platform.init(allocator);
 
@@ -32,8 +46,8 @@ pub fn init(
         .width = initial_width,
     });
 
-    const initial_cols = initial_width / 19;
-    const initial_rows = initial_height / 32;
+    const initial_cols = initial_width / cell_wedth;
+    const initial_rows = initial_height / cell_height;
 
     const renderer = try Renderer.init(
         allocator,
@@ -86,21 +100,26 @@ pub fn init(
 }
 
 pub fn run(self: *App) !void {
+    self.terminal.bell_action_data = self;
+    self.terminal.bell_action_callback = bellAction;
+
     self.terminal.vtparser.user_data = self.terminal;
 
     var running = true;
 
-    var timer = std.Io.Timestamp.zero;
+    var tik = std.Io.Timestamp.zero;
     var frames: usize = 0;
 
     var cache = font.Cache.init(self.allocator);
     defer cache.deinit();
 
-    const fond_data = try AssetsManager.instance
-        .getAlloc(self.allocator, "fonts/FiraCodeNerdFontMono-Regular.ttf");
-    defer self.allocator.free(fond_data);
+    const font_asset = try AssetsManager.instance
+        .get("fonts/FiraCodeNerdFontMono-Regular.ttf");
+    const font_data = try font_asset.fixedBuffer();
 
-    const font_ttf = try font.Font.init(fond_data, 32, 32);
+    // defer self.allocator.free(fond_data);
+
+    const font_ttf = try font.Font.init(font_data, cell_height, cell_height);
     defer font_ttf.deinit();
 
     const ttf = font_ttf.ttf;
@@ -129,8 +148,8 @@ pub fn run(self: *App) !void {
                         size.width,
                         size.height,
                     );
-                    const cols = @max(1, size.width / 19);
-                    const rows = @max(1, size.height / 32);
+                    const cols = @max(1, size.width / cell_wedth);
+                    const rows = @max(1, size.height / cell_height);
 
                     try self.terminal.pty.resize(
                         .{
@@ -150,11 +169,21 @@ pub fn run(self: *App) !void {
                         },
                         .keyboard => |key_event| {
                             if (key_event.type == .press or key_event.type == .repeat) {
+                                if (key_event.mods.ctrl) {
+                                    if (key_event.key == 'V') {
+                                        const str = self.platform.clipboard.getString();
+                                        try self.terminal.shell.stdin.?.writeStreamingAll(self.io, str);
+                                    } else {
+                                        const byte: u8 = @intCast(key_event.key & 0x1F);
+                                        try self.terminal.shell.stdin.?.writeStreamingAll(self.io, &.{byte});
+                                    }
+                                    std.log.debug("CTRL+{c}", .{@as(u8, @intCast(key_event.key))});
+                                }
                                 switch (key_event.code) {
-                                    28, 36 => try self.terminal.shell.stdin.?.writeStreamingAll(self.io, "\r\n"),
+                                    28 => try self.terminal.shell.stdin.?.writeStreamingAll(self.io, "\n"),
                                     103, 111 => self.terminal.grid.scrollUp(1),
                                     108, 116 => self.terminal.grid.scrollDown(1),
-                                    14, 22 => try self.terminal.shell.stdin.?.writeStreamingAll(self.io, "\x7f"),
+                                    14 => try self.terminal.shell.stdin.?.writeStreamingAll(self.io, "\x7f"),
                                     else => {
                                         self.terminal.grid.scrollToBottom();
                                     },
@@ -264,7 +293,7 @@ pub fn run(self: *App) !void {
 
         frames += 1;
 
-        const diff = timer.untilNow(self.io, .real);
+        const diff = tik.untilNow(self.io, .real);
 
         if (diff.nanoseconds >= std.time.ns_per_s) {
             const secands = @as(f64, @floatFromInt(diff.nanoseconds)) * (1.0 / @as(comptime_float, std.time.ns_per_s));
@@ -275,7 +304,9 @@ pub fn run(self: *App) !void {
             try self.platform.current_window.?.setTitle(title);
 
             frames = 0;
-            timer.nanoseconds = 0;
+            tik = .now(self.io, .real);
+
+            self.terminal.grid.show_cursor = !self.terminal.grid.show_cursor;
         }
     }
 }

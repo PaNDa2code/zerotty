@@ -14,6 +14,8 @@ scroll_offset: usize = 0,
 cursor_x: usize = 0,
 cursor_y: usize = 0,
 
+show_cursor: bool = true,
+
 /// Resize the visible viewport. Existing rows are re-widthed in place
 /// (padded when growing, truncated when shrinking) and new blank rows
 /// are appended if there aren't enough tracked rows yet to fill the
@@ -189,6 +191,78 @@ pub fn carriageReturn(self: *Grid) void {
     self.cursor_x = 0;
 }
 
+fn eraseRowCells(
+    self: *Grid,
+    allocator: std.mem.Allocator,
+    abs_row: usize,
+    start_col: usize,
+    end_col: usize,
+) !void {
+    var row = &self.rows.items[abs_row];
+    if (row.len() < self.rows_width) {
+        const pad_count = self.rows_width - row.len();
+        const blanks = try allocator.alloc(Cell, pad_count);
+        defer allocator.free(blanks);
+        @memset(blanks, .default);
+        try row.extend(allocator, blanks);
+    }
+    @memset(row.backing_storage.items[start_col..end_col], .default);
+}
+
+pub const EraseMode = enum(usize) {
+    _,
+};
+
+pub fn eraseDisplay(self: *Grid, allocator: std.mem.Allocator, mode: EraseMode) !void {
+    const first_live_row = self.rows.items.len -| self.visable_rows;
+
+    switch (@intFromEnum(mode)) {
+        0 => {
+            try self.eraseRowCells(allocator, self.currentRowIndex(), self.cursor_x, self.rows_width);
+            var r = self.currentRowIndex() + 1;
+            while (r < self.rows.items.len) : (r += 1)
+                try self.eraseRowCells(allocator, r, 0, self.rows_width);
+        },
+        1 => {
+            var r = first_live_row;
+            while (r < self.currentRowIndex()) : (r += 1)
+                try self.eraseRowCells(allocator, r, 0, self.rows_width);
+            try self.eraseRowCells(allocator, self.currentRowIndex(), 0, self.cursor_x + 1);
+        },
+        2 => {
+            var r = first_live_row;
+            while (r < self.rows.items.len) : (r += 1)
+                try self.eraseRowCells(allocator, r, 0, self.rows_width);
+        },
+        3 => {
+            const live_begin = self.rows.items.len - self.visable_rows;
+            if (live_begin > 0) {
+                var i: usize = 0;
+                while (i < live_begin) : (i += 1)
+                    self.rows.items[i].backing_storage.deinit(allocator);
+                self.rows.replaceRange(
+                    allocator,
+                    0,
+                    live_begin,
+                    &.{},
+                ) catch return;
+            }
+            self.scroll_offset = 0;
+        },
+        else => {},
+    }
+}
+
+pub fn eraseLine(self: *Grid, allocator: std.mem.Allocator, mode: usize) !void {
+    const idx = self.currentRowIndex();
+    switch (mode) {
+        0 => try self.eraseRowCells(allocator, idx, self.cursor_x, self.rows_width),
+        1 => try self.eraseRowCells(allocator, idx, 0, self.cursor_x + 1),
+        2 => try self.eraseRowCells(allocator, idx, 0, self.rows_width),
+        else => {},
+    }
+}
+
 pub fn deinit(self: *Grid, allocator: std.mem.Allocator) void {
     for (self.rows.items) |*row| {
         row.backing_storage.deinit(allocator);
@@ -231,6 +305,13 @@ pub const Iterator = struct {
         if (self.current_x >= self.grid.rows_width) {
             self.current_x = 0;
             self.current_y += 1;
+        }
+
+        if (self.grid.show_cursor and
+            self.grid.cursor_x == x and
+            self.grid.cursor_y == y)
+        {
+            cell.unicode = 0x2588; // █ FULL BLOCK
         }
 
         return .{ .x = x, .y = y, .cell = cell };

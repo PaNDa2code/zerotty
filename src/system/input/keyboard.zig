@@ -33,6 +33,7 @@ pub const KeyEvent = struct {
     type: KeyEventType,
     mods: ModState = .{},
     code: u32,
+    key: u32,
 };
 
 pub const Xkb = @import("Xkb.zig");

@@ -12,6 +12,9 @@ progress: u32 = 0,
 /// progress bar state
 progress_state: ProgressBarState = .remove,
 
+bell_action_callback: ?*const fn(?*anyopaque) void = null,
+bell_action_data: ?*anyopaque = null,
+
 ocs_buffer: [64]u8 = [1]u8{0} ** 64,
 ocs_buffer_len: usize = 0,
 
@@ -102,9 +105,19 @@ fn vtparserCallback(state: *const vt.ParserData, to_action: vt.Action, char: u8,
                     cursorLeft(terminal, n);
                 },
 
-                'H', 'f' => {}, // Cursor Position (TODO)
-                'J' => {}, // Erase in Display (TODO)
-                'K' => {}, // Erase in Line (TODO)
+                'H', 'f' => { // Cursor Position
+                    const row = if (state.num_params > 0) state.params[0] else 1;
+                    const col = if (state.num_params > 1) state.params[1] else 1;
+                    setCursorPosition(terminal, row, col);
+                },
+                'J' => { // Erase in Display
+                    const mode = if (state.num_params > 0) state.params[0] else 0;
+                    terminal.grid.eraseDisplay(terminal.allocator, @enumFromInt(mode)) catch unreachable;
+                },
+                'K' => { // Erase in Line
+                    const mode = if (state.num_params > 0) state.params[0] else 0;
+                    terminal.grid.eraseLine(terminal.allocator, mode) catch unreachable;
+                },
                 'h' => {}, // Set Mode (ignore for now)
                 'l' => {}, // Reset Mode (ignore for now)
                 else => {},
@@ -164,6 +177,10 @@ fn vtparserCallback(state: *const vt.ParserData, to_action: vt.Action, char: u8,
                 },
                 0x08 => { // Backspace - move cursor left
                     backspace(terminal);
+                },
+                0x07 => {
+                    if (terminal.bell_action_callback) |action|
+                    action(terminal.bell_action_data);
                 },
                 else => {},
             }
@@ -267,6 +284,11 @@ fn cursorLeft(terminal: *Terminal, n: usize) void {
 
 fn cursorRight(terminal: *Terminal, n: usize) void {
     terminal.grid.cursor_x = @min(terminal.grid.cursor_x + n, terminal.grid.rows_width -| 1);
+}
+
+fn setCursorPosition(terminal: *Terminal, row: usize, col: usize) void {
+    terminal.grid.cursor_y = @min(row -| 1, terminal.grid.visable_rows -| 1);
+    terminal.grid.cursor_x = @min(col -| 1, terminal.grid.rows_width -| 1);
 }
 
 fn backspace(terminal: *Terminal) void {

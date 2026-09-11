@@ -20,23 +20,33 @@ pub fn init(
     display_info: DisplayInfo,
     descriptor_info: DescriptorSetInfo,
 ) !RenderPipeline {
-    const text_vert_data = try AssetsManager.instance
-        .getAlloc(allocator, "shaders/text.vert.spv");
-    defer allocator.free(text_vert_data);
+    const text_vert_asset = try AssetsManager.instance
+        .get("shaders/text.vert.spv");
+    const text_vert_data = try text_vert_asset.fixedBuffer();
 
-    const text_frag_data = try AssetsManager.instance
-        .getAlloc(allocator, "shaders/text.frag.spv");
-    defer allocator.free(text_frag_data);
+    const text_vert_data_aligned = try allocator.alignedAlloc(u8, .@"8", text_vert_data.len);
+    defer allocator.free(text_vert_data_aligned);
+
+    @memcpy(text_vert_data_aligned, text_vert_data);
+
+    const text_frag_asset = try AssetsManager.instance
+        .get("shaders/text.frag.spv");
+    const text_frag_data = try text_frag_asset.fixedBuffer();
+
+    const text_frag_data_aligned = try allocator.alignedAlloc(u8, .@"8", text_frag_data.len);
+    defer allocator.free(text_frag_data_aligned);
+
+    @memcpy(text_frag_data_aligned, text_frag_data);
 
     var vertex_shader = core.ShaderModule.init(
-        @alignCast(text_vert_data),
+        @alignCast(text_vert_data_aligned),
         "main",
         .vertex,
     );
     defer vertex_shader.deinit(device);
 
     var fragment_shader = core.ShaderModule.init(
-        @alignCast(text_frag_data),
+        @alignCast(text_frag_data_aligned),
         "main",
         .fragment,
     );

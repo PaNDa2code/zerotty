@@ -12,8 +12,8 @@ pub fn build(b: *Build) !void {
         .check => {},
         .build => |prof| {
             const cfg = profile.resolveProfile(b, prof);
-            const build_step = app.buildAppStep(b, cfg, false).?;
-            b.getInstallStep().dependOn(build_step);
+            const build_step = app.buildAppStep(b, cfg, false);
+            b.default_step.dependOn(build_step);
         },
     }
 }

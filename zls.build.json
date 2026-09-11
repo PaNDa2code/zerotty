@@ -1,12 +1,4 @@
 {
   "build_options": [
-    {
-      "name": "target",
-      "value": "aarch64-linux-android"
-    },
-    {
-      "name": "profile",
-      "value": "android"
-    }
   ]
 }

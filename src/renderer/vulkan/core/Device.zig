@@ -9,6 +9,7 @@ pub const PhysicalDevice = struct {
 
     graphic_family_index: u32,
     present_family_index: u32,
+    transfer_family_index: u32,
 };
 
 instance: *const Instance,
@@ -126,7 +127,7 @@ fn createDevice(
     const graphic_family_index = physical_device.graphic_family_index;
     const present_family_index = physical_device.present_family_index;
 
-    var queue_infos: [2]vk.DeviceQueueCreateInfo = undefined;
+    var queue_infos: [3]vk.DeviceQueueCreateInfo = undefined;
     var queue_count: usize = 0;
 
     queue_infos[queue_count] = .{
@@ -239,10 +240,13 @@ fn selectQueueFamilies(
     var present: ?u32 = null;
     var graphics_present: ?u32 = null;
 
+    var dedicated_transfer: ?u32 = null;
+
     for (queue_props, 0..) |props, j| {
         const idx: u32 = @intCast(j);
 
         const graphics_support = props.queue_flags.graphics_bit;
+        const transfer_support = props.queue_flags.transfer_bit;
 
         const present_support = surface != .null_handle and
             try instance.vki.getPhysicalDeviceSurfaceSupportKHR(
@@ -257,6 +261,10 @@ fn selectQueueFamilies(
         if (present_support and present == null)
             present = idx;
 
+        if (transfer_support and
+            !graphics_support and !present_support)
+            dedicated_transfer = idx;
+
         if (graphics_support and present_support) {
             graphics_present = idx;
             break;
@@ -266,6 +274,7 @@ fn selectQueueFamilies(
     if (graphics_present) |i| {
         out.graphic_family_index = i;
         out.present_family_index = i;
+        out.transfer_family_index = i;
         out.support_present = true;
         return;
     }
@@ -277,6 +286,10 @@ fn selectQueueFamilies(
 
     if (graphics) |i| {
         out.graphic_family_index = i;
+    }
+
+    if (dedicated_transfer) |i| {
+        out.transfer_family_index = i;
     }
 }
 

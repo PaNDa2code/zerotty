@@ -6,6 +6,7 @@ device: *const core.Device,
 surface: vk.SurfaceKHR,
 
 queue: core.Queue,
+transfer_queue: ?core.Queue,
 
 // allocator: std.mem.Allocator,
 allocator_adapter: *core.memory.AllocatorAdapter,
@@ -61,12 +62,19 @@ pub fn init(allocator: std.mem.Allocator, window_handles: platform.WindowNativeH
 
     device_allocator.* = .init(device, allocator);
 
-    const queue = core.Queue.init(
+    const graphics_queue = core.Queue.init(
         device,
         device.physical_device.graphic_family_index,
         0,
         true,
     );
+
+    // const transfer_queue: ?core.Queue =
+    //     if (device.physical_device.transfer_family_index !=
+    //     device.physical_device.graphic_family_index)
+    //         core.Queue.init(device, device.physical_device.transfer_family_index, 0, false)
+    //     else
+    //         null;
 
     return .{
         .instance = instance,
@@ -74,7 +82,8 @@ pub fn init(allocator: std.mem.Allocator, window_handles: platform.WindowNativeH
 
         .surface = surface,
 
-        .queue = queue,
+        .queue = graphics_queue,
+        .transfer_queue = null,
 
         .allocator_adapter = allocator_adapter,
         .device_allocator = device_allocator,

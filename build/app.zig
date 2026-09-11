@@ -11,7 +11,7 @@ const Config = profiles_mod.ResolvedConfig;
 
 const buildAndroidApk = android_mod.buildAndroidApk;
 
-pub fn buildAppStep(b: *Build, cfg: Config, check_only: bool) ?*Build.Step {
+pub fn buildAppStep(b: *Build, cfg: Config, check_only: bool) *Build.Step {
     const zerrotty_mod = b.createModule(.{
         .root_source_file = b.path("src/root.zig"),
         .target = cfg.target,
@@ -27,11 +27,12 @@ pub fn buildAppStep(b: *Build, cfg: Config, check_only: bool) ?*Build.Step {
     zerrotty_mod.addImport("build_options", options.createModule());
     zerrotty_mod.addImport("zerotty", zerrotty_mod);
 
-    const assets_file = assets_mod.compressAssets(b) catch @panic("can't compress assets");
+    const assets = assets_mod.resolveAssets(b) catch @panic("can't compress assets");
 
-    zerrotty_mod.addAnonymousImport("assets.tar.zst", .{ .root_source_file = assets_file });
-
-    if (check_only) return null;
+    // if (cfg.optimize == .ReleaseSmall)
+    zerrotty_mod.addAnonymousImport("assets.tar.zst", .{ .root_source_file = assets.compressed_path });
+    // else
+    zerrotty_mod.addAnonymousImport("assets.tar", .{ .root_source_file = assets.tar_path });
 
     const is_android = cfg.target.result.abi.isAndroid();
 
@@ -57,11 +58,16 @@ pub fn buildAppStep(b: *Build, cfg: Config, check_only: bool) ?*Build.Step {
         .use_llvm = cfg.use_llvm,
     });
 
+    if (check_only) return &exe.step;
+
     const install = b.addInstallArtifact(exe, .{});
 
     const run_step = b.step("run", "run exe");
 
     const exe_run = b.addRunArtifact(exe);
+
+    // get the final exe in zig-out before running run step
+    run_step.dependOn(&install.step);
 
     run_step.dependOn(&exe_run.step);
 
