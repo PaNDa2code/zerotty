@@ -238,3 +238,84 @@ test "Grid Resizing Height Changes" {
     // Should have appended rows to fill height
     try std.testing.expect(my_grid.rows.items.len >= 8);
 }
+
+test "deleteChars shifts cells left and blanks tail" {
+    const allocator = std.testing.allocator;
+    // Grid: 1 row, 6 columns wide.  Write "ABCDEF" then place cursor at col 1.
+    // CSI 2 P  → delete 2 chars at col 1 → "ACDEF" becomes "ADEF  "
+    var my_grid = Grid{ .visable_rows = 1, .rows_width = 6 };
+    defer my_grid.deinit(allocator);
+
+    const mk = struct {
+        fn cell(ch: u32) Cell {
+            return .{ .unicode = ch, .fg_color = .white, .bg_color = .black, .flags = .{} };
+        }
+    };
+
+    for ("ABCDEF") |ch| try my_grid.putChar(allocator, mk.cell(ch));
+
+    // Place cursor at column 1 (on 'B').
+    my_grid.cursor_x = 1;
+
+    // Delete 2 characters — 'B' and 'C' should vanish, 'DEF' slides left,
+    // rightmost 2 cells become blank.
+    try my_grid.deleteChars(allocator, 2);
+
+    const row = my_grid.visibleRows()[0].backing_storage.items;
+    try std.testing.expectEqual(@as(u32, 'A'), row[0].unicode);
+    try std.testing.expectEqual(@as(u32, 'D'), row[1].unicode);
+    try std.testing.expectEqual(@as(u32, 'E'), row[2].unicode);
+    try std.testing.expectEqual(@as(u32, 'F'), row[3].unicode);
+    try std.testing.expectEqual(@as(u32, 0),   row[4].unicode); // blank
+    try std.testing.expectEqual(@as(u32, 0),   row[5].unicode); // blank
+
+    // Cursor must not have moved.
+    try std.testing.expectEqual(@as(usize, 1), my_grid.cursor_x);
+}
+
+test "deleteChars clamps when n exceeds remaining columns" {
+    const allocator = std.testing.allocator;
+    var my_grid = Grid{ .visable_rows = 1, .rows_width = 4 };
+    defer my_grid.deinit(allocator);
+
+    const mk = struct {
+        fn cell(ch: u32) Cell {
+            return .{ .unicode = ch, .fg_color = .white, .bg_color = .black, .flags = .{} };
+        }
+    };
+
+    for ("ABCD") |ch| try my_grid.putChar(allocator, mk.cell(ch));
+
+    // Cursor at col 2, delete 100 chars — should blank from col 2 to end.
+    my_grid.cursor_x = 2;
+    try my_grid.deleteChars(allocator, 100);
+
+    const row = my_grid.visibleRows()[0].backing_storage.items;
+    try std.testing.expectEqual(@as(u32, 'A'), row[0].unicode);
+    try std.testing.expectEqual(@as(u32, 'B'), row[1].unicode);
+    try std.testing.expectEqual(@as(u32, 0),   row[2].unicode); // blanked
+    try std.testing.expectEqual(@as(u32, 0),   row[3].unicode); // blanked
+}
+
+test "deleteChars at end of line is a no-op" {
+    const allocator = std.testing.allocator;
+    var my_grid = Grid{ .visable_rows = 1, .rows_width = 3 };
+    defer my_grid.deinit(allocator);
+
+    const mk = struct {
+        fn cell(ch: u32) Cell {
+            return .{ .unicode = ch, .fg_color = .white, .bg_color = .black, .flags = .{} };
+        }
+    };
+
+    for ("ABC") |ch| try my_grid.putChar(allocator, mk.cell(ch));
+
+    // Cursor past the last column — nothing to delete.
+    my_grid.cursor_x = 3;
+    try my_grid.deleteChars(allocator, 1);
+
+    const row = my_grid.visibleRows()[0].backing_storage.items;
+    try std.testing.expectEqual(@as(u32, 'A'), row[0].unicode);
+    try std.testing.expectEqual(@as(u32, 'B'), row[1].unicode);
+    try std.testing.expectEqual(@as(u32, 'C'), row[2].unicode);
+}

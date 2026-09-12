@@ -12,7 +12,7 @@ progress: u32 = 0,
 /// progress bar state
 progress_state: ProgressBarState = .remove,
 
-bell_action_callback: ?*const fn(?*anyopaque) void = null,
+bell_action_callback: ?*const fn (?*anyopaque) void = null,
 bell_action_data: ?*anyopaque = null,
 
 ocs_buffer: [64]u8 = [1]u8{0} ** 64,
@@ -118,6 +118,10 @@ fn vtparserCallback(state: *const vt.ParserData, to_action: vt.Action, char: u8,
                     const mode = if (state.num_params > 0) state.params[0] else 0;
                     terminal.grid.eraseLine(terminal.allocator, mode) catch unreachable;
                 },
+                'P' => { // DCH — Delete Character(s)
+                    const n: usize = if (state.num_params > 0) @max(state.params[0], 1) else 1;
+                    terminal.grid.deleteChars(terminal.allocator, n) catch unreachable;
+                },
                 'h' => {}, // Set Mode (ignore for now)
                 'l' => {}, // Reset Mode (ignore for now)
                 else => {},
@@ -180,7 +184,11 @@ fn vtparserCallback(state: *const vt.ParserData, to_action: vt.Action, char: u8,
                 },
                 0x07 => {
                     if (terminal.bell_action_callback) |action|
-                    action(terminal.bell_action_data);
+                        action(terminal.bell_action_data);
+                },
+                0x50 => {
+                    const count = if (state.num_params > 1) state.params[0] else 1;
+                    terminal.grid.deleteChars(terminal.allocator, count) catch unreachable;
                 },
                 else => {},
             }

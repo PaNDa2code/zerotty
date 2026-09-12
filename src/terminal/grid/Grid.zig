@@ -263,6 +263,48 @@ pub fn eraseLine(self: *Grid, allocator: std.mem.Allocator, mode: usize) !void {
     }
 }
 
+/// CSI N P — Delete Character (DCH).
+///
+/// Deletes `n` characters starting at the cursor column.
+/// Characters to the right of the deleted region are shifted left to fill
+/// the gap. The `n` vacated cells at the right end of the line are filled
+/// with blank (default) cells. The cursor position does not change.
+///
+/// Standard reference: ECMA-48 §8.3.26
+pub fn deleteChars(self: *Grid, allocator: std.mem.Allocator, n: usize) !void {
+    try self.ensureLiveRows(allocator);
+
+    const row = &self.rows.items[self.currentRowIndex()];
+
+    // Ensure the row is fully wide before we start shifting.
+    if (row.len() < self.rows_width) {
+        const pad_count = self.rows_width - row.len();
+        const blanks = try allocator.alloc(Cell, pad_count);
+        defer allocator.free(blanks);
+        @memset(blanks, .default);
+        try row.extend(allocator, blanks);
+    }
+
+    const cells = row.backing_storage.items;
+    const col = self.cursor_x;
+
+    // Clamp: deleting more chars than remain on the line is equivalent to
+    // erasing from the cursor to the end of the line.
+    const delete_count = @min(n, self.rows_width -| col);
+    if (delete_count == 0) return;
+
+    const shift_src = col + delete_count; // first character that slides left
+    const shift_count = self.rows_width -| shift_src; // number of chars to shift
+
+    // Shift surviving characters left.
+    if (shift_count > 0) {
+        std.mem.copyForwards(Cell, cells[col..][0..shift_count], cells[shift_src..][0..shift_count]);
+    }
+
+    // Fill the vacated tail with blanks.
+    @memset(cells[col + shift_count .. self.rows_width], .default);
+}
+
 pub fn deinit(self: *Grid, allocator: std.mem.Allocator) void {
     for (self.rows.items) |*row| {
         row.backing_storage.deinit(allocator);

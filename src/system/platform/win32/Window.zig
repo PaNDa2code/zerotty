@@ -123,18 +123,61 @@ fn WindowProc(self: *Window, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARA
             self.event_queue.push(.close) catch unreachable;
             return 0;
         },
-        win32wm.WM_CHAR => {
-            if (wparam == @intFromEnum(win32.ui.input.keyboard_and_mouse.VK_ESCAPE)) {
+        win32wm.WM_KEYDOWN, win32wm.WM_SYSKEYDOWN => {
+            const vk: u32 = @intCast(wparam & 0xFFFF);
+            const scancode: u32 = @intCast((lparam >> 16) & 0x1FF);
+            const is_repeat = (lparam & (1 << 30)) != 0;
+
+            if (vk == @intFromEnum(win32km.VK_ESCAPE)) {
                 win32wm.PostQuitMessage(0);
                 self.event_queue.push(.close) catch unreachable;
+                return 0;
             }
+
+            const event_type: input_kb.KeyEventType = if (is_repeat) .repeat else .press;
+
+            // Read modifier state directly from Win32
+            const mods = getWin32Mods();
 
             self.event_queue.push(.{
                 .input = .{
-                    .utf8_codepoint = @intCast(wparam),
+                    .keyboard = .{
+                        .type = event_type,
+                        .key  = input_kb.keyFromWin32(vk),
+                        .code = scancode,
+                        .mods = mods,
+                    },
                 },
             }) catch unreachable;
+            return 0;
+        },
+        win32wm.WM_KEYUP, win32wm.WM_SYSKEYUP => {
+            const vk: u32 = @intCast(wparam & 0xFFFF);
+            const scancode: u32 = @intCast((lparam >> 16) & 0x1FF);
+            const mods = getWin32Mods();
 
+            self.event_queue.push(.{
+                .input = .{
+                    .keyboard = .{
+                        .type = .release,
+                        .key  = input_kb.keyFromWin32(vk),
+                        .code = scancode,
+                        .mods = mods,
+                    },
+                },
+            }) catch unreachable;
+            return 0;
+        },
+        win32wm.WM_CHAR => {
+            // WM_CHAR delivers UTF-16 codepoints; surrogate pairs need pairing
+            const codepoint: u32 = @intCast(wparam & 0xFFFF);
+            if (codepoint > 31 and codepoint != 127) {
+                self.event_queue.push(.{
+                    .input = .{
+                        .utf8_codepoint = @intCast(codepoint),
+                    },
+                }) catch unreachable;
+            }
             return 0;
         },
         win32wm.WM_PAINT => {
@@ -189,6 +232,20 @@ fn WindowProc(self: *Window, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARA
         },
         else => return win32wm.DefWindowProcW(hwnd, msg, wparam, lparam),
     }
+}
+
+/// Read the current modifier key states from Win32.
+fn getWin32Mods() input_kb.ModState {
+    const km = win32km;
+    return .{
+        .shift = win32km.GetKeyState(@intFromEnum(km.VK_SHIFT))   < 0,
+        .ctrl  = win32km.GetKeyState(@intFromEnum(km.VK_CONTROL)) < 0,
+        .alt   = win32km.GetKeyState(@intFromEnum(km.VK_MENU))    < 0,
+        .super = win32km.GetKeyState(@intFromEnum(km.VK_LWIN))    < 0
+                 or win32km.GetKeyState(@intFromEnum(km.VK_RWIN)) < 0,
+        .caps  = win32km.GetKeyState(@intFromEnum(km.VK_CAPITAL)) & 1 != 0,
+        .num   = win32km.GetKeyState(@intFromEnum(km.VK_NUMLOCK)) & 1 != 0,
+    };
 }
 
 /// set window opacity value from 0.0 to 1.0
@@ -280,6 +337,9 @@ const win32fnd = win32.foundation;
 const win32wm = win32.ui.windows_and_messaging;
 const win32dwm = win32.graphics.dwm;
 const win32loader = win32.system.library_loader;
+const win32km = win32.ui.input.keyboard_and_mouse;
+
+const input_kb = @import("zerotty").system.input.keyboard;
 
 const HANDLE = win32fnd.HANDLE;
 const HINSTANCE = win32fnd.HINSTANCE;

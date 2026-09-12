@@ -2,6 +2,7 @@ const Input = @This();
 
 const root = @import("../../input/root.zig");
 const keyboard = root.keyboard;
+const mouse = root.mouse;
 
 pub const c = @cImport({
     @cInclude("xkbcommon/xkbcommon.h");
@@ -18,6 +19,8 @@ const ModifiersMask = struct {
     shift: u32,
     alt: u32,
     super: u32,
+    caps: u32,
+    num: u32,
 };
 
 pub fn init() !Input {
@@ -46,10 +49,12 @@ pub fn init() !Input {
         .keymap = keymap,
         .state = state,
         .mods = .{
-            .ctrl = one << @intCast(c.xkb_keymap_mod_get_index(keymap, c.XKB_MOD_NAME_CTRL)),
+            .ctrl  = one << @intCast(c.xkb_keymap_mod_get_index(keymap, c.XKB_MOD_NAME_CTRL)),
             .shift = one << @intCast(c.xkb_keymap_mod_get_index(keymap, c.XKB_MOD_NAME_SHIFT)),
-            .alt = one << @intCast(c.xkb_keymap_mod_get_index(keymap, c.XKB_MOD_NAME_ALT)),
+            .alt   = one << @intCast(c.xkb_keymap_mod_get_index(keymap, c.XKB_MOD_NAME_ALT)),
             .super = one << @intCast(c.xkb_keymap_mod_get_index(keymap, c.XKB_MOD_NAME_LOGO)),
+            .caps  = one << @intCast(c.xkb_keymap_mod_get_index(keymap, "Lock")),
+            .num   = one << @intCast(c.xkb_keymap_mod_get_index(keymap, "Mod2")),
         },
     };
 }
@@ -60,80 +65,73 @@ pub fn deinit(self: *Input) void {
     c.xkb_context_unref(self.ctx);
 }
 
-pub fn getModifiers(self: *Input) keyboard.ModsState {
+/// Return the current modifier state as a `ModState`.
+pub fn getModState(self: *const Input) keyboard.ModState {
     const bitmask = c.xkb_state_serialize_mods(self.state, c.XKB_STATE_MODS_EFFECTIVE);
-
-    const ctrl = (bitmask & self.mods.ctrl) != 0;
-    const shift = (bitmask & self.mods.shift) != 0;
-    const alt = (bitmask & self.mods.alt) != 0;
-    const super = (bitmask & self.mods.super) != 0;
-
-    const mods = keyboard.ModsState.init(.{
-        .ctrl = ctrl,
-        .shift = shift,
-        .alt = alt,
-        .super = super,
-    });
-
-    return mods;
+    return .{
+        .ctrl  = (bitmask & self.mods.ctrl)  != 0,
+        .shift = (bitmask & self.mods.shift) != 0,
+        .alt   = (bitmask & self.mods.alt)   != 0,
+        .super = (bitmask & self.mods.super) != 0,
+        .caps  = (bitmask & self.mods.caps)  != 0,
+        .num   = (bitmask & self.mods.num)   != 0,
+    };
 }
 
-pub fn handleEvent(self: *Input, event: root.keyboard.KeyEvent) void {
-    self.updateKey(event.code, event.type == .press);
-}
+/// Update xkb state for a keycode transition and return a fully-populated
+/// `KeyEvent` with `key` resolved to the platform-neutral `Key` enum.
+pub fn processKey(self: *Input, keycode: u32, event_type: keyboard.KeyEventType) keyboard.KeyEvent {
+    const direction: c_int = if (event_type == .press or event_type == .repeat)
+        c.XKB_KEY_DOWN
+    else
+        c.XKB_KEY_UP;
 
-pub fn updateKey(self: *Input, keycode: u32, pressed: bool) void {
-    const direction = if (pressed) c.XKB_KEY_DOWN else c.XKB_KEY_UP;
     _ = c.xkb_state_update_key(self.state, keycode, @intCast(direction));
+
+    const sym = c.xkb_state_key_get_one_sym(self.state, keycode);
+
+    return .{
+        .type  = event_type,
+        .mods  = self.getModState(),
+        .code  = keycode,
+        .key   = keyboard.keyFromXkbKeysym(sym),
+    };
 }
 
-pub fn keySym(self: *Input, keycode: u32) u32 {
-    return c.xkb_state_key_get_one_sym(self.state, keycode);
+/// Return the UTF-32 codepoint for the current key + state, or 0 if not printable.
+/// Only meaningful on `.press` events.
+pub fn keyToUTF32(self: *const Input, keycode: u32) u32 {
+    const sym = c.xkb_state_key_get_one_sym(self.state, keycode);
+    return c.xkb_keysym_to_utf32(sym);
 }
 
-pub fn keysymToUTF8(self: *Input, keysym: u32, buffer: []u8) usize {
-    _ = self;
-    const len = c.xkb_keysym_to_utf8(keysym, buffer.ptr, buffer.len);
-    if (len < 0) return 0;
+/// Return the UTF-8 string for the current key + state (may be multi-byte).
+/// `buffer` must be at least 5 bytes. Returns the number of bytes written.
+pub fn keyToUTF8(self: *const Input, keycode: u32, buffer: []u8) usize {
+    const sym = c.xkb_state_key_get_one_sym(self.state, keycode);
+    const len = c.xkb_keysym_to_utf8(sym, buffer.ptr, buffer.len);
+    if (len <= 0) return 0;
     return @intCast(len);
 }
 
-pub fn keysymToUTF32(self: *Input, keysym: u32) u32 {
-    _ = self;
-    return c.xkb_keysym_to_utf32(keysym);
+/// Convert an XCB button number to a `MouseButton`.
+pub fn xcbButtonToMouse(detail: u8) ?mouse.MouseButton {
+    return switch (detail) {
+        1 => .left,
+        2 => .middle,
+        3 => .right,
+        4, 5 => null, // scroll — handled separately as scroll event
+        else => null,
+    };
 }
 
-pub fn updateKeyAndGetUTF8(self: *Input, keycode: u32, pressed: bool, buffer: []u8) usize {
-    self.updateKey(keycode, pressed);
-    if (!pressed) return 0;
-    const keysym = self.keySym(keycode);
-    return self.keysymToUTF8(keysym, buffer);
-}
-
-pub fn updateKeyAndGetUTF8Slice(self: *Input, keycode: u32, pressed: bool, buffer: []u8) []const u8 {
-    const len = self.updateKeyAndGetUTF8(keycode, pressed, buffer);
-    return buffer[0..len];
-}
-
-pub fn updateKeyAndGetUTF32(self: *Input, keycode: u32, pressed: bool) u32 {
-    self.updateKey(keycode, pressed);
-    if (!pressed) return 0;
-    const keysym = self.keySym(keycode);
-    return self.keysymToUTF32(keysym);
-}
-
-pub fn isPrintableKey(self: *Input, keycode: u32) bool {
-    const sym = self.keySym(keycode);
-    return sym >= 32 and sym <= 0x10FFFF;
-}
-
-pub fn setMods(self: *Input, mods: keyboard.ModState) void {
-    var mods_mask: u32 = 0;
-
-    mods_mask |= if (mods.alt) self.mods.alt else 0;
-    mods_mask |= if (mods.ctrl) self.mods.ctrl else 0;
-    mods_mask |= if (mods.shift) self.mods.shift else 0;
-    mods_mask |= if (mods.super) self.mods.super else 0;
-
-    _ = c.xkb_state_update_mask(self.state, mods_mask, 0, 0, 0, 0, 0);
+/// Convert an XCB scroll button detail (4 = up, 5 = down) to a `MouseScrollEvent`.
+pub fn xcbScrollEvent(detail: u8) ?mouse.MouseScrollEvent {
+    return switch (detail) {
+        4 => .{ .x_offset = 0.0, .y_offset =  1.0 },
+        5 => .{ .x_offset = 0.0, .y_offset = -1.0 },
+        6 => .{ .x_offset = -1.0, .y_offset = 0.0 },
+        7 => .{ .x_offset =  1.0, .y_offset = 0.0 },
+        else => null,
+    };
 }

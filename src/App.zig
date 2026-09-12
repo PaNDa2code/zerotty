@@ -107,16 +107,17 @@ pub fn run(self: *App) !void {
 
     var running = true;
 
-    var tik = std.Io.Timestamp.zero;
+    var frame_tik = std.Io.Timestamp.zero;
     var frames: usize = 0;
+
+    var cursor_tik = std.Io.Timestamp.zero;
 
     var cache = font.Cache.init(self.allocator);
     defer cache.deinit();
 
     const font_asset = try AssetsManager.instance
-        .get("fonts/FiraCodeNerdFontMono-Regular.ttf");
+        .get("fonts/JetBrainsMono/ttf/JetBrainsMono-Regular.ttf");
     const font_data = try font_asset.fixedBuffer();
-
     // defer self.allocator.free(fond_data);
 
     const font_ttf = try font.Font.init(font_data, cell_height, cell_height);
@@ -161,49 +162,11 @@ pub fn run(self: *App) !void {
                     try self.terminal.grid.resizeVisable(self.allocator, rows, cols);
                 },
                 .input => |input_event| {
-                    switch (input_event) {
-                        .utf8_codepoint => |codepoint| {
-                            var buff: [4]u8 = undefined;
-                            const len = try std.unicode.utf8Encode(codepoint, &buff);
-                            try self.terminal.shell.stdin.?.writeStreamingAll(self.io, buff[0..len]);
-                        },
-                        .keyboard => |key_event| {
-                            if (key_event.type == .press or key_event.type == .repeat) {
-                                if (key_event.mods.ctrl) {
-                                    if (key_event.key == 'V') {
-                                        const str = self.platform.clipboard.getString();
-                                        try self.terminal.shell.stdin.?.writeStreamingAll(self.io, str);
-                                    } else {
-                                        const byte: u8 = @intCast(key_event.key & 0x1F);
-                                        try self.terminal.shell.stdin.?.writeStreamingAll(self.io, &.{byte});
-                                    }
-                                    std.log.debug("CTRL+{c}", .{@as(u8, @intCast(key_event.key))});
-                                }
-                                switch (key_event.code) {
-                                    28 => try self.terminal.shell.stdin.?.writeStreamingAll(self.io, "\n"),
-                                    103, 111 => self.terminal.grid.scrollUp(1),
-                                    108, 116 => self.terminal.grid.scrollDown(1),
-                                    14 => try self.terminal.shell.stdin.?.writeStreamingAll(self.io, "\x7f"),
-                                    else => {
-                                        self.terminal.grid.scrollToBottom();
-                                    },
-                                }
-                            }
-                        },
-                        .mouse => |mouse_event| {
-                            switch (mouse_event) {
-                                .scroll => |scroll| {
-                                    const lines: i32 = @intFromFloat(scroll.y_offset * 1.0);
+                    var sink = self.inputSink();
+                    try InputHandler.handle(&sink.sink, self.io, input_event);
 
-                                    if (lines > 0)
-                                        self.terminal.grid.scrollUp(@intCast(lines))
-                                    else if (lines < 0)
-                                        self.terminal.grid.scrollDown(@intCast(-lines));
-                                },
-                                else => {},
-                            }
-                        },
-                    }
+                    self.terminal.grid.show_cursor = true;
+                    cursor_tik = .now(self.io, .real);
                 },
                 else => {},
             }
@@ -293,10 +256,10 @@ pub fn run(self: *App) !void {
 
         frames += 1;
 
-        const diff = tik.untilNow(self.io, .real);
+        const frame_diff = frame_tik.untilNow(self.io, .real);
 
-        if (diff.nanoseconds >= std.time.ns_per_s) {
-            const secands = @as(f64, @floatFromInt(diff.nanoseconds)) * (1.0 / @as(comptime_float, std.time.ns_per_s));
+        if (frame_diff.nanoseconds >= std.time.ns_per_s) {
+            const secands = @as(f64, @floatFromInt(frame_diff.nanoseconds)) * (1.0 / @as(comptime_float, std.time.ns_per_s));
             const fps = @as(f64, @floatFromInt(frames)) / secands;
 
             var buf: [255]u8 = undefined;
@@ -304,9 +267,14 @@ pub fn run(self: *App) !void {
             try self.platform.current_window.?.setTitle(title);
 
             frames = 0;
-            tik = .now(self.io, .real);
+            frame_tik = .now(self.io, .real);
+        }
 
+        const cursor_diff = cursor_tik.untilNow(self.io, .real);
+
+        if (cursor_diff.nanoseconds >= std.time.ns_per_s) {
             self.terminal.grid.show_cursor = !self.terminal.grid.show_cursor;
+            cursor_tik = .now(self.io, .real);
         }
     }
 }
@@ -322,6 +290,49 @@ pub fn deinit(self: *App) void {
 
     AssetsManager.instance.deinit();
 }
+
+/// Build an `InputHandler.Sink` that writes to our PTY and drives the grid.
+/// The returned Sink MUST be used synchronously in the same stack frame.
+fn inputSink(self: *App) AppSink {
+    return .{
+        .app = self,
+        .sink = .{
+            .writeFn = AppSink.write,
+            .scrollUpFn = AppSink.scrollUp,
+            .scrollDownFn = AppSink.scrollDown,
+            .scrollToBottomFn = AppSink.scrollToBottom,
+            .pasteFn = AppSink.paste,
+        },
+    };
+}
+
+/// Concrete `InputHandler.Sink` implementation backed by an `App` pointer.
+const AppSink = struct {
+    sink: InputHandler.Sink,
+    app: *App,
+
+    fn write(sink: *InputHandler.Sink, io: std.Io, data: []const u8) anyerror!void {
+        const self: *AppSink = @fieldParentPtr("sink", sink);
+        try self.app.terminal.shell.stdin.?.writeStreamingAll(io, data);
+    }
+    fn scrollUp(sink: *InputHandler.Sink, lines: u32) void {
+        const self: *AppSink = @fieldParentPtr("sink", sink);
+        self.app.terminal.grid.scrollUp(lines);
+    }
+    fn scrollDown(sink: *InputHandler.Sink, lines: u32) void {
+        const self: *AppSink = @fieldParentPtr("sink", sink);
+        self.app.terminal.grid.scrollDown(lines);
+    }
+    fn scrollToBottom(sink: *InputHandler.Sink) void {
+        const self: *AppSink = @fieldParentPtr("sink", sink);
+        self.app.terminal.grid.scrollToBottom();
+    }
+    fn paste(sink: *InputHandler.Sink, io: std.Io) anyerror!void {
+        const self: *AppSink = @fieldParentPtr("sink", sink);
+        const str = self.app.platform.clipboard.getString();
+        try self.app.terminal.shell.stdin.?.writeStreamingAll(io, str);
+    }
+};
 
 fn ptyReadCallback(event: *myio.EventLoop.Event, len: usize, user_data: ?*anyopaque) myio.EventLoop.CallbackAction {
     const buffer = event.request.op_data.read[0..len];
@@ -341,5 +352,6 @@ const Terminal = zerotty.terminal.Terminal;
 const AssetsManager = zerotty.AssetsManager;
 const TextInstance = zerotty.renderer.vertex.TextInstance;
 const Renderer = zerotty.renderer.Renderer;
+const InputHandler = @import("InputHandler.zig");
 
 const os_tag = builtin.os.tag;

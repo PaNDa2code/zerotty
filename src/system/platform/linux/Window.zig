@@ -19,6 +19,10 @@ width: u32,
 
 event_queue: root.EventQueue = .empty,
 
+/// Last known cursor position, used to compute mouse-move deltas.
+last_mouse_x: f32 = 0,
+last_mouse_y: f32 = 0,
+
 pub fn nextEvent(self: *Window) ?root.WindowEvent {
     return self.event_queue.pop();
 }
@@ -268,35 +272,67 @@ pub fn poll(self: *Window) void {
             c.XCB_KEY_PRESS => {
                 const key_press: *c.xcb_key_press_event_t = @ptrCast(event);
 
-                if (key_press.detail == 9) {
+                if (key_press.detail == 9) { // Escape scancode
                     self.event_queue.push(.close) catch unreachable;
                     break;
                 }
 
-                const window_event = root.WindowEvent{
-                    .input = .{
-                        .keyboard = .{
-                            .type = .press,
-                            .code = @intCast(key_press.detail),
-                        },
-                    },
-                };
+                const key_event = self.input.processKey(@intCast(key_press.detail), .press);
 
-                self.event_queue.push(window_event) catch unreachable;
+                // Emit a utf8_codepoint event for printable characters
+                if (key_event.type == .press) {
+                    var buf: [5]u8 = undefined;
+                    const len = self.input.keyToUTF8(@intCast(key_press.detail), &buf);
+                    const cp = if (len > 0) std.unicode.utf8Decode(buf[0..len]) catch 0 else 0;
+                    if (cp > 31 and cp != 127) {
+                        self.event_queue.push(.{ .input = .{ .utf8_codepoint = @intCast(cp) } }) catch unreachable;
+                    }
+                }
+
+                self.event_queue.push(.{ .input = .{ .keyboard = key_event } }) catch unreachable;
             },
             c.XCB_KEY_RELEASE => {
                 const key_release: *c.xcb_key_release_event_t = @ptrCast(event);
+                const key_event = self.input.processKey(@intCast(key_release.detail), .release);
+                self.event_queue.push(.{ .input = .{ .keyboard = key_event } }) catch unreachable;
+            },
+            c.XCB_BUTTON_PRESS => {
+                const btn: *c.xcb_button_press_event_t = @ptrCast(event);
 
-                const window_event = root.WindowEvent{
-                    .input = .{
-                        .keyboard = .{
-                            .type = .release,
-                            .code = @intCast(key_release.detail),
-                        },
-                    },
-                };
-
-                self.event_queue.push(window_event) catch unreachable;
+                // Buttons 4-7 are scroll wheel
+                if (Input.xcbScrollEvent(btn.detail)) |scroll| {
+                    self.event_queue.push(.{ .input = .{ .mouse = .{ .scroll = scroll } } }) catch unreachable;
+                } else if (Input.xcbButtonToMouse(btn.detail)) |button| {
+                    self.event_queue.push(.{ .input = .{ .mouse = .{ .button = .{
+                        .button = button,
+                        .state  = .press,
+                    } } } }) catch unreachable;
+                }
+            },
+            c.XCB_BUTTON_RELEASE => {
+                const btn: *c.xcb_button_release_event_t = @ptrCast(event);
+                if (Input.xcbButtonToMouse(btn.detail)) |button| {
+                    self.event_queue.push(.{ .input = .{ .mouse = .{ .button = .{
+                        .button = button,
+                        .state  = .release,
+                    } } } }) catch unreachable;
+                }
+            },
+            c.XCB_MOTION_NOTIFY => {
+                const motion: *c.xcb_motion_notify_event_t = @ptrCast(event);
+                const x: f32 = @floatFromInt(motion.event_x);
+                const y: f32 = @floatFromInt(motion.event_y);
+                // XCB doesn't give delta — we track it ourselves
+                const dx = x - self.last_mouse_x;
+                const dy = y - self.last_mouse_y;
+                self.last_mouse_x = x;
+                self.last_mouse_y = y;
+                self.event_queue.push(.{ .input = .{ .mouse = .{ .move = .{
+                    .x  = x,
+                    .y  = y,
+                    .dx = dx,
+                    .dy = dy,
+                } } } }) catch unreachable;
             },
             c.XCB_DESTROY_NOTIFY => {
                 self.event_queue.push(.close) catch unreachable;

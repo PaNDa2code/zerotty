@@ -99,7 +99,6 @@ pub fn requistAttention(self: *const Window) void {
 const callbacks = struct {
     fn key(glfw_window: ?*c.GLFWwindow, key_: c_int, scancode: c_int, action: c_int, mods: c_int) callconv(.c) void {
         const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
-        // const root_window = @as(*root.Window, @alignCast(@fieldParentPtr("w", window)));
 
         if (key_ == c.GLFW_KEY_ESCAPE) {
             window.event_queue.push(.close) catch unreachable;
@@ -115,16 +114,18 @@ const callbacks = struct {
                         .repeat
                     else
                         .release,
-                    .key = @intCast(key_),
+                    .key = keyboard.keyFromGlfw(key_),
                     .code = @intCast(scancode),
 
                     .mods = .{
-                        .shift = (mods & c.GLFW_MOD_SHIFT) != 0,
-                        .ctrl = (mods & c.GLFW_MOD_CONTROL) != 0,
-                        .alt = (mods & c.GLFW_MOD_ALT) != 0,
-                        .super = (mods & c.GLFW_MOD_SUPER) != 0,
-                        .caps = (mods & c.GLFW_MOD_CAPS_LOCK) != 0,
-                        .num = (mods & c.GLFW_MOD_NUM_LOCK) != 0,
+                        // zig fmt: off
+                        .shift = (mods & c.GLFW_MOD_SHIFT)     != 0,
+                        .ctrl  = (mods & c.GLFW_MOD_CONTROL)   != 0,
+                        .alt   = (mods & c.GLFW_MOD_ALT)       != 0,
+                        .super = (mods & c.GLFW_MOD_SUPER)     != 0,
+                        .caps  = (mods & c.GLFW_MOD_CAPS_LOCK) != 0,
+                        .num   = (mods & c.GLFW_MOD_NUM_LOCK)  != 0,
+                        // zig fmt: on
                     },
                 },
             },
@@ -194,6 +195,7 @@ const callbacks = struct {
 const std = @import("std");
 
 const root = @import("zerotty").system.platform;
+const keyboard = @import("zerotty").system.input.keyboard;
 // const render_backend = @import("build_options").@"render-backend";
 
 const c = @cImport({

@@ -16,6 +16,10 @@ pub const Clipboard = struct {
         const str_ptr = c.glfwGetClipboardString(clip.window);
         return std.mem.span(str_ptr);
     }
+
+    pub fn setString(clip: Clipboard, str: [:0]const u8) void {
+        c.glfwSetClipboardString(clip.window, str.ptr);
+    }
 };
 
 allocator: std.mem.Allocator,

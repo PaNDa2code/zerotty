@@ -128,3 +128,4 @@ pub fn getAlloc(self: *AssetsManager, allocator: std.mem.Allocator, name: []cons
 const std = @import("std");
 const tar = std.tar;
 const zstd = std.compress.zstd;
+const Sha256 = std.crypto.hash.sha2.Sha256;
