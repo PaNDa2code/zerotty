@@ -1,5 +1,7 @@
 const App = @This();
 
+config: Config,
+
 io: std.Io,
 allocator: std.mem.Allocator,
 
@@ -11,8 +13,14 @@ renderer: Renderer,
 buf: []u8,
 terminal: *Terminal,
 
-const cell_height = 32;
-const cell_wedth = 19;
+cell_width: u32,
+cell_height: u32,
+
+pending_font_size: ?u32 = null,
+
+const min_font_size: u32 = 20;
+const max_font_size: u32 = 96;
+const font_size_step: u32 = 10;
 
 fn bellAction(_app: ?*anyopaque) void {
     const app: *App = @ptrCast(@alignCast(_app));
@@ -35,6 +43,12 @@ pub fn init(
                 AssetsManager.assets_tar,
             );
 
+    const config = zerotty.config.getConfig(io, environ_map, allocator) catch
+        Config{};
+
+    const cell_width = @max(1, config.font_size * 3 / 5);
+    const cell_height = @max(1, config.font_size);
+
     var platform = Platform.init(allocator);
 
     const initial_width = 800;
@@ -46,7 +60,7 @@ pub fn init(
         .width = initial_width,
     });
 
-    const initial_cols = initial_width / cell_wedth;
+    const initial_cols = initial_width / cell_width;
     const initial_rows = initial_height / cell_height;
 
     const renderer = try Renderer.init(
@@ -58,6 +72,8 @@ pub fn init(
             .surface_width = initial_width,
             .grid_rows = initial_rows,
             .grid_cols = initial_cols,
+            .cell_width = cell_width,
+            .cell_height = cell_height,
         },
     );
 
@@ -86,6 +102,8 @@ pub fn init(
     try event_loop.read(terminal.pty.readFile(), buf, ptyReadCallback, terminal);
 
     return .{
+        .config = config,
+
         .io = io,
         .allocator = allocator,
 
@@ -96,7 +114,43 @@ pub fn init(
 
         .buf = buf,
         .terminal = terminal,
+
+        .cell_width = cell_width,
+        .cell_height = cell_height,
     };
+}
+
+fn applyFontSize(
+    self: *App,
+    font_ttf: *font.Font,
+    cache: *font.Cache,
+    font_data: []const u8,
+    new_size: u32,
+) !void {
+    font_ttf.deinit();
+    font_ttf.* = try font.Font.init(font_data, @intCast(new_size));
+
+    cache.deinit();
+    cache.* = font.Cache.init(self.allocator);
+
+    try self.renderer.resetGlyphCache();
+
+    self.config.font_size = new_size;
+    self.cell_width = @max(1, new_size * 3 / 5);
+    self.cell_height = @max(1, new_size);
+
+    self.renderer.settings.cell_width = self.cell_width;
+    self.renderer.settings.cell_height = self.cell_height;
+
+    const window = self.platform.current_window.?;
+    const cols = @max(1, window.width / self.cell_width);
+    const rows = @max(1, window.height / self.cell_height);
+
+    try self.terminal.pty.resize(.{
+        .width = @intCast(cols),
+        .height = @intCast(rows),
+    });
+    try self.terminal.grid.resizeVisable(self.allocator, rows, cols);
 }
 
 pub fn run(self: *App) !void {
@@ -120,10 +174,8 @@ pub fn run(self: *App) !void {
     const font_data = try font_asset.fixedBuffer();
     // defer self.allocator.free(fond_data);
 
-    const font_ttf = try font.Font.init(font_data, cell_height, cell_height);
+    var font_ttf = try font.Font.init(font_data, @intCast(self.cell_height));
     defer font_ttf.deinit();
-
-    const ttf = font_ttf.ttf;
 
     while (running) {
         try self.platform.pollEvents();
@@ -149,8 +201,8 @@ pub fn run(self: *App) !void {
                         size.width,
                         size.height,
                     );
-                    const cols = @max(1, size.width / cell_wedth);
-                    const rows = @max(1, size.height / cell_height);
+                    const cols = @max(1, size.width / self.cell_width);
+                    const rows = @max(1, size.height / self.cell_height);
 
                     try self.terminal.pty.resize(
                         .{
@@ -164,6 +216,12 @@ pub fn run(self: *App) !void {
                 .input => |input_event| {
                     var sink = self.inputSink();
                     try InputHandler.handle(&sink.sink, self.io, input_event);
+
+                    if (self.pending_font_size) |new_size| {
+                        self.pending_font_size = null;
+                        if (new_size != self.config.font_size)
+                            try self.applyFontSize(&font_ttf, &cache, font_data, new_size);
+                    }
 
                     self.terminal.grid.show_cursor = true;
                     cursor_tik = .now(self.io, .real);
@@ -190,8 +248,8 @@ pub fn run(self: *App) !void {
             };
             const glyph_entry =
                 cache.getAtlasEntry(glyph_id) orelse blk: {
-                    const index = ttf.codepointGlyphIndex(@intCast(item.cell.unicode));
-                    const bmp = try ttf.glyphBitmap(
+                    const index = font_ttf.ttf.codepointGlyphIndex(@intCast(item.cell.unicode));
+                    const bmp = try font_ttf.ttf.glyphBitmap(
                         self.allocator,
                         &pixels_pool,
                         index,
@@ -302,6 +360,7 @@ fn inputSink(self: *App) AppSink {
             .scrollDownFn = AppSink.scrollDown,
             .scrollToBottomFn = AppSink.scrollToBottom,
             .pasteFn = AppSink.paste,
+            .fontSizeFn = AppSink.changeFontSize,
         },
     };
 }
@@ -332,6 +391,16 @@ const AppSink = struct {
         const str = self.app.platform.clipboard.getString();
         try self.app.terminal.shell.stdin.?.writeStreamingAll(io, str);
     }
+    fn changeFontSize(sink: *InputHandler.Sink, delta: i32) void {
+        const self: *AppSink = @fieldParentPtr("sink", sink);
+        const current = self.app.config.font_size;
+        const new_size =
+            if (delta > 0)
+                @min(current + font_size_step, max_font_size)
+            else
+                @max(current - font_size_step, min_font_size);
+        self.app.pending_font_size = new_size;
+    }
 };
 
 fn ptyReadCallback(event: *myio.EventLoop.Event, len: usize, user_data: ?*anyopaque) myio.EventLoop.CallbackAction {
@@ -355,3 +424,5 @@ const Renderer = zerotty.renderer.Renderer;
 const InputHandler = @import("InputHandler.zig");
 
 const os_tag = builtin.os.tag;
+
+const Config = zerotty.config.Config;

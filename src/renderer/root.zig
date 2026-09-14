@@ -3,6 +3,8 @@ pub const RendererSettings = struct {
     surface_width: u32,
     grid_rows: u32,
     grid_cols: u32,
+    cell_width: u32,
+    cell_height: u32,
 };
 
 pub const Renderer = @import("vulkan/Renderer.zig");

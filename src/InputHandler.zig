@@ -22,6 +22,8 @@ pub const Sink = struct {
     scrollToBottomFn: *const fn (sink: *Sink) void,
     /// Paste text from the clipboard.
     pasteFn: *const fn (sink: *Sink, io: std.Io) anyerror!void,
+    /// Change the terminal font size: delta > 0 zooms in, delta < 0 zooms out.
+    fontSizeFn: *const fn (sink: *Sink, delta: i32) void,
 
     pub fn write(self: *Sink, io: std.Io, data: []const u8) anyerror!void {
         return self.writeFn(self, io, data);
@@ -37,6 +39,9 @@ pub const Sink = struct {
     }
     pub fn paste(self: *Sink, io: std.Io) anyerror!void {
         return self.pasteFn(self, io);
+    }
+    pub fn changeFontSize(self: *Sink, delta: i32) void {
+        self.fontSizeFn(self, delta);
     }
 };
 
@@ -104,6 +109,18 @@ fn handleKey(sink: *Sink, io: std.Io, kev: KeyEvent) !void {
     }
 
     if (ctrl and !shift) {
+        switch (kev.key) {
+            .equal, .kp_add => {
+                sink.changeFontSize(1);
+                return;
+            },
+            .minus, .kp_subtract => {
+                sink.changeFontSize(-1);
+                return;
+            },
+            else => {},
+        }
+
         if (ctrlSequence(kev.key)) |seq| {
             try sink.write(io, seq);
             return;

@@ -5,56 +5,62 @@ const Theme = enum {
     light,
 };
 
-const Config = struct {
+pub const Config = struct {
     theme: ?Theme = .dark,
-    font_size: u32 = 24,
+    /// Font size in pixels (vertical height of a glyph).
+    font_size: u32 = 22,
     gpu_acceleration: bool = true,
 };
 
-pub fn configFilePath(allocator: std.mem.Allocator) ![]const u8 {
-    const home = try std.process.getEnvVarOwned(allocator, "HOME");
-    defer allocator.free(home);
+pub fn configFile(
+    io: std.Io,
+    allocator: std.mem.Allocator,
+    env_map: *std.process.Environ.Map,
+) !std.Io.File {
+    const home = env_map.get("HOME") orelse return error.FileNotFound;
+    const config_dir_path = try std.fs.path.join(allocator, &.{ home, ".config" });
+    defer allocator.free(config_dir_path);
 
-    return try std.fs.path.join(allocator, &.{ home, ".config/zerotty.json" });
+    const config_dir = try std.Io.Dir.openDirAbsolute(io, config_dir_path, .{});
+    defer config_dir.close(io);
+
+    return config_dir.openFile(io, "zerotty.json", .{});
 }
 
-pub fn configFile(allocator: std.mem.Allocator) !?std.fs.File {
-    const config_path = try configFilePath(allocator);
-    defer allocator.free(config_path);
+pub fn getConfig(
+    io: std.Io,
+    env_map: *std.process.Environ.Map,
+    allocator: std.mem.Allocator,
+) !Config {
+    const config_file = try configFile(io, allocator, env_map);
+    defer config_file.close(io);
 
-    const file = std.fs.cwd().openFile(config_path, .{}) catch |err| {
-        switch (err) {
-            error.FileNotFound => return null,
-            else => return err,
-        }
-    };
+    const size = try config_file.length(io);
+    const data = try allocator.alloc(u8, @intCast(size));
+    defer allocator.free(data);
 
-    return file;
-}
+    _ = try config_file.readPositionalAll(io, data, 0);
 
-pub fn getConfig(allocator: std.mem.Allocator) !Config {
-    const config_file = try configFile(allocator);
+    const config = try std.json.parseFromSlice(
+        Config,
+        allocator,
+        data,
+        .{ .allocate = .alloc_if_needed },
+    );
 
-    if (config_file) |f| {
-        const data = try f.readToEndAlloc(allocator, 10 * 1024);
-        defer allocator.free(data);
+    defer config.deinit();
 
-        const config = try std.json.parseFromSlice(
-            Config,
-            allocator,
-            data,
-            .{ .allocate = .alloc_if_needed },
-        );
-
-        defer config.deinit();
-
-        return config.value;
-    }
-
-    return .{};
+    return config.value;
 }
 
 test Config {
-    const config = try getConfig(std.testing.allocator);
-    std.log.err("{any}", .{config});
+    var parsed = try std.json.parseFromSlice(
+        Config,
+        std.testing.allocator,
+        "{}",
+        .{ .allocate = .alloc_if_needed },
+    );
+    defer parsed.deinit();
+
+    try std.testing.expectEqual(@as(u32, 32), parsed.value.font_size);
 }

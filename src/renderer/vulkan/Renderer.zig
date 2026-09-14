@@ -13,6 +13,8 @@ cache: Cache,
 staging_buffer: core.Buffer,
 glyph_staging_buffer: core.Buffer,
 
+settings: root.RendererSettings,
+
 current_frame: ?*FrameManager.FrameResources,
 frame_info: ?RenderTarget.FrameInfo,
 
@@ -97,6 +99,7 @@ pub fn init(
         .cache = cache,
         .staging_buffer = staging_buffer,
         .glyph_staging_buffer = glyph_staging_buffer,
+        .settings = settings,
         .current_frame = null,
         .frame_info = null,
         .bg_color = .black,
@@ -179,15 +182,16 @@ pub fn endFrame(self: *Renderer) !void {
         const atlas_w: f32 = 2048;
         const atlas_h: f32 = 2048;
 
-        const cell_w: f32 = 19.0;
-        const cell_h: f32 = 32.0;
+        const cell_w: f32 = @floatFromInt(self.settings.cell_width);
+        const cell_h: f32 = @floatFromInt(self.settings.cell_height);
+        const baseline = cell_h * (7.0 / 8.0);
 
         staging_uniform_ptr.* = vertex.TextUniform{
             .screen_to_clip_scale = .from(2.0 / screen_w, 2.0 / screen_h),
             .screen_to_clip_offset = .from(-1.0, -1.0),
             .inv_atlas_size = .from(1.0 / atlas_w, 1.0 / atlas_h),
             .cell_size = .from(cell_w, cell_h),
-            .baseline = 28.0,
+            .baseline = baseline,
         };
 
         try frame.main_cmd.copyBuffer(
@@ -295,6 +299,18 @@ pub fn resizeSurface(self: *Renderer, width: u32, height: u32) !void {
     );
 
     try self.swapchain_target.ensureFramebuffers(&self.render_pipeline.renderpass);
+}
+
+pub fn resetGlyphCache(self: *Renderer) !void {
+    try self.render_context.device.waitIdle();
+
+    const allocator = self.render_context.allocator_adapter.allocator;
+    self.cache.deinit(allocator, self.render_context.device_allocator);
+
+    var cache = Cache.init(2048, 2048, 255);
+    _ = try cache.newTexture(allocator, self.render_context.device_allocator);
+
+    self.cache = cache;
 }
 
 pub fn cacheGlyphs(
