@@ -16,7 +16,15 @@ terminal: *Terminal,
 cell_width: u32,
 cell_height: u32,
 
+font_ttf: font.Font,
+font_data: []const u8,
+
 pending_font_size: ?u32 = null,
+
+/// CPU-side mirror of the per-cell background color texture
+/// (rows * cols * 4 RGBA8 bytes). Refreshed every frame, mirroring
+/// the per-frame regeneration of the text instance list.
+bg_color_data: std.ArrayList(u8) = .empty,
 
 const min_font_size: u32 = 20;
 const max_font_size: u32 = 96;
@@ -46,8 +54,15 @@ pub fn init(
     const config = zerotty.config.getConfig(io, environ_map, allocator) catch
         Config{};
 
-    const cell_width = @max(1, config.font_size * 3 / 5);
-    const cell_height = @max(1, config.font_size);
+    const font_asset = try AssetsManager.instance
+        .get("fonts/JetBrainsMono/ttf/JetBrainsMono-Regular.ttf");
+    const font_data = try font_asset.fixedBuffer();
+
+    var font_ttf = try font.Font.init(font_data, @intCast(config.font_size));
+
+    const metrics = font_ttf.cellMetrics();
+    const cell_width: u32 = metrics.cell_width;
+    const cell_height: u32 = metrics.cell_height;
 
     var platform = Platform.init(allocator);
 
@@ -74,6 +89,7 @@ pub fn init(
             .grid_cols = initial_cols,
             .cell_width = cell_width,
             .cell_height = cell_height,
+            .baseline = metrics.baseline,
         },
     );
 
@@ -117,6 +133,9 @@ pub fn init(
 
         .cell_width = cell_width,
         .cell_height = cell_height,
+
+        .font_ttf = font_ttf,
+        .font_data = font_data,
     };
 }
 
@@ -136,11 +155,14 @@ fn applyFontSize(
     try self.renderer.resetGlyphCache();
 
     self.config.font_size = new_size;
-    self.cell_width = @max(1, new_size * 3 / 5);
-    self.cell_height = @max(1, new_size);
+
+    const metrics = font_ttf.cellMetrics();
+    self.cell_width = metrics.cell_width;
+    self.cell_height = metrics.cell_height;
 
     self.renderer.settings.cell_width = self.cell_width;
     self.renderer.settings.cell_height = self.cell_height;
+    self.renderer.settings.baseline = metrics.baseline;
 
     const window = self.platform.current_window.?;
     const cols = @max(1, window.width / self.cell_width);
@@ -151,6 +173,7 @@ fn applyFontSize(
         .height = @intCast(rows),
     });
     try self.terminal.grid.resizeVisable(self.allocator, rows, cols);
+    try self.renderer.setGridSize(@intCast(cols), @intCast(rows));
 }
 
 pub fn run(self: *App) !void {
@@ -168,14 +191,6 @@ pub fn run(self: *App) !void {
 
     var cache = font.Cache.init(self.allocator);
     defer cache.deinit();
-
-    const font_asset = try AssetsManager.instance
-        .get("fonts/JetBrainsMono/ttf/JetBrainsMono-Regular.ttf");
-    const font_data = try font_asset.fixedBuffer();
-    // defer self.allocator.free(fond_data);
-
-    var font_ttf = try font.Font.init(font_data, @intCast(self.cell_height));
-    defer font_ttf.deinit();
 
     while (running) {
         try self.platform.pollEvents();
@@ -211,7 +226,8 @@ pub fn run(self: *App) !void {
                         },
                     );
 
-                    try self.terminal.grid.resizeVisable(self.allocator, rows, cols);
+try self.terminal.grid.resizeVisable(self.allocator, rows, cols);
+                    try self.renderer.setGridSize(@intCast(cols), @intCast(rows));
                 },
                 .input => |input_event| {
                     var sink = self.inputSink();
@@ -220,7 +236,7 @@ pub fn run(self: *App) !void {
                     if (self.pending_font_size) |new_size| {
                         self.pending_font_size = null;
                         if (new_size != self.config.font_size)
-                            try self.applyFontSize(&font_ttf, &cache, font_data, new_size);
+                            try self.applyFontSize(&self.font_ttf, &cache, self.font_data, new_size);
                     }
 
                     self.terminal.grid.show_cursor = true;
@@ -236,6 +252,15 @@ pub fn run(self: *App) !void {
         var pixels_pool: std.ArrayList(u8) = .empty;
         defer pixels_pool.deinit(self.allocator);
 
+        const grid_cols = self.terminal.grid.rows_width;
+        const grid_rows = self.terminal.grid.visable_rows;
+        const bg_bytes = grid_cols * grid_rows * 4;
+
+        if (self.bg_color_data.items.len != bg_bytes) {
+            self.bg_color_data.clearRetainingCapacity();
+            try self.bg_color_data.resize(self.allocator, bg_bytes);
+        }
+
         var grid_iter = self.terminal.grid.iterator();
 
         while (grid_iter.next()) |item| {
@@ -248,13 +273,13 @@ pub fn run(self: *App) !void {
             };
             const glyph_entry =
                 cache.getAtlasEntry(glyph_id) orelse blk: {
-                    const index = font_ttf.ttf.codepointGlyphIndex(@intCast(item.cell.unicode));
-                    const bmp = try font_ttf.ttf.glyphBitmap(
+                    const index = self.font_ttf.ttf.codepointGlyphIndex(@intCast(item.cell.unicode));
+                    const bmp = try self.font_ttf.ttf.glyphBitmap(
                         self.allocator,
                         &pixels_pool,
                         index,
-                        font_ttf.scale_x,
-                        font_ttf.scale_y,
+                        self.font_ttf.scale_x,
+                        self.font_ttf.scale_y,
                     );
 
                     // const current_len = pixels_pool.items.len;
@@ -282,6 +307,8 @@ pub fn run(self: *App) !void {
             });
         }
 
+        self.terminal.grid.fillBackgroundColors(self.bg_color_data.items);
+
         try self.renderer.beginFrame();
 
         try self.renderer.setViewport(
@@ -301,6 +328,12 @@ pub fn run(self: *App) !void {
 
             cache.new_added_entries.clearRetainingCapacity();
         }
+
+        try self.renderer.uploadBackground(
+            @intCast(grid_rows),
+            @intCast(grid_cols),
+            self.bg_color_data.items,
+        );
 
         if (instance_list.items.len != 0) {
             const batch = try self.renderer.reserveBatch(instance_list.items.len);
@@ -420,6 +453,7 @@ const font = zerotty.font;
 const Terminal = zerotty.terminal.Terminal;
 const AssetsManager = zerotty.AssetsManager;
 const TextInstance = zerotty.renderer.vertex.TextInstance;
+const color = zerotty.terminal.color;
 const Renderer = zerotty.renderer.Renderer;
 const InputHandler = @import("InputHandler.zig");
 

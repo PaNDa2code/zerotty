@@ -5,6 +5,7 @@ pub const RendererSettings = struct {
     grid_cols: u32,
     cell_width: u32,
     cell_height: u32,
+    baseline: i32 = 0,
 };
 
 pub const Renderer = @import("vulkan/Renderer.zig");

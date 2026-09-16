@@ -12,7 +12,10 @@ pub fn resolveAssets(b: *Build) !Assets {
     const shaders = try shaders_mod.compiledShadersPathes(
         b,
         b.path("src/renderer/shaders"),
-        &.{ "text.vert", "text.frag" },
+        &.{
+            "text.vert",       "text.frag",
+            "background.vert", "background.frag",
+        },
         .vulkan,
     );
 
@@ -38,8 +41,5 @@ pub fn resolveAssets(b: *Build) !Assets {
 
     zstd_cmd.addFileArg(tar_path);
 
-    return .{
-        .tar_path = tar_path,
-        .compressed_path = zstd_cmp_path
-    };
+    return .{ .tar_path = tar_path, .compressed_path = zstd_cmp_path };
 }

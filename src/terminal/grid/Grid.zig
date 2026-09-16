@@ -364,6 +364,22 @@ pub fn iterator(self: *const Grid) Iterator {
     return .{ .grid = self };
 }
 
+/// Write the background color of every visible cell into `colors` as
+/// packed RGBA8 texels in row-major order (`rows * cols * 4` bytes).
+/// `colors.len` must be exactly `visable_rows * rows_width * 4`.
+pub fn fillBackgroundColors(self: *const Grid, colors: []u8) void {
+    const cols = self.rows_width;
+    const rows = self.visable_rows;
+    std.debug.assert(colors.len == rows * cols * 4);
+
+    var iter = self.iterator();
+    while (iter.next()) |item| {
+        const rgba: *const [4]u8 = @ptrCast(&item.cell.bg_color);
+        const idx = (item.y * cols + item.x) * 4;
+        @memcpy(colors[idx .. idx + 4], rgba);
+    }
+}
+
 test "resizeVisable clamps cursor_y and cursor_x" {
     const allocator = std.testing.allocator;
     var my_grid = Grid{

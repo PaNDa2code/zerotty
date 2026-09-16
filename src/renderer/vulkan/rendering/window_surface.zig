@@ -51,8 +51,10 @@ pub const SurfaceCreationInfo = union(enum) {
     pub fn instanceExtensionsAlloc(self: SurfaceCreationInfo, allocator: std.mem.Allocator) ![]const [*:0]const u8 {
         if (build_options.window == .glfw) {
             var count: u32 = 0;
-            const extentions: [*]const [*:0]const u8 =
-                @ptrCast(c.glfwGetRequiredInstanceExtensions(&count));
+            const extension_pointers = c.glfwGetRequiredInstanceExtensions(&count) orelse
+                return error.GlfwVulkanUnavailable;
+
+            const extentions: [*]const [*:0]const u8 = @ptrCast(extension_pointers);
 
             return extentions[0..count];
         }

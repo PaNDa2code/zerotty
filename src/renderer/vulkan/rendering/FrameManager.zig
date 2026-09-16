@@ -37,7 +37,8 @@ pub fn init(
     errdefer allocator.free(descriptor_set_layouts);
 
     descriptor_set_layouts[0] = try core.DescriptorSetLayout.Builder
-        .addBinding(0, .uniform_buffer, 1, .{ .vertex_bit = true })
+        .addBinding(0, .uniform_buffer, 1, .{ .vertex_bit = true, .fragment_bit = true })
+        .addBinding(1, .combined_image_sampler, 1, .{ .fragment_bit = true })
         .build(device);
     errdefer descriptor_set_layouts[0].deinit(device);
 
@@ -69,7 +70,7 @@ pub fn init(
 
         resources[i].descriptor_pool = try core.DescriptorPool.Builder
             .addPoolSize(.uniform_buffer, 1)
-            .addPoolSize(.combined_image_sampler, 255)
+            .addPoolSize(.combined_image_sampler, 256)
             .setMaxSets(2)
             .build(device);
 

@@ -13,6 +13,15 @@ cache: Cache,
 staging_buffer: core.Buffer,
 glyph_staging_buffer: core.Buffer,
 
+bg_color_image: core.Image,
+bg_color_sampler: core.Sampler,
+bg_color_staging: core.Buffer,
+bg_color_staging_capacity: usize = 0,
+bg_grid_cols: u32 = 1,
+bg_grid_rows: u32 = 1,
+bg_color_layout: vk.ImageLayout = .undefined,
+bg_color_ready: bool = false,
+
 settings: root.RendererSettings,
 
 current_frame: ?*FrameManager.FrameResources,
@@ -90,6 +99,30 @@ pub fn init(
         .exclusive,
     );
 
+    const bg_grid_cols = @max(1, settings.grid_cols);
+    const bg_grid_rows = @max(1, settings.grid_rows);
+
+    var bg_image_builder = core.Image.Builder.new();
+    const bg_color_image = try bg_image_builder
+        .setFormat(.r8g8b8a8_unorm)
+        .setSize(bg_grid_cols, bg_grid_rows)
+        .addUsage(.{ .sampled_bit = true, .transfer_dst_bit = true })
+        .build(render_context.device_allocator);
+
+    const bg_color_sampler = try core.Sampler.init(render_context.device, .{
+        .filter = .nearest,
+        .address_mode = .clamp_to_edge,
+        .mipmap_mode = .nearest,
+    });
+
+    const bg_color_staging = try core.Buffer.initAlloc(
+        render_context.device_allocator,
+        1024 * 1024,
+        .{ .transfer_src_bit = true },
+        .{ .host_visible_bit = true, .host_coherent_bit = true },
+        .exclusive,
+    );
+
     return .{
         .render_context = render_context,
         .render_pipeline = render_pipeline,
@@ -99,6 +132,12 @@ pub fn init(
         .cache = cache,
         .staging_buffer = staging_buffer,
         .glyph_staging_buffer = glyph_staging_buffer,
+        .bg_color_image = bg_color_image,
+        .bg_color_sampler = bg_color_sampler,
+        .bg_color_staging = bg_color_staging,
+        .bg_color_staging_capacity = 1024 * 1024,
+        .bg_grid_cols = bg_grid_cols,
+        .bg_grid_rows = bg_grid_rows,
         .settings = settings,
         .current_frame = null,
         .frame_info = null,
@@ -116,6 +155,9 @@ pub fn deinit(self: *Renderer) void {
     allocator.destroy(self.swapchain_target);
     self.staging_buffer.deinit(self.render_context.device_allocator);
     self.glyph_staging_buffer.deinit(self.render_context.device_allocator);
+    self.bg_color_staging.deinit(self.render_context.device_allocator);
+    self.bg_color_image.deinit(self.render_context.device_allocator);
+    self.bg_color_sampler.deinit(self.render_context.device);
     self.cache.deinit(allocator, self.render_context.device_allocator);
     self.frame_manager.deinit(allocator);
 
@@ -145,6 +187,9 @@ pub fn beginFrame(self: *Renderer) !void {
     try frame.descriptor_sets[0].reset();
     try frame.descriptor_sets[0].addDescriptor(0, 0, .{
         .buffer = frame.uniform_buffer.getDescriptorBufferInfo(),
+    });
+    try frame.descriptor_sets[0].addDescriptor(1, 0, .{
+        .image = self.bg_color_image.getDescriptorImageInfo(self.bg_color_sampler),
     });
     frame.descriptor_sets[0].update();
 
@@ -184,7 +229,11 @@ pub fn endFrame(self: *Renderer) !void {
 
         const cell_w: f32 = @floatFromInt(self.settings.cell_width);
         const cell_h: f32 = @floatFromInt(self.settings.cell_height);
-        const baseline = cell_h * (7.0 / 8.0);
+        const baseline: f32 =
+            if (self.settings.baseline > 0)
+                @floatFromInt(self.settings.baseline)
+            else
+                cell_h * (7.0 / 8.0);
 
         staging_uniform_ptr.* = vertex.TextUniform{
             .screen_to_clip_scale = .from(2.0 / screen_w, 2.0 / screen_h),
@@ -192,6 +241,8 @@ pub fn endFrame(self: *Renderer) !void {
             .inv_atlas_size = .from(1.0 / atlas_w, 1.0 / atlas_h),
             .cell_size = .from(cell_w, cell_h),
             .baseline = baseline,
+            .grid_cols = @floatFromInt(self.bg_grid_cols),
+            .grid_rows = @floatFromInt(self.bg_grid_rows),
         };
 
         try frame.main_cmd.copyBuffer(
@@ -211,12 +262,7 @@ pub fn endFrame(self: *Renderer) !void {
             frame.descriptor_sets[i].update();
         }
 
-        if (frame.vertex_buffer.mem_alloc != null) {
-            try frame.main_cmd.bindVertexBuffer(
-                &frame.vertex_buffer,
-                0,
-            );
-
+        if (self.instance_count != 0 or self.bg_color_ready) {
             for (0..2) |i|
                 try frame.main_cmd.bindDescriptorSet(
                     &frame.descriptor_sets[i],
@@ -235,7 +281,22 @@ pub fn endFrame(self: *Renderer) !void {
                 .@"inline",
             );
 
-            try frame.main_cmd.draw(6, self.instance_count, 0, 0);
+            if (self.bg_color_ready) {
+                try frame.main_cmd.bindPipeline(self.render_pipeline.bg_pass_pipeline.handle, .graphics);
+
+                try frame.main_cmd.draw(3, 1, 0, 0);
+            }
+
+            if (self.instance_count != 0) {
+                try frame.main_cmd.bindPipeline(self.render_pipeline.pipeline.handle, .graphics);
+
+                try frame.main_cmd.bindVertexBuffer(
+                    &frame.vertex_buffer,
+                    0,
+                );
+
+                try frame.main_cmd.draw(6, self.instance_count, 0, 0);
+            }
 
             try frame.main_cmd.endRenderPass();
         }
@@ -255,6 +316,7 @@ pub fn presnt(self: *Renderer) !void {
     self.frame_manager.advanceFrame();
     self.current_frame = null;
     self.frame_info = null;
+    self.instance_count = 0;
 }
 
 pub fn clear(self: *Renderer, bg_color: color.RGBA) void {
@@ -398,6 +460,172 @@ pub fn commitBatch(self: *Renderer, count: usize) !void {
     } else return error.FrameDidNotStart;
 
     self.instance_count = @intCast(count);
+}
+
+/// Recreate the per-cell background color texture for the new grid
+/// dimensions. Callers must follow up with `uploadBackground` to
+/// repopulate the texture before it is sampled again.
+pub fn setGridSize(self: *Renderer, cols: u32, rows: u32) !void {
+    const new_cols = @max(1, cols);
+    const new_rows = @max(1, rows);
+
+    if (self.bg_grid_cols == new_cols and self.bg_grid_rows == new_rows)
+        return;
+
+    try self.render_context.device.waitIdle();
+
+    self.bg_color_image.deinit(self.render_context.device_allocator);
+
+    var bg_image_builder = core.Image.Builder.new();
+    self.bg_color_image = try bg_image_builder
+        .setFormat(.r8g8b8a8_unorm)
+        .setSize(new_cols, new_rows)
+        .addUsage(.{ .sampled_bit = true, .transfer_dst_bit = true })
+        .build(self.render_context.device_allocator);
+
+    self.bg_grid_cols = new_cols;
+    self.bg_grid_rows = new_rows;
+    self.bg_color_layout = .undefined;
+    self.bg_color_ready = false;
+}
+
+/// Stage `colors` (`rows * cols * 4` RGBA8 bytes) into the per-cell
+/// background texture. Must be called between `beginFrame`/`endFrame`.
+pub fn uploadBackground(self: *Renderer, rows: u32, cols: u32, colors: []const u8) !void {
+    const frame = self.current_frame orelse return error.FrameDidNotStart;
+    if (rows == 0 or cols == 0) return;
+
+    const need: usize = @as(usize, rows) * @as(usize, cols) * 4;
+    if (colors.len < need) return error.BackgroundDataTooShort;
+
+    if (self.bg_color_staging_capacity < need) {
+        self.bg_color_staging.deinit(self.render_context.device_allocator);
+        self.bg_color_staging = try .initAlloc(
+            self.render_context.device_allocator,
+            need,
+            .{ .transfer_src_bit = true },
+            .{ .host_visible_bit = true, .host_coherent_bit = true },
+            .exclusive,
+        );
+        self.bg_color_staging_capacity = need;
+    }
+
+    const stage_slice = self.bg_color_staging.hostSlice(u8) orelse
+        return error.MemoryMapFailed;
+    @memcpy(stage_slice[0..need], colors[0..need]);
+
+    try transitionImageLayout(
+        &frame.main_cmd,
+        self.bg_color_image.handle,
+        self.bg_color_layout,
+        .transfer_dst_optimal,
+    );
+
+    const copy_region = [_]vk.BufferImageCopy{.{
+        .buffer_offset = 0,
+        .buffer_row_length = 0,
+        .buffer_image_height = 0,
+        .image_offset = .{ .x = 0, .y = 0, .z = 0 },
+        .image_extent = .{
+            .width = cols,
+            .height = rows,
+            .depth = 1,
+        },
+        .image_subresource = .{
+            .aspect_mask = .{ .color_bit = true },
+            .mip_level = 0,
+            .base_array_layer = 0,
+            .layer_count = 1,
+        },
+    }};
+
+    try frame.main_cmd.copyBufferToImage(
+        self.bg_color_staging.handle,
+        self.bg_color_image.handle,
+        .transfer_dst_optimal,
+        &copy_region,
+    );
+
+    try transitionImageLayout(
+        &frame.main_cmd,
+        self.bg_color_image.handle,
+        .transfer_dst_optimal,
+        .shader_read_only_optimal,
+    );
+
+    self.bg_color_layout = .shader_read_only_optimal;
+    self.bg_color_ready = true;
+}
+
+fn transitionImageLayout(
+    cmd_buffer: *const core.CommandBuffer,
+    image: vk.Image,
+    old_layout: vk.ImageLayout,
+    new_layout: vk.ImageLayout,
+) !void {
+    var src_access_mask: vk.AccessFlags2 = .{};
+    var dst_access_mask: vk.AccessFlags2 = .{};
+    var src_stage_mask: vk.PipelineStageFlags2 = .{};
+    var dst_stage_mask: vk.PipelineStageFlags2 = .{};
+
+    switch (old_layout) {
+        .undefined, .preinitialized => {
+            src_access_mask = .{};
+            src_stage_mask.top_of_pipe_bit = true;
+        },
+        .transfer_dst_optimal => {
+            src_access_mask.transfer_write_bit = true;
+            src_stage_mask.all_transfer_bit = true;
+        },
+        .shader_read_only_optimal => {
+            src_access_mask.shader_read_bit = true;
+            src_stage_mask.all_graphics_bit = true;
+        },
+        else => {},
+    }
+
+    switch (new_layout) {
+        .transfer_dst_optimal => {
+            dst_access_mask.transfer_write_bit = true;
+            dst_stage_mask.all_transfer_bit = true;
+        },
+        .shader_read_only_optimal => {
+            dst_access_mask.shader_read_bit = true;
+            dst_stage_mask.fragment_shader_bit = true;
+        },
+        else => {},
+    }
+
+    var arina = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arina.deinit();
+
+    const barriers = [_]vk.ImageMemoryBarrier2{.{
+        .src_access_mask = src_access_mask,
+        .dst_access_mask = dst_access_mask,
+        .src_stage_mask = src_stage_mask,
+        .dst_stage_mask = dst_stage_mask,
+        .old_layout = old_layout,
+        .new_layout = new_layout,
+        .src_queue_family_index = vk.QUEUE_FAMILY_IGNORED,
+        .dst_queue_family_index = vk.QUEUE_FAMILY_IGNORED,
+        .image = image,
+        .subresource_range = .{
+            .aspect_mask = .{ .color_bit = true },
+            .base_mip_level = 0,
+            .level_count = 1,
+            .base_array_layer = 0,
+            .layer_count = 1,
+        },
+    }};
+
+    try cmd_buffer.pipelineBarrierAuto(
+        arina.allocator(),
+        .{
+            .src_stage_mask = src_stage_mask,
+            .dst_stage_mask = dst_stage_mask,
+            .image_barriers = &barriers,
+        },
+    );
 }
 
 const std = @import("std");

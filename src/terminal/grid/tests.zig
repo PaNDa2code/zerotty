@@ -3,6 +3,7 @@ const grid = @import("root.zig");
 const Grid = grid.Grid;
 const Row = grid.Row;
 const Cell = grid.Cell;
+const RGBA = @import("zerotty").terminal.color.RGBA;
 
 test "Grid Basic Writing and Cursor Movements" {
     const allocator = std.testing.allocator;
@@ -318,4 +319,86 @@ test "deleteChars at end of line is a no-op" {
     try std.testing.expectEqual(@as(u32, 'A'), row[0].unicode);
     try std.testing.expectEqual(@as(u32, 'B'), row[1].unicode);
     try std.testing.expectEqual(@as(u32, 'C'), row[2].unicode);
+}
+
+fn expectRgba(colors: []const u8, row: usize, col: usize, cols: usize, expected: RGBA) !void {
+    const idx = (row * cols + col) * 4;
+    const rgba: *const [4]u8 = @ptrCast(&expected);
+    try std.testing.expectEqual(@as(u8, rgba[0]), colors[idx]);
+    try std.testing.expectEqual(@as(u8, rgba[1]), colors[idx + 1]);
+    try std.testing.expectEqual(@as(u8, rgba[2]), colors[idx + 2]);
+    try std.testing.expectEqual(@as(u8, rgba[3]), colors[idx + 3]);
+}
+
+test "fillBackgroundColors defaults to opaque black across the viewport" {
+    const allocator = std.testing.allocator;
+    var my_grid = Grid{ .visable_rows = 3, .rows_width = 2 };
+    defer my_grid.deinit(allocator);
+
+    const colors = try allocator.alloc(u8, 3 * 2 * 4);
+    defer allocator.free(colors);
+
+    my_grid.fillBackgroundColors(colors);
+
+    var i: usize = 0;
+    while (i < colors.len) : (i += 4) {
+        try std.testing.expectEqual(@as(u8, 0), colors[i]);
+        try std.testing.expectEqual(@as(u8, 0), colors[i + 1]);
+        try std.testing.expectEqual(@as(u8, 0), colors[i + 2]);
+        try std.testing.expectEqual(@as(u8, 255), colors[i + 3]);
+    }
+}
+
+test "fillBackgroundColors writes each cell's background at its own position" {
+    const allocator = std.testing.allocator;
+    var my_grid = Grid{ .visable_rows = 2, .rows_width = 3 };
+    defer my_grid.deinit(allocator);
+
+    const red = RGBA.rgba(205, 0, 0, 255);
+    const blue = RGBA.rgba(0, 0, 205, 255);
+
+    try my_grid.putChar(allocator, .{ .unicode = 'A', .fg_color = .white, .bg_color = red, .flags = .{} });
+    try my_grid.putChar(allocator, .{ .unicode = 'B', .fg_color = .white, .bg_color = blue, .flags = .{} });
+
+    const colors = try allocator.alloc(u8, 2 * 3 * 4);
+    defer allocator.free(colors);
+
+    my_grid.fillBackgroundColors(colors);
+
+    try expectRgba(colors, 0, 0, 3, red);
+    try expectRgba(colors, 0, 1, 3, blue);
+    try expectRgba(colors, 0, 2, 3, RGBA.black);
+    try expectRgba(colors, 1, 0, 3, RGBA.black);
+    try expectRgba(colors, 1, 1, 3, RGBA.black);
+    try expectRgba(colors, 1, 2, 3, RGBA.black);
+}
+
+test "fillBackgroundColors reflects the scrolled viewport" {
+    const allocator = std.testing.allocator;
+    var my_grid = Grid{ .visable_rows = 2, .rows_width = 1 };
+    defer my_grid.deinit(allocator);
+
+    // bottom row: red, second-from-bottom (still visible): blue,
+    // third row (older, initially in the viewport): green.
+    try my_grid.putChar(allocator, .{ .unicode = 'A', .fg_color = .white, .bg_color = RGBA.rgba(0, 205, 0, 255), .flags = .{} });
+    try my_grid.linefeed(allocator);
+    my_grid.carriageReturn();
+    try my_grid.putChar(allocator, .{ .unicode = 'B', .fg_color = .white, .bg_color = RGBA.rgba(0, 0, 205, 255), .flags = .{} });
+    try my_grid.linefeed(allocator);
+    my_grid.carriageReturn();
+    try my_grid.putChar(allocator, .{ .unicode = 'C', .fg_color = .white, .bg_color = RGBA.rgba(205, 0, 0, 255), .flags = .{} });
+
+    const colors = try allocator.alloc(u8, 2 * 1 * 4);
+    defer allocator.free(colors);
+
+    // At the bottom, visible rows are [blue row, red row].
+    my_grid.fillBackgroundColors(colors);
+    try expectRgba(colors, 0, 0, 1, RGBA.rgba(0, 0, 205, 255));
+    try expectRgba(colors, 1, 0, 1, RGBA.rgba(205, 0, 0, 255));
+
+    // Scrolling up reveals [green row, blue row].
+    my_grid.scrollUp(1);
+    my_grid.fillBackgroundColors(colors);
+    try expectRgba(colors, 0, 0, 1, RGBA.rgba(0, 205, 0, 255));
+    try expectRgba(colors, 1, 0, 1, RGBA.rgba(0, 0, 205, 255));
 }
