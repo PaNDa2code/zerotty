@@ -80,7 +80,7 @@ pub fn init(
 
         resources[i].uniform_buffer = try core.Buffer.initAlloc(
             device_allocator,
-            @sizeOf(root.vertex.Uniforms),
+            @sizeOf(vertex.TextUniform),
             .{ .uniform_buffer_bit = true, .transfer_dst_bit = true },
             .{ .host_visible_bit = true, .host_coherent_bit = true },
             .exclusive,

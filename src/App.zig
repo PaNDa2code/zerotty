@@ -106,11 +106,15 @@ pub fn init(
             .shell_args = &.{ "bash", "--norc", "--noprofile" },
             .rows = initial_rows,
             .cols = initial_cols,
+            .fg_color = config.fg_color,
+            .bg_color = config.bg_color,
         } else if (os_tag == .windows) .{
             .shell_path = "cmd.exe",
             .shell_args = &.{"cmd"},
             .rows = initial_rows,
             .cols = initial_cols,
+            .fg_color = config.fg_color,
+            .bg_color = config.bg_color,
         },
     );
 
@@ -318,7 +322,7 @@ pub fn run(self: *App) !void {
             self.platform.current_window.?.height,
         );
 
-        self.renderer.clear(.black);
+        self.renderer.clear(self.config.bg_color);
 
         if (cache.new_added_entries.items.len > 0) {
             try self.renderer.cacheGlyphs(

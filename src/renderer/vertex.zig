@@ -47,6 +47,7 @@ pub const TextUniform = extern struct {
     cell_size: math.Vec2(f32),
     cell_size_inv: math.Vec2(f32),
     grid_size: math.Vec2(f32),
+    bg_color: math.Vec4(f32),
     baseline: f32,
 };
 

@@ -72,7 +72,7 @@ pub fn Vec2(T: type) type {
 }
 
 pub fn Vec3(T: type) type {
-    return packed struct {
+    return extern struct {
         x: T,
         y: T,
         z: T,
@@ -81,7 +81,7 @@ pub fn Vec3(T: type) type {
 }
 
 pub fn Vec4(T: type) type {
-    return packed struct {
+    return extern struct {
         x: T,
         y: T,
         z: T,

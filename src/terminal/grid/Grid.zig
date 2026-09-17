@@ -5,11 +5,15 @@ const Grid = @This();
 const Row = @import("Row.zig");
 const grid = @import("root.zig");
 const Cell = grid.Cell;
+const color = @import("zerotty").terminal.color;
 
 rows: std.ArrayList(Row) = .empty,
 visable_rows: usize,
 rows_width: usize,
 scroll_offset: usize = 0,
+
+// Background used for blank (never-written/erased) cells.
+bg_color: color.RGBA = .black,
 
 cursor_x: usize = 0,
 cursor_y: usize = 0,
@@ -353,6 +357,7 @@ pub const Iterator = struct {
             self.grid.cursor_x == x and
             self.grid.cursor_y == y)
         {
+            if (cell.unicode == 0) cell.bg_color = self.grid.bg_color;
             cell.unicode = 0x2588; // █ FULL BLOCK
         }
 
@@ -374,7 +379,8 @@ pub fn fillBackgroundColors(self: *const Grid, colors: []u8) void {
 
     var iter = self.iterator();
     while (iter.next()) |item| {
-        const rgba: *const [4]u8 = @ptrCast(&item.cell.bg_color);
+        const bg: color.RGBA = if (item.cell.unicode == 0) self.bg_color else item.cell.bg_color;
+        const rgba: *const [4]u8 = @ptrCast(&bg);
         const idx = (item.y * cols + item.x) * 4;
         @memcpy(colors[idx .. idx + 4], rgba);
     }

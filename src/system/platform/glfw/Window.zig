@@ -30,6 +30,8 @@ pub fn open(self: *Window, allocator: Allocator, event_queue: *root.EventQueue) 
     if (@import("builtin").mode == .Debug)
         _ = c.glfwSetErrorCallback(callbacks.errorCallback);
 
+    _ = c.glfwInitHint(c.GLFW_PLATFORM, c.GLFW_PLATFORM_X11);
+
     _ = c.glfwInit();
 
     // if (render_backend != .opengl)
@@ -94,6 +96,15 @@ pub fn getHandles(self: *const Window) root.WindowHandles {
 
 pub fn requistAttention(self: *const Window) void {
     _ = c.glfwRequestWindowAttention(self.window);
+}
+
+fn hasEnv(name: []const u8) bool {
+    var i: usize = 0;
+    while (std.c.environ[i]) |entry| : (i += 1) {
+        const key = std.mem.sliceTo(@as([*:0]const u8, @ptrCast(entry)), '=');
+        if (std.mem.eql(u8, key, name)) return true;
+    }
+    return false;
 }
 
 const callbacks = struct {
@@ -196,12 +207,8 @@ const std = @import("std");
 
 const root = @import("zerotty").system.platform;
 const keyboard = @import("zerotty").system.input.keyboard;
-// const render_backend = @import("build_options").@"render-backend";
-
 const c = @cImport({
-    // if (render_backend != .opengl)
-    @cDefine("GLFW_INCLUDE_NONE", "");
-
+    @cDefine("GLFW_INCLUDE_VULKAN", "");
     @cInclude("GLFW/glfw3.h");
 });
 

@@ -15,6 +15,7 @@ layout(set = 0, binding = 0) uniform TextUniform {
     vec2 cell_size;
     vec2 cell_size_inv;
     vec2 grid_size;
+    vec4 bg_color;
     float baseline;
 } ubo;
 
@@ -26,7 +27,7 @@ void main() {
     // Fragments outside the grid (partial cells at the bottom/right edge)
     // fall back to the clear color, which matches the default background.
     if (cell.x >= int(ubo.grid_size.x) || cell.y >= int(ubo.grid_size.y)) {
-        frag_color = vec4(0.0);
+        frag_color = ubo.bg_color;
         return;
     }
 

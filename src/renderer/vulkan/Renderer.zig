@@ -242,6 +242,7 @@ pub fn endFrame(self: *Renderer) !void {
             .cell_size = .from(cell_w, cell_h),
             .cell_size_inv = .from(1.0 / cell_w, 1.0 / cell_h),
             .grid_size = .from(@floatFromInt(self.bg_grid_cols), @floatFromInt(self.bg_grid_rows)),
+            .bg_color = @bitCast(self.bg_color.floatArray()),
             .baseline = baseline,
         };
 

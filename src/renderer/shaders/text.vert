@@ -31,6 +31,7 @@ layout(set = 0, binding = 0) uniform TextUniform {
     vec2 cell_size;
     vec2 cell_size_inv;
     vec2 grid_size;
+    vec4 bg_color;
     float baseline;
 } ubo;
 

@@ -15,22 +15,27 @@ progress_state: ProgressBarState = .remove,
 bell_action_callback: ?*const fn (?*anyopaque) void = null,
 bell_action_data: ?*anyopaque = null,
 
-ocs_buffer: [64]u8 = [1]u8{0} ** 64,
+ocs_buffer: [128]u8 = [1]u8{0} ** 128,
 ocs_buffer_len: usize = 0,
 
 color_palette: color.ansi.Palette = .default,
 
-current_style: struct {
-    fg_color: color.RGBA = .white,
-    bg_color: color.RGBA = .black,
+default_style: Style,
+current_style: Style,
+
+const Style = struct {
+    fg_color: color.RGBA,
+    bg_color: color.RGBA,
     flags: color.ansi.Flags = .{},
-} = .{},
+};
 
 pub const TerminalSettings = struct {
     shell_path: []const u8 = "",
     shell_args: []const []const u8 = &.{},
     rows: u32,
     cols: u32,
+    fg_color: color.RGBA,
+    bg_color: color.RGBA,
 };
 
 pub const ProgressBarState = enum(u3) {
@@ -63,6 +68,11 @@ pub fn init(
     };
     try shell.start(io, environ_map, allocator, &pty);
 
+    const style = Style{
+        .fg_color = settings.fg_color,
+        .bg_color = settings.bg_color,
+    };
+
     return .{
         .pty = pty,
         .shell = shell,
@@ -70,8 +80,11 @@ pub fn init(
         .grid = .{
             .visable_rows = settings.rows,
             .rows_width = settings.cols,
+            .bg_color = settings.bg_color,
         },
         .vtparser = .init(vtparserCallback, null),
+        .default_style = style,
+        .current_style = style,
     };
 }
 
@@ -202,7 +215,7 @@ fn vtparserCallback(state: *const vt.ParserData, to_action: vt.Action, char: u8,
 fn handleSGR(term: *Terminal, state: *const vt.ParserData) void {
     // No params = reset
     if (state.num_params == 0) {
-        term.current_style = .{};
+        term.current_style = term.default_style;
         return;
     }
 
@@ -211,7 +224,7 @@ fn handleSGR(term: *Terminal, state: *const vt.ParserData) void {
         const p = state.params[i];
 
         switch (p) {
-            0 => term.current_style = .{},
+            0 => term.current_style = term.default_style,
 
             1 => term.current_style.flags.bold = true,
             4 => term.current_style.flags.underline = true,
