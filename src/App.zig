@@ -226,7 +226,7 @@ pub fn run(self: *App) !void {
                         },
                     );
 
-try self.terminal.grid.resizeVisable(self.allocator, rows, cols);
+                    try self.terminal.grid.resizeVisable(self.allocator, rows, cols);
                     try self.renderer.setGridSize(@intCast(cols), @intCast(rows));
                 },
                 .input => |input_event| {

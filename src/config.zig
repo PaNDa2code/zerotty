@@ -8,7 +8,7 @@ const Theme = enum {
 pub const Config = struct {
     theme: ?Theme = .dark,
     /// Font size in pixels (vertical height of a glyph).
-    font_size: u32 = 22,
+    font_size: u32 = 32,
     gpu_acceleration: bool = true,
 };
 

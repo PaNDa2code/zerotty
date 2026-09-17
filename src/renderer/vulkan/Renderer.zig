@@ -240,9 +240,9 @@ pub fn endFrame(self: *Renderer) !void {
             .screen_to_clip_offset = .from(-1.0, -1.0),
             .inv_atlas_size = .from(1.0 / atlas_w, 1.0 / atlas_h),
             .cell_size = .from(cell_w, cell_h),
+            .cell_size_inv = .from(1.0 / cell_w, 1.0 / cell_h),
+            .grid_size = .from(@floatFromInt(self.bg_grid_cols), @floatFromInt(self.bg_grid_rows)),
             .baseline = baseline,
-            .grid_cols = @floatFromInt(self.bg_grid_cols),
-            .grid_rows = @floatFromInt(self.bg_grid_rows),
         };
 
         try frame.main_cmd.copyBuffer(

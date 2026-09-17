@@ -21,6 +21,6 @@ layout(location = 0) out vec4 frag_color;
 layout(set = 1, binding = 0) uniform sampler2D textures[];
 
 void main() {
-  float alpha = texture(textures[texture_index], texture_coords).r;
-  frag_color = mix(bg_color, fg_color, alpha);
+    float alpha = texture(textures[texture_index], texture_coords).r;
+    frag_color = mix(bg_color, fg_color, alpha);
 }
