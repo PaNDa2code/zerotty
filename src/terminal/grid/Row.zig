@@ -1,28 +1,17 @@
-const std = @import("std");
-const grid = @import("root.zig");
-const Cell = grid.Cell;
+//! Read-only view of a single row of a `Grid`.
+//!
+//! A `Row` does not own its cells: it points into the grid's flat storage and
+//! is only valid until the next call that mutates or resizes the grid.
+const Cell = @import("root.zig").Cell;
 const Row = @This();
 
-backing_storage: std.ArrayList(Cell) = .empty,
-wrapped: bool = false,
+/// Exactly `Grid.rows_width` cells.
+cells: []const Cell,
 
-pub fn extend(self: *Row, allocator: std.mem.Allocator, cells: []const Cell) !void {
-    try self.backing_storage.appendSlice(allocator, cells);
-}
+/// True if this row was filled to the right edge and the text continued on the
+/// next row (a soft wrap, as opposed to a hard line break).
+wrapped: bool,
 
-/// Shrinks the row to `new_len` cells, returning the cells that were
-/// removed from the tail. Caller owns the returned slice.
-pub fn shrink(self: *Row, allocator: std.mem.Allocator, new_len: usize) ![]const Cell {
-    std.debug.assert(self.backing_storage.items.len >= new_len);
-    const removed_count = self.backing_storage.items.len - new_len;
-    if (removed_count == 0) return &.{};
-
-    const removed_cells = try allocator.alloc(Cell, removed_count);
-    @memcpy(removed_cells, self.backing_storage.items[new_len..]);
-    self.backing_storage.shrinkRetainingCapacity(new_len);
-    return removed_cells;
-}
-
-pub fn len(self: *const Row) usize {
-    return self.backing_storage.items.len;
+pub fn len(self: Row) usize {
+    return self.cells.len;
 }
