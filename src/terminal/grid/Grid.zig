@@ -65,6 +65,12 @@ cursor_y: usize = 0,
 
 show_cursor: bool = true,
 
+cursor_unicode: u32 = eighth_block, // or vertical_bar
+
+pub const eighth_block = 0x258F;
+pub const full_block = 0x2588;
+pub const lower_eighth_block = 0x2581;
+pub const vertical_bar = 0x2502;
 // ---------------------------------------------------------------------------
 // Ring helpers
 // ---------------------------------------------------------------------------
@@ -481,37 +487,70 @@ pub const Iterator = struct {
     grid: *const Grid,
     current_x: usize = 0,
     current_y: usize = 0,
-    /// Row `current_y`, looked up once per row rather than once per cell.
+
     row: ?Row = null,
+
+    pending_cursor: ?Item = null,
 
     pub const Item = struct {
         x: usize,
         y: usize,
         cell: Cell,
+        cursor: bool = false,
     };
 
     pub fn next(self: *Iterator) ?Item {
         const g = self.grid;
-        if (g.rows_width == 0 or self.current_y >= g.visable_rows) return null;
+
+        // Return the cursor item that was queued by the
+        // previous normal-cell iteration.
+        if (self.pending_cursor) |item| {
+            self.pending_cursor = null;
+            return item;
+        }
+
+        if (g.rows_width == 0 or self.current_y >= g.visable_rows)
+            return null;
 
         const x = self.current_x;
         const y = self.current_y;
-        if (x == 0) self.row = g.visibleRow(y);
 
-        var cell: Cell = if (self.row) |r| r.cells[x] else Cell.default;
+        if (x == 0)
+            self.row = g.visibleRow(y);
+
+        const cell: Cell = if (self.row) |r|
+            r.cells[x]
+        else
+            Cell.default;
 
         self.current_x += 1;
+
         if (self.current_x >= g.rows_width) {
             self.current_x = 0;
             self.current_y += 1;
         }
 
         if (g.show_cursor and g.cursor_x == x and g.cursor_y == y) {
-            if (cell.unicode == 0) cell.bg_color = g.bg_color;
-            cell.unicode = 0x2588; // █ FULL BLOCK
+            // Inherit the cell's entire style.
+            var cursor_cell = cell;
+
+            // Only change what visually represents the cursor.
+            cursor_cell.unicode = g.cursor_unicode;
+
+            self.pending_cursor = .{
+                .x = x,
+                .y = y,
+                .cell = cursor_cell,
+                .cursor = true,
+            };
         }
 
-        return .{ .x = x, .y = y, .cell = cell };
+        return .{
+            .x = x,
+            .y = y,
+            .cell = cell,
+            .cursor = false,
+        };
     }
 };
 
