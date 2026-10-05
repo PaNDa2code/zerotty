@@ -1,7 +1,7 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
-const toBytes = std.mem.toBytes;
+const asBytes = std.mem.asBytes;
 
 fn staticList(comptime T: type, comptime n: usize, comptime fill: T) type {
     return struct {
@@ -45,15 +45,23 @@ pub fn PerfectHashMap(comptime K: type, comptime V: type) type {
         const empty_keys = [0]K{};
         const empty_values = [0]V{};
 
+        const empty_filled = [0]bool{};
+
         const empty_kvs = KVs{
             .keys = &empty_keys,
             .values = &empty_values,
+            .filled = &empty_filled,
             .len = 0,
         };
 
         const KVs = struct {
             keys: [*]const K,
             values: [*]const V,
+            /// Which slots were actually filled. Unfilled slots hold no key at
+            /// all, so their key bytes must never be read -- the only safe
+            /// comparison against them is "not equal", and `getIndex` must not
+            /// dereference them.
+            filled: [*]const bool,
             len: usize,
         };
 
@@ -62,11 +70,63 @@ pub fn PerfectHashMap(comptime K: type, comptime V: type) type {
         displacement_table: [*]const isize = &empty_disps,
         allocator: Allocator = undefined,
 
+        const int_slot = @sizeOf(i128);
+
+        /// Number of bytes `encode` writes for a key of type `T`.
+        fn encodedSize(comptime T: type) usize {
+            return switch (@typeInfo(T)) {
+                .bool => 1,
+                .int, .@"enum" => int_slot,
+                .@"struct" => |s| blk: {
+                    if (s.is_tuple) @compileError("tuple keys are not supported");
+                    var n: usize = 0;
+                    inline for (s.fields) |f| n += encodedSize(f.type);
+                    break :blk n;
+                },
+                else => @compileError("unsupported key type: " ++ @typeName(T)),
+            };
+        }
+
+        /// Serialize a key into a fully initialized buffer.
+        ///
+        /// `std.mem.asBytes` is deliberately avoided: for a type with padding
+        /// (any `packed struct` whose bit width is not a multiple of 8, for
+        /// instance) the padding reads back as `0xAA` when the table is built at
+        /// comptime and `0x00` when it is consulted at runtime, so hashing the
+        /// raw bytes yields different digests for the two and every lookup of a
+        /// non-slice key misses. Writing each field explicitly makes the digest
+        /// depend only on the key's value.
+        fn encode(comptime T: type, v: T, buf: []u8) []const u8 {
+            @setEvalBranchQuota(10_000);
+            var i: usize = 0;
+            switch (@typeInfo(T)) {
+                .bool => {
+                    buf[i] = @intFromBool(v);
+                    i += 1;
+                },
+                .int => {
+                    std.mem.writeInt(i128, buf[i..][0..int_slot], v, .little);
+                    i += int_slot;
+                },
+                .@"enum" => {
+                    std.mem.writeInt(i128, buf[i..][0..int_slot], @intFromEnum(v), .little);
+                    i += int_slot;
+                },
+                .@"struct" => |s| {
+                    inline for (s.fields) |f| {
+                        i += encode(f.type, @field(v, f.name), buf[i..]).len;
+                    }
+                },
+                else => @compileError("unsupported key type: " ++ @typeName(T)),
+            }
+            return buf[0..i];
+        }
+
         inline fn hash(key: K, seed: u32, mod_value: usize) usize {
-            return if (K == []const u8)
-                std.hash.Murmur3_32.hashWithSeed(key, seed) % mod_value
-            else
-                std.hash.Murmur3_32.hashWithSeed(std.mem.asBytes(&key), seed) % mod_value;
+            if (K == []const u8)
+                return std.hash.Murmur3_32.hashWithSeed(key, seed) % mod_value;
+            var buf: [encodedSize(K)]u8 = undefined;
+            return std.hash.Murmur3_32.hashWithSeed(encode(K, key, &buf), seed) % mod_value;
         }
 
         fn sortBucketsDec(_: void, lhs: ArrayList(usize), rhs: ArrayList(usize)) bool {
@@ -166,9 +226,13 @@ pub fn PerfectHashMap(comptime K: type, comptime V: type) type {
 
             const final_keys = keys.ptr;
             const final_values = values.ptr;
+            const final_filled = try allocator.alloc(bool, n);
+            @memcpy(final_filled, value_setted);
+
             var kvs = try allocator.create(KVs);
             kvs.keys = final_keys;
             kvs.values = final_values;
+            kvs.filled = final_filled.ptr;
             kvs.len = n;
             const final_kvs = kvs;
             return .{
@@ -191,6 +255,13 @@ pub fn PerfectHashMap(comptime K: type, comptime V: type) type {
                 var values: [n]V = [1]V{undefined} ** n;
                 var value_setted: [n]bool = [1]bool{false} ** n;
                 var displacement_table: [n]isize = [1]isize{0} ** n;
+
+                for (kv_list, 0..) |a, i| {
+                    for (kv_list[i + 1 ..]) |b| {
+                        if (std.meta.eql(a.@"0", b.@"0"))
+                            @compileError("duplicate key: '" ++ @typeName(K) ++ "' keys must be unique");
+                    }
+                }
 
                 const bucketType = staticList(usize, n, 0);
 
@@ -247,16 +318,19 @@ pub fn PerfectHashMap(comptime K: type, comptime V: type) type {
                     const slot = free_slots.pop();
                     displacement_table[hash(kv_list[bucket.items[0]].@"0", 0, n)] = -@as(isize, @intCast(slot)) - 1;
                     keys[slot] = kv_list[bucket.items[0]].@"0";
+                    value_setted[slot] = true;
                     if (V != void)
                         values[slot] = kv_list[bucket.items[0]].@"1";
                 }
 
                 const final_keys = keys;
                 const final_values = values;
+                const final_filled = value_setted;
                 const final_displacement_table = displacement_table;
                 const kvs = KVs{
                     .keys = &final_keys,
                     .values = &final_values,
+                    .filled = &final_filled,
                     .len = n,
                 };
 
@@ -271,6 +345,7 @@ pub fn PerfectHashMap(comptime K: type, comptime V: type) type {
         pub fn deinit(self: *const Self) void {
             self.allocator.free(self.kvs.keys[0..self.len]);
             self.allocator.free(self.kvs.values[0..self.len]);
+            self.allocator.free(self.kvs.filled[0..self.len]);
             self.allocator.destroy(self.kvs);
             self.allocator.free(self.displacement_table[0..self.len]);
         }
@@ -282,9 +357,24 @@ pub fn PerfectHashMap(comptime K: type, comptime V: type) type {
             else
                 hash(key, @intCast(displacement), self.len);
 
-            if ((K == []const u8 and std.mem.eql(u8, key, self.kvs.keys[index])) or
-                std.mem.eql(u8, &toBytes(key), &toBytes(self.kvs.keys[index])))
-                return index;
+            if (!self.kvs.filled[index]) return null;
+
+            // Compare the same canonical encoding `hash` uses. Comparing raw
+            // bytes is wrong twice over: `std.mem.toBytes` returns a pointer to
+            // the value, so taking its address compared two unrelated stack
+            // addresses instead of contents, and for a padded key the padding
+            // itself differs between comptime and runtime.
+            if (K == []const u8) {
+                if (std.mem.eql(u8, key, self.kvs.keys[index])) return index;
+            } else {
+                var a: [encodedSize(K)]u8 = undefined;
+                var b: [encodedSize(K)]u8 = undefined;
+                if (std.mem.eql(
+                    u8,
+                    encode(K, key, &a),
+                    encode(K, self.kvs.keys[index], &b),
+                )) return index;
+            }
 
             return null;
         }

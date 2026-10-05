@@ -22,12 +22,12 @@ pub fn wireCore(b: *Build, mod: *Build.Module, cfg: ResolvedConfig) void {
     const truetype_dep = b.dependency("TrueType", .{ .target = target, .optimize = optimize });
     mod.addImport("TrueType", truetype_dep.module("TrueType"));
 
-    // const machfreetype_dep = b.dependency("mach_freetype", .{
-    //     .target = target,
-    //     .optimize = optimize,
-    //     .use_llvm = cfg.use_llvm,
-    // });
-    // mod.addImport("mach-freetype", machfreetype_dep.module("mach-freetype"));
+    const machfreetype_dep = b.dependency("mach_freetype", .{
+        .target = target,
+        .optimize = optimize,
+        .use_llvm = cfg.use_llvm,
+    });
+    mod.addImport("mach-freetype", machfreetype_dep.module("mach-freetype"));
     // mod.addImport("mach-harfbuzz", machfreetype_dep.module("mach-harfbuzz"));
 
     const zigimg_dep = b.dependency("zigimg", .{ .target = target, .optimize = optimize });

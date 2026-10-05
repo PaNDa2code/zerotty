@@ -58,7 +58,8 @@ pub fn init(
         .get("fonts/JetBrainsMono/ttf/JetBrainsMono-Regular.ttf");
     const font_data = try font_asset.fixedBuffer();
 
-    var font_ttf = try font.Font.init(font_data, @intCast(config.font_size));
+    var font_ttf = try font.Font.init(font_data);
+    font_ttf.setSize(@floatFromInt(config.font_size));
 
     const metrics = font_ttf.cellMetrics();
     const cell_width: u32 = metrics.cell_width;
@@ -151,7 +152,8 @@ fn applyFontSize(
     new_size: u32,
 ) !void {
     font_ttf.deinit();
-    font_ttf.* = try font.Font.init(font_data, @intCast(new_size));
+    font_ttf.* = try font.Font.init(font_data);
+    font_ttf.setSize(@floatFromInt(new_size));
 
     cache.deinit();
     cache.* = font.Cache.init(self.allocator);
@@ -271,19 +273,20 @@ pub fn run(self: *App) !void {
             if (item.cell.unicode == 0 or item.cell.unicode == ' ')
                 continue;
 
+            // The index is a glyph index into the face, not a codepoint.
+            // Deriving it from the codepoint keeps repeated frames hitting the
+            // same atlas entry instead of rasterizing on every cell.
+            const glyph_index = self.font_ttf.glyphIndexForCodepoint(@intCast(item.cell.unicode));
             const glyph_id = font.GlyphID{
                 .font = @enumFromInt(0),
-                .index = @enumFromInt(item.cell.unicode),
+                .index = @enumFromInt(glyph_index),
             };
             const glyph_entry =
                 cache.getAtlasEntry(glyph_id) orelse blk: {
-                    const index = self.font_ttf.ttf.codepointGlyphIndex(@intCast(item.cell.unicode));
-                    const bmp = try self.font_ttf.ttf.glyphBitmap(
+                    const bmp = try self.font_ttf.glyphBitmap(
                         self.allocator,
                         &pixels_pool,
-                        index,
-                        self.font_ttf.scale_x,
-                        self.font_ttf.scale_y,
+                        glyph_index,
                     );
 
                     // const current_len = pixels_pool.items.len;

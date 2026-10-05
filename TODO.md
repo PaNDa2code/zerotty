@@ -6,7 +6,7 @@
 
 ### Renderer:
 
-- [ ] stable renderer interface (dynamic runtime backend)
+- [ ] stable renderer interface (--dynamic-- runtime backend)
 - [x] vulkan backend
 - [x] opengl backend
 - [ ] GPU font rastrizer
@@ -25,7 +25,7 @@
 
 - [x] pty
 - [x] memory mapped buffer
-- [ ] asynchronous io backend
+- [x] asynchronous io backend
 - [x] asynchronous event loop (IO, Window Events)
 - [x] keyboard and mouse input handler
 - [ ] C#, Python or any interpreted programming language for plugins interfaces
