@@ -65,7 +65,7 @@ cursor_y: usize = 0,
 
 show_cursor: bool = true,
 
-cursor_unicode: u32 = eighth_block, // or vertical_bar
+cursor_unicode: u32 = lower_eighth_block, // or vertical_bar
 
 pub const eighth_block = 0x258F;
 pub const full_block = 0x2588;

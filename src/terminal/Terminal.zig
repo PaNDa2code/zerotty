@@ -18,10 +18,18 @@ bell_action_data: ?*anyopaque = null,
 ocs_buffer: [128]u8 = [1]u8{0} ** 128,
 ocs_buffer_len: usize = 0,
 
+/// Partial UTF-8 sequence, since PRINT hands us one byte at a time but cells
+/// hold whole codepoints (box drawing, CJK, emoji are 2-4 bytes).
+utf8_buf: [4]u8 = undefined,
+utf8_len: u8 = 0,
+charset: Charset = .ascii,
+
 color_palette: color.ansi.Palette = .default,
 
 default_style: Style,
 current_style: Style,
+
+const Charset = enum { ascii, dec_special_graphics };
 
 const Style = struct {
     fg_color: color.RGBA,
@@ -96,6 +104,9 @@ pub fn deinit(self: *Terminal, _: std.mem.Allocator) void {
 
 fn vtparserCallback(state: *const vt.ParserData, to_action: vt.Action, char: u8, user_data: ?*anyopaque) void {
     const terminal: *Terminal = @ptrCast(@alignCast(user_data));
+    // Any control sequence interrupts a partial UTF-8 sequence; don't let a
+    // stray lead byte bleed into the next cell.
+    if (to_action != .PRINT) flushUtf8(terminal);
     switch (to_action) {
         .CSI_DISPATCH => {
             switch (char) {
@@ -140,19 +151,20 @@ fn vtparserCallback(state: *const vt.ParserData, to_action: vt.Action, char: u8,
                 else => {},
             }
         },
-        .ESC_DISPATCH => switch (char) {
-            '=' => {}, // Application Keypad (ignore)
-            '>' => {}, // Normal Keypad (ignore)
-            else => {},
+        .ESC_DISPATCH => {
+            if (state.num_intermediate_chars == 1 and state.intermediate_chars[0] == '(') {
+                switch (char) {
+                    '0' => terminal.charset = .dec_special_graphics,
+                    'B' => terminal.charset = .ascii,
+                    else => unreachable,
+                }
+            } else switch (char) {
+                '=' => {}, // Application Keypad (ignore)
+                '>' => {}, // Normal Keypad (ignore)
+                else => {},
+            }
         },
-        .PRINT => {
-            terminal.grid.putChar(terminal.allocator, .{
-                .fg_color = terminal.current_style.fg_color,
-                .bg_color = terminal.current_style.bg_color,
-                .flags = terminal.current_style.flags,
-                .unicode = @intCast(char),
-            }) catch unreachable;
-        },
+        .PRINT => printByte(terminal, char),
         .OSC_START => {
             terminal.ocs_buffer_len = 0;
         },
@@ -310,6 +322,72 @@ fn cursorRight(terminal: *Terminal, n: usize) void {
 fn setCursorPosition(terminal: *Terminal, row: usize, col: usize) void {
     terminal.grid.cursor_y = @min(row -| 1, terminal.grid.visable_rows -| 1);
     terminal.grid.cursor_x = @min(col -| 1, terminal.grid.rows_width -| 1);
+}
+
+/// Write one streamed byte. ASCII goes straight to the grid; the rest is
+/// buffered until a full UTF-8 codepoint is available.
+fn printByte(terminal: *Terminal, char: u8) void {
+    if (char < 0x80) {
+        flushUtf8(terminal);
+        putCodepoint(terminal, translate(terminal.charset, char));
+        return;
+    }
+
+    const expected = std.unicode.utf8ByteSequenceLength(char) catch {
+        putCodepoint(terminal, 0xFFFD); // stray continuation / invalid lead
+        return;
+    };
+
+    if (terminal.utf8_len == 0) {
+        terminal.utf8_buf[0] = char;
+        terminal.utf8_len = 1;
+    } else {
+        terminal.utf8_buf[terminal.utf8_len] = char;
+        terminal.utf8_len += 1;
+    }
+
+    if (terminal.utf8_len == expected) {
+        flushUtf8(terminal);
+    } else if (terminal.utf8_len > expected) {
+        // Overlong or corrupt: drop what we have rather than desync.
+        terminal.utf8_len = 0;
+        putCodepoint(terminal, 0xFFFD);
+    }
+}
+
+/// Decode the buffered bytes and emit one cell. A truncated sequence at the
+/// end of the stream (or a control char interrupting it) becomes U+FFFD.
+fn flushUtf8(terminal: *Terminal) void {
+    if (terminal.utf8_len == 0) return;
+
+    const codepoint: u21 = std.unicode.utf8Decode(terminal.utf8_buf[0..terminal.utf8_len]) catch 0xFFFD;
+    terminal.utf8_len = 0;
+    putCodepoint(terminal, codepoint);
+}
+
+const dec_special_graphics_table = [32]u21{
+    0x00A0, 0x25C6, 0x2592, 0x2409, 0x240C, 0x240D, 0x240A, 0x00B0,
+    0x00B1, 0x2424, 0x240B, 0x2518, 0x2510, 0x250C, 0x2514, 0x253C,
+    0x23BA, 0x23BB, 0x2500, 0x23BC, 0x23BD, 0x251C, 0x2524, 0x2534,
+    0x252C, 0x2502, 0x2264, 0x2265, 0x03C0, 0x2260, 0x00A3, 0x00B7,
+};
+
+fn translate(charset: Charset, byte: u8) u21 {
+    if (charset == .dec_special_graphics and byte >= 0x5F and byte <= 0x7E) {
+        @branchHint(.likely);
+        return dec_special_graphics_table[byte - 0x5F];
+    }
+
+    return @intCast(byte);
+}
+
+fn putCodepoint(terminal: *Terminal, codepoint: u21) void {
+    terminal.grid.putChar(terminal.allocator, .{
+        .fg_color = terminal.current_style.fg_color,
+        .bg_color = terminal.current_style.bg_color,
+        .flags = terminal.current_style.flags,
+        .unicode = codepoint,
+    }) catch unreachable;
 }
 
 fn backspace(terminal: *Terminal) void {

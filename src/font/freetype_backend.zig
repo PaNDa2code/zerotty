@@ -226,8 +226,7 @@ pub fn glyphBitmap(
         .width = w,
         .height = h,
         .off_x = slot.bitmapLeft(),
-        // freetype y offset is flipped
-        .off_y = slot.bitmapTop() * -1,
+        .off_y = -slot.bitmapTop(),
     };
 }
 

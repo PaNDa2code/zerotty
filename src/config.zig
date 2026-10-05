@@ -10,7 +10,7 @@ pub const Config = struct {
     theme: ?Theme = .dark,
 
     fg_color: color.RGBA = .white,
-    bg_color: color.RGBA = .mix(.white, .black, 0.99),
+    bg_color: color.RGBA = .black, //.mix(.white, .black, 0.99),
     /// Font size in pixels (vertical height of a glyph).
     font_size: u32 = 32,
     gpu_acceleration: bool = true,
