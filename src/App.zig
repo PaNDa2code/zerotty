@@ -94,11 +94,9 @@ pub fn init(
         },
     );
 
-    const terminal = try allocator.create(Terminal);
-
     var event_loop = try myio.EventLoop.init(allocator, 100);
 
-    terminal.* = try Terminal.init(
+    const terminal = try Terminal.init(
         io,
         environ_map,
         allocator,
@@ -120,7 +118,7 @@ pub fn init(
     );
 
     const buf = try allocator.alloc(u8, 1024);
-    try event_loop.read(terminal.pty.readFile(), buf, ptyReadCallback, terminal);
+    try event_loop.read(terminal.session.pty.readFile(), buf, ptyReadCallback, terminal);
 
     return .{
         .config = config,
@@ -174,7 +172,7 @@ fn applyFontSize(
     const cols = @max(1, window.width / self.cell_width);
     const rows = @max(1, window.height / self.cell_height);
 
-    try self.terminal.pty.resize(.{
+    try self.terminal.session.pty.resize(.{
         .width = @intCast(cols),
         .height = @intCast(rows),
     });
@@ -183,10 +181,8 @@ fn applyFontSize(
 }
 
 pub fn run(self: *App) !void {
-    self.terminal.bell_action_data = self;
-    self.terminal.bell_action_callback = bellAction;
-
-    self.terminal.vtparser.user_data = self.terminal;
+    self.terminal.emulator.bell_action_data = self;
+    self.terminal.emulator.bell_action_callback = bellAction;
 
     var running = true;
 
@@ -205,7 +201,7 @@ pub fn run(self: *App) !void {
         try self.io_event_loop.poll(0);
 
         const shell_exit =
-            try self.terminal.shell.wait(false);
+            try self.terminal.session.shell.wait(false);
 
         if (shell_exit == .ended) break;
 
@@ -225,11 +221,9 @@ pub fn run(self: *App) !void {
                     const cols = @max(1, size.width / self.cell_width);
                     const rows = @max(1, size.height / self.cell_height);
 
-                    try self.terminal.pty.resize(
-                        .{
-                            .width = @intCast(cols),
-                            .height = @intCast(rows),
-                        },
+                    try self.terminal.session.resize(
+                        @intCast(rows),
+                        @intCast(cols),
                     );
 
                     try self.terminal.grid.resizeVisable(self.allocator, rows, cols);
@@ -380,7 +374,7 @@ pub fn run(self: *App) !void {
 pub fn deinit(self: *App) void {
     self.renderer.deinit();
     self.platform.deinit();
-    self.terminal.deinit(self.allocator);
+    self.terminal.deinit();
     self.allocator.free(self.buf);
     self.io_event_loop.deinit(self.allocator);
 
@@ -412,7 +406,7 @@ const AppSink = struct {
 
     fn write(sink: *InputHandler.Sink, io: std.Io, data: []const u8) anyerror!void {
         const self: *AppSink = @fieldParentPtr("sink", sink);
-        try self.app.terminal.shell.stdin.?.writeStreamingAll(io, data);
+        try self.app.terminal.session.shell.stdin.?.writeStreamingAll(io, data);
     }
     fn scrollUp(sink: *InputHandler.Sink, lines: u32) void {
         const self: *AppSink = @fieldParentPtr("sink", sink);
@@ -429,7 +423,7 @@ const AppSink = struct {
     fn paste(sink: *InputHandler.Sink, io: std.Io) anyerror!void {
         const self: *AppSink = @fieldParentPtr("sink", sink);
         const str = self.app.platform.clipboard.getString();
-        try self.app.terminal.shell.stdin.?.writeStreamingAll(io, str);
+        try self.app.terminal.session.shell.stdin.?.writeStreamingAll(io, str);
     }
     fn changeFontSize(sink: *InputHandler.Sink, delta: i32) void {
         const self: *AppSink = @fieldParentPtr("sink", sink);

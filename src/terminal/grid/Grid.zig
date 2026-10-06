@@ -63,6 +63,16 @@ bg_color: color.RGBA = .black,
 cursor_x: usize = 0,
 cursor_y: usize = 0,
 
+/// Deferred wrap ("wrap pending", DEC STD 070 §5.2). Printing in the last
+/// column leaves the cursor there and only sets this flag; the linefeed (and
+/// the scroll that may come with it) happens when the NEXT character is
+/// printed. Without it, filling the last cell would scroll the screen on its
+/// own, before there is any content to scroll for.
+///
+/// Any explicit cursor movement clears the flag, so the next character lands
+/// where the cursor was moved to.
+wrap_pending: bool = false,
+
 show_cursor: bool = true,
 
 cursor_unicode: u32 = lower_eighth_block, // or vertical_bar
@@ -272,6 +282,7 @@ pub fn resizeVisable(
     self.rows_width = rows_width;
     self.cursor_y = @min(cursor_y, visable_rows - 1);
     self.cursor_x = @min(self.cursor_x, rows_width - 1);
+    self.wrap_pending = false;
     self.clampScrollOffset();
 
     try self.ensureLiveRows(allocator);
@@ -322,13 +333,21 @@ pub fn visibleRow(self: *const Grid, y: usize) ?Row {
 // Writing
 // ---------------------------------------------------------------------------
 
-/// Write a cell at the cursor position and advance the cursor,
-/// wrapping to the next line if we hit the right edge.
+/// Write a cell at the cursor position and advance the cursor.
+///
+/// Reaching the right edge does not wrap immediately: the cursor stays on the
+/// last column with `wrap_pending` set, and the wrap happens on the next call
+/// (see `wrap_pending`).
 pub fn putChar(self: *Grid, allocator: std.mem.Allocator, cell: Cell) !void {
     if (self.rows_width == 0 or self.visable_rows == 0) return;
     try self.ensureLiveRows(allocator);
 
-    if (self.cursor_x >= self.rows_width) {
+    if (self.wrap_pending) {
+        self.wrap_pending = false;
+        self.wrapped[self.liveSlot(self.cursor_y)] = true;
+        try self.linefeed(allocator);
+        self.cursor_x = 0;
+    } else if (self.cursor_x >= self.rows_width) {
         // Only reachable if the caller moved the cursor past the edge by hand.
         self.wrapped[self.liveSlot(self.cursor_y)] = true;
         try self.linefeed(allocator);
@@ -340,15 +359,18 @@ pub fn putChar(self: *Grid, allocator: std.mem.Allocator, cell: Cell) !void {
 
     self.cursor_x += 1;
     if (self.cursor_x >= self.rows_width) {
-        self.wrapped[slot] = true;
-        try self.linefeed(allocator);
-        self.cursor_x = 0;
+        // Keep `cursor_x` in range so the cursor still renders on the last
+        // cell; `wrap_pending` remembers that the row is full.
+        self.cursor_x = self.rows_width - 1;
+        self.wrap_pending = true;
     }
 }
 
 /// Move the cursor down one line, scrolling the live area
 /// (appending a fresh blank row) if we're already at the bottom.
+/// Cancels a pending wrap.
 pub fn linefeed(self: *Grid, allocator: std.mem.Allocator) !void {
+    self.wrap_pending = false;
     if (self.rows_width == 0 or self.visable_rows == 0) return;
     try self.ensureLiveRows(allocator);
 
@@ -360,9 +382,16 @@ pub fn linefeed(self: *Grid, allocator: std.mem.Allocator) !void {
     try self.pushRow(allocator);
 }
 
-/// Move cursor to column 0 of the current line.
+/// Move cursor to column 0 of the current line. Cancels a pending wrap.
 pub fn carriageReturn(self: *Grid) void {
     self.cursor_x = 0;
+    self.wrap_pending = false;
+}
+
+/// Cancel a pending wrap without moving the cursor. Called before any explicit
+/// cursor movement (CUU, CUD, CUF, CUB, CUP, backspace, ...).
+pub fn clearWrapPending(self: *Grid) void {
+    self.wrap_pending = false;
 }
 
 // ---------------------------------------------------------------------------

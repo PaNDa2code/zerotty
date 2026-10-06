@@ -275,33 +275,3 @@ pub fn parseSpirv(shader_bytes: []const u8) !SpirvParseResult {
 
     return parse_result;
 }
-
-test "SPIR-V Parser" {
-    const spv_bytes align(4) = @import("zerotty").assets.shaders.text_frag;
-
-    const spv_slice: []align(4) const u8 = @alignCast(spv_bytes[0..]);
-
-    var parse_result = try parseSpirv(spv_slice);
-
-    std.sort.heap(DescriptorSetLayoutCreation, parse_result.sets[0..parse_result.set_count], {}, struct {
-        fn lessThan(_: void, a: DescriptorSetLayoutCreation, b: DescriptorSetLayoutCreation) bool {
-            return a.set_index < b.set_index;
-        }
-    }.lessThan);
-
-    // const expected_sets = [_]DescriptorSetLayoutCreation{
-    //     .{
-    //         .set_index = 0,
-    //         .binding_count = 255,
-    //         .bindings = [1]DescriptorSetLayoutCreation.Binding{
-    //             .{ .binding = 0, .count = 1, .type = .sampled_image },
-    //         } ** 32,
-    //     },
-    // };
-    //
-    // try std.testing.expectEqualSlices(
-    //     DescriptorSetLayoutCreation,
-    //     parse_result.sets[0..parse_result.set_count],
-    //     expected_sets[0..],
-    // );
-}

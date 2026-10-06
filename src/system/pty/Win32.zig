@@ -149,14 +149,14 @@ pub fn resize(self: *Pty, size: PtySize) !void {
     // }
 }
 
-pub fn readFile(self: *Pty) std.Io.File {
+pub fn readFile(self: *const Pty) std.Io.File {
     return std.Io.File{
         .handle = self.master_read,
         .flags = .{ .nonblocking = true },
     };
 }
 
-pub fn writeFile(self: *Pty) std.Io.File {
+pub fn writeFile(self: *const Pty) std.Io.File {
     return std.Io.File{
         .handle = self.master_write,
         .flags = .{ .nonblocking = true },

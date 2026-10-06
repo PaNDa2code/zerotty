@@ -4,6 +4,7 @@ const Build = std.Build;
 const cli = @import("build/cli.zig");
 const app = @import("build/app.zig");
 const profile = @import("build/profile.zig");
+const tests = @import("build/tests.zig");
 
 pub fn build(b: *Build) !void {
     const build_cmd = cli.addOptions(b);

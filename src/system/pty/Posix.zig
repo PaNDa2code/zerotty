@@ -64,14 +64,14 @@ pub fn resize(self: *Pty, size: PtySize) !void {
         try posix.kill(child_id, posix.SIG.WINCH);
 }
 
-pub fn readFile(self: *Pty) std.Io.File {
+pub fn readFile(self: *const Pty) std.Io.File {
     return std.Io.File{
         .handle = self.master,
         .flags = .{ .nonblocking = builtin.os.tag == .linux },
     };
 }
 
-pub fn writeFile(self: *Pty) std.Io.File {
+pub fn writeFile(self: *const Pty) std.Io.File {
     return std.Io.File{
         .handle = self.master,
         .flags = .{ .nonblocking = builtin.os.tag == .linux },
