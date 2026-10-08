@@ -277,11 +277,11 @@ pub fn run(self: *App) !void {
             };
             const glyph_entry =
                 cache.getAtlasEntry(glyph_id) orelse blk: {
-                    const bmp = try self.font_ttf.glyphBitmap(
+                    const bmp = self.font_ttf.glyphBitmap(
                         self.allocator,
                         &pixels_pool,
                         glyph_index,
-                    );
+                    ) catch continue;
 
                     // const current_len = pixels_pool.items.len;
                     // const align_len = std.mem.alignForward(usize, current_len, 16);

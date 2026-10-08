@@ -8,13 +8,18 @@ const log = std.log.scoped(.vt);
 
 pub const Parser = vt.VTParser;
 
-
 pub fn vtparserEntry(state: *const vt.ParserData, to_action: vt.Action, char: u8, user_data: ?*anyopaque) void {
     const terminal: *Terminal = @ptrCast(@alignCast(user_data));
 
     // Any control sequence interrupts a partial UTF-8 sequence; don't let a
     // stray lead byte bleed into the next cell.
-    if (to_action != .PRINT) flushUtf8(terminal);
+    if (to_action == .EXECUTE and char & 0xC0 == 0x80 and
+        terminal.emulator.utf8_len > 0)
+    {
+        printByte(terminal, char);
+        return;
+    }
+
     switch (to_action) {
         .CSI_DISPATCH => {
             switch (char) {
@@ -246,25 +251,26 @@ fn printByte(terminal: *Terminal, char: u8) void {
         return;
     }
 
-    const expected = std.unicode.utf8ByteSequenceLength(char) catch {
-        putCodepoint(terminal, 0xFFFD); // stray continuation / invalid lead
-        return;
-    };
-
     if (terminal.emulator.utf8_len == 0) {
+        const expected = std.unicode.utf8ByteSequenceLength(char) catch 1;
+
         terminal.emulator.utf8_buf[0] = char;
         terminal.emulator.utf8_len = 1;
+
+        if (terminal.emulator.utf8_len >= expected)
+            flushUtf8(terminal);
     } else {
+        const expected = std.unicode.utf8ByteSequenceLength(terminal.emulator.utf8_buf[0]) catch {
+            putCodepoint(terminal, 0xFFFD); // stray continuation / invalid lead
+            terminal.emulator.utf8_len = 0;
+            return;
+        };
+
         terminal.emulator.utf8_buf[terminal.emulator.utf8_len] = char;
         terminal.emulator.utf8_len += 1;
-    }
 
-    if (terminal.emulator.utf8_len == expected) {
-        flushUtf8(terminal);
-    } else if (terminal.emulator.utf8_len > expected) {
-        // Overlong or corrupt: drop what we have rather than desync.
-        terminal.emulator.utf8_len = 0;
-        putCodepoint(terminal, 0xFFFD);
+        if (terminal.emulator.utf8_len >= expected)
+            flushUtf8(terminal);
     }
 }
 
@@ -272,8 +278,13 @@ fn printByte(terminal: *Terminal, char: u8) void {
 /// end of the stream (or a control char interrupting it) becomes U+FFFD.
 fn flushUtf8(terminal: *Terminal) void {
     if (terminal.emulator.utf8_len == 0) return;
+    const expected = std.unicode.utf8ByteSequenceLength(terminal.emulator.utf8_buf[0]) catch 0;
 
-    const codepoint: u21 = std.unicode.utf8Decode(terminal.emulator.utf8_buf[0..terminal.emulator.utf8_len]) catch 0xFFFD;
+    var codepoint: u21 = 0xFFFD;
+
+    if (terminal.emulator.utf8_len == expected)
+        codepoint = std.unicode.utf8Decode(terminal.emulator.utf8_buf[0..expected]) catch 0xFFFD;
+
     terminal.emulator.utf8_len = 0;
     putCodepoint(terminal, codepoint);
 }
@@ -287,11 +298,11 @@ const dec_special_graphics_table = [32]u21{
 
 fn translate(charset: Emulator.Charset, byte: u8) u21 {
     if (charset == .dec_special_graphics and byte >= 0x5F and byte <= 0x7E) {
-        @branchHint(.likely);
         return dec_special_graphics_table[byte - 0x5F];
+    } else {
+        @branchHint(.likely);
+        return @intCast(byte);
     }
-
-    return @intCast(byte);
 }
 
 fn putCodepoint(terminal: *Terminal, codepoint: u21) void {
