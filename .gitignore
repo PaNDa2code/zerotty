@@ -2,6 +2,7 @@
 zig-out
 zig-pkg
 build/release.keystore
+.woodpecker/local-secrets.yaml
 *.cso
 *.PGM
 temp
