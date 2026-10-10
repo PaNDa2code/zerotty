@@ -31,6 +31,14 @@ pub fn BoundedQueue(T: type, default_value: T, max_slots: comptime_int) type {
             return value;
         }
 
+        pub fn popLast(self: *Self) ?T {
+            if (self.count == 0) return null;
+            self.write -|= 1;
+            self.count -= 1;
+
+            return self.queue[self.write];
+        }
+
         pub const PushError = error{
             QueueIsFull,
         };

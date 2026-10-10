@@ -1,5 +1,5 @@
 pub const MouseButton = enum(u8) {
-    left,
+    left = 0,
     right,
     middle,
     button_4,
@@ -20,8 +20,8 @@ pub const MouseButtonEvent = struct {
 pub const MouseMoveEvent = struct {
     x: f32,
     y: f32,
-    dx: f32,
-    dy: f32,
+    dx: f32 = 0,
+    dy: f32 = 0,
 };
 
 pub const MouseScrollEvent = struct {

@@ -14,7 +14,11 @@ pub const InputEvent = union(enum) {
     ) std.Io.Writer.Error!void {
         try switch (self) {
             .keyboard => |kb| writer.print("keyboard_{s}({})", .{ @tagName(kb.type), kb.code }),
-            .mouse => {},
+            .mouse => |ms| switch (ms) {
+                .move => |mv| writer.print("mouse_move({},{},{},{})", .{ mv.x, mv.y, mv.dx, mv.dy }),
+                .button => |mb| writer.print("mouse_button_{s}({})", .{ @tagName(mb.state), mb.button }),
+                .scroll => |sc| writer.print("mouse_scroll({},{})", .{ sc.x_offset, sc.y_offset }),
+            },
             .utf8_codepoint => |codepoint| writer.print("codepoint(0x{X})", .{codepoint}),
         };
     }

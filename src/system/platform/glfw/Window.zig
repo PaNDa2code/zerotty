@@ -62,6 +62,8 @@ pub fn open(self: *Window, allocator: Allocator, event_queue: *root.EventQueue) 
     _ = c.glfwSetCharCallback(self.window, callbacks.char);
     _ = c.glfwSetScrollCallback(self.window, callbacks.scroll);
     _ = c.glfwSetWindowIconifyCallback(self.window, callbacks.iconify);
+    _ = c.glfwSetMouseButtonCallback(self.window, callbacks.mouseButton);
+    _ = c.glfwSetCursorPosCallback(self.window, callbacks.cursorPos);
 
     c.glfwShowWindow(self.window);
 
@@ -183,6 +185,60 @@ const callbacks = struct {
 
                 .is_live = false,
             },
+        };
+
+        window.event_queue.push(event) catch unreachable;
+    }
+
+    fn mouseButton(glfw_window: ?*c.GLFWwindow, button: c_int, action: c_int, mods: c_int) callconv(.c) void {
+        const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
+
+        _ = mods;
+
+        const event = root.Event{
+            .input = .{
+                .mouse = .{
+                    .button = .{
+                        // mouse input enum matches the glfw mouse buttons enumeration
+                        .button = @enumFromInt(button),
+                        .state = if (action == c.GLFW_PRESS) .press else .release,
+                    },
+                },
+            },
+        };
+
+        window.event_queue.push(event) catch unreachable;
+    }
+
+    fn cursorPos(glfw_window: ?*c.GLFWwindow, xpos: f64, ypos: f64) callconv(.c) void {
+        const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
+
+        const new_x: f32 = @floatCast(xpos);
+        const new_y: f32 = @floatCast(ypos);
+
+        // var new_dx: f32 = 0;
+        // var new_dy: f32 = 0;
+        //
+        // if (window.event_queue.popLast()) |last_event| {
+        //     if (last_event == .input and last_event.input == .mouse and
+        //         last_event.input.mouse == .move)
+        //     {
+        //         new_dx = last_event.input.mouse.move.dx + new_x -
+        //             last_event.input.mouse.move.x;
+        //         new_dy = last_event.input.mouse.move.dy + new_y -
+        //             last_event.input.mouse.move.y;
+        //     } else {
+        //         window.event_queue.push(last_event) catch unreachable;
+        //     }
+        // }
+
+        const event = root.Event{
+            .input = .{ .mouse = .{ .move = .{
+                .x = new_x,
+                .y = new_y,
+                // .dx = new_dx,
+                // .dy = new_dy,
+            } } },
         };
 
         window.event_queue.push(event) catch unreachable;
