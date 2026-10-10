@@ -81,7 +81,10 @@ pub fn wireWindow(b: *Build, mod: *Build.Module, cfg: ResolvedConfig) void {
             } else {
                 if (b.lazyDependency("xcb", .{ .target = target, .optimize = optimize })) |dep|
                     mod.linkLibrary(dep.artifact("xcb"));
-                if (b.lazyDependency("xkbcommon", .{ .target = target, .optimize = optimize })) |dep|
+                if (b.lazyDependency("xkbcommon", .{
+                    .target = target,
+                    .optimize = optimize,
+                })) |dep|
                     mod.linkLibrary(dep.artifact("xkbcommon"));
             }
         },

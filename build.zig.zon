@@ -77,8 +77,8 @@
             .lazy = true,
         },
         .glfw_zig = .{
-            .url = "https://github.com/tiawl/glfw.zig/archive/refs/tags/zig-0.16.0.tar.gz",
-            .hash = "glfw_zig-1.0.0-NrvYoy_SGQD5J2e5okpIf_dir8BZpWdKaUmWNDenm_ki",
+            .url = "git+https://github.com/tiawl/glfw.zig#5c0f5fcf703152c7e0bc1c870fa0cbaa53d159ea",
+            .hash = "glfw_zig-1.0.0-NrvYoxInGgCd0xJ5a4UL2mi9q77pmpwTIwSZ4Tlm4ylz",
             .lazy = true,
         },
         .libxkbcommon = .{

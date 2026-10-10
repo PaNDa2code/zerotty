@@ -1,53 +1,32 @@
 
 steps:
   - name: check build and run tests
-    image: alpine
+    image: debian:bookworm-slim
     when:
       - event: push
         branch: master
 
     commands:
-      - |
-        apk update && apk add --no-cache \
-          sudo \
-          curl \
-          bash \
-          xz \
-          git \
-          ca-certificates \
-          bison \
-          glslang \
-          zstd \
-          python3
+      - apt-get update
+      - apt-get install -y --no-install-recommends sudo curl bash xz-utils git ca-certificates bison glslang-tools zstd zip python3
 
       - curl -sSf https://raw.githubusercontent.com/MingFei2001/install-zig/refs/heads/main/install-zig.sh | bash
 
       - zig build
-
       - zig build test
 
   - name: build release
-    image: alpine
+    image: debian:bookworm-slim
     when:
       - event: tag
 
     commands:
-      - |
-        apk update && apk add --no-cache \
-          sudo \
-          curl \
-          bash \
-          xz \
-          git \
-          ca-certificates \
-          bison \
-          glslang \
-          zstd \
-          python3
+      - apt-get update
+      - apt-get install -y --no-install-recommends sudo curl bash xz-utils git ca-certificates bison glslang-tools zstd zip python3
 
       - curl -sSf https://raw.githubusercontent.com/MingFei2001/install-zig/refs/heads/main/install-zig.sh | bash
 
-      - zig build release -Darchive -Duse_llvm -Drelease_mode=Debug
+      - zig build release -Darchive -Drelease_mode=Debug
       - zig build release -Darchive -Duse_llvm -Drelease_mode=ReleaseFast
 
       - ls -R zig-out
