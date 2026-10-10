@@ -11,15 +11,6 @@ pub const Parser = vt.VTParser;
 pub fn vtparserEntry(state: *const vt.ParserData, to_action: vt.Action, char: u8, user_data: ?*anyopaque) void {
     const terminal: *Terminal = @ptrCast(@alignCast(user_data));
 
-    // Any control sequence interrupts a partial UTF-8 sequence; don't let a
-    // stray lead byte bleed into the next cell.
-    if (to_action == .EXECUTE and char & 0xC0 == 0x80 and
-        terminal.emulator.utf8_len > 0)
-    {
-        printByte(terminal, char);
-        return;
-    }
-
     switch (to_action) {
         .CSI_DISPATCH => {
             switch (char) {

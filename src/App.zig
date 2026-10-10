@@ -16,8 +16,12 @@ terminal: *Terminal,
 cell_width: u32,
 cell_height: u32,
 
-font_ttf: font.Font,
-font_data: []const u8,
+/// Loaded faces, index 0 is the primary face and defines the grid. The
+/// fallbacks are walked per glyph by `resolveGlyph`.
+font_faces: []font.Font,
+/// Backing buffers for `font_faces`, indexed identically. Borrowed from the
+/// asset archive and kept alive for the whole app lifetime.
+font_face_data: [][]const u8,
 
 pending_font_size: ?u32 = null,
 
@@ -29,6 +33,47 @@ bg_color_data: std.ArrayList(u8) = .empty,
 const min_font_size: u32 = 20;
 const max_font_size: u32 = 96;
 const font_size_step: u32 = 10;
+
+/// Fallback chain, primary first. Each entry is an asset path; faces are
+/// resolved left-to-right so the first font that covers a codepoint wins.
+const font_assets = [_][]const u8{
+    "fonts/JetBrainsMonoNerdFont-Regular.ttf",
+    "fonts/NotoSansSymbols2-Regular.ttf",
+    "fonts/NotoSansMath-Regular.ttf",
+    "fonts/NotoEmoji-Regular.ttf",
+};
+
+const ResolvedGlyph = struct {
+    face: usize,
+    glyph: u32,
+};
+
+/// Loads every face in `font_assets` at `pixel_size`. The returned slices are
+/// owned by the caller and must be released with `freeFaces`.
+fn loadFaces(allocator: std.mem.Allocator, pixel_size: f32) !struct {
+    faces: []font.Font,
+    data: [][]const u8,
+} {
+    const data = try allocator.alloc([]const u8, font_assets.len);
+    errdefer allocator.free(data);
+
+    const faces = try allocator.alloc(font.Font, font_assets.len);
+    errdefer allocator.free(faces);
+
+    var loaded: usize = 0;
+    errdefer for (faces[0..loaded]) |*face| face.deinit();
+
+    for (font_assets, 0..) |path, i| {
+        const asset = try AssetsManager.instance.get(path);
+        data[i] = try asset.fixedBuffer();
+
+        faces[i] = try font.Font.init(data[i]);
+        faces[i].setSize(pixel_size);
+        loaded += 1;
+    }
+
+    return .{ .faces = faces, .data = data };
+}
 
 fn bellAction(_app: ?*anyopaque) void {
     const app: *App = @ptrCast(@alignCast(_app));
@@ -54,14 +99,9 @@ pub fn init(
     const config = zerotty.config.getConfig(io, environ_map, allocator) catch
         Config{};
 
-    const font_asset = try AssetsManager.instance
-        .get("fonts/JetBrainsMono/ttf/JetBrainsMono-Regular.ttf");
-    const font_data = try font_asset.fixedBuffer();
+    const loaded_fonts = try loadFaces(allocator, @floatFromInt(config.font_size));
 
-    var font_ttf = try font.Font.init(font_data);
-    font_ttf.setSize(@floatFromInt(config.font_size));
-
-    const metrics = font_ttf.cellMetrics();
+    const metrics = loaded_fonts.faces[0].cellMetrics();
     const cell_width: u32 = metrics.cell_width;
     const cell_height: u32 = metrics.cell_height;
 
@@ -133,21 +173,21 @@ pub fn init(
         .cell_width = cell_width,
         .cell_height = cell_height,
 
-        .font_ttf = font_ttf,
-        .font_data = font_data,
+        .font_faces = loaded_fonts.faces,
+        .font_face_data = loaded_fonts.data,
     };
 }
 
 fn applyFontSize(
     self: *App,
-    font_ttf: *font.Font,
     cache: *font.Cache,
-    font_data: []const u8,
     new_size: u32,
 ) !void {
-    font_ttf.deinit();
-    font_ttf.* = try font.Font.init(font_data);
-    font_ttf.setSize(@floatFromInt(new_size));
+    for (self.font_faces, 0..) |*face, i| {
+        face.deinit();
+        face.* = try font.Font.init(self.font_face_data[i]);
+        face.setSize(@floatFromInt(new_size));
+    }
 
     cache.deinit();
     cache.* = font.Cache.init(self.allocator);
@@ -156,7 +196,7 @@ fn applyFontSize(
 
     self.config.font_size = new_size;
 
-    const metrics = font_ttf.cellMetrics();
+    const metrics = self.font_faces[0].cellMetrics();
     self.cell_width = metrics.cell_width;
     self.cell_height = metrics.cell_height;
 
@@ -174,6 +214,17 @@ fn applyFontSize(
     });
     try self.terminal.grid.resizeVisable(self.allocator, rows, cols);
     try self.renderer.setGridSize(@intCast(cols), @intCast(rows));
+}
+
+/// Walks `font_faces` in order and returns the first face that has a glyph for
+/// `codepoint`. Falls back to the primary face's `.notdef` when nothing covers
+/// it, so the cache still gets a stable key.
+fn resolveGlyph(self: *const App, codepoint: u21) ResolvedGlyph {
+    for (self.font_faces, 0..) |*face, i| {
+        const glyph = face.glyphIndexForCodepoint(codepoint);
+        if (glyph != 0) return .{ .face = i, .glyph = glyph };
+    }
+    return .{ .face = 0, .glyph = 0 };
 }
 
 pub fn run(self: *App) !void {
@@ -232,7 +283,7 @@ pub fn run(self: *App) !void {
                     if (self.pending_font_size) |new_size| {
                         self.pending_font_size = null;
                         if (new_size != self.config.font_size)
-                            try self.applyFontSize(&self.font_ttf, &cache, self.font_data, new_size);
+                            try self.applyFontSize(&cache, new_size);
                     }
 
                     self.terminal.grid.show_cursor = true;
@@ -263,22 +314,30 @@ pub fn run(self: *App) !void {
             if (item.cell.unicode == 0 or item.cell.unicode == ' ')
                 continue;
 
-            // The index is a glyph index into the face, not a codepoint.
-            // Deriving it from the codepoint keeps repeated frames hitting the
-            // same atlas entry instead of rasterizing on every cell.
-            const glyph_index = self.font_ttf.glyphIndexForCodepoint(@intCast(item.cell.unicode));
-            if (glyph_index == 0) continue;
+            // The index is a glyph index into the resolved face, not a
+            // codepoint. Deriving it from the codepoint keeps repeated frames
+            // hitting the same atlas entry instead of rasterizing every cell.
+            // The face id is part of the cache key, so the same glyph index in
+            // two fonts does not collide.
+            const resolved = self.resolveGlyph(@intCast(item.cell.unicode));
+            if (resolved.glyph == 0) {
+                std.log.debug("cell({},{}) codepoint 0x{X} .nodef", .{
+                    item.x,
+                    item.y,
+                    item.cell.unicode,
+                });
+            }
 
             const glyph_id = font.GlyphID{
-                .font = @enumFromInt(0),
-                .index = @enumFromInt(glyph_index),
+                .font = @enumFromInt(@as(u32, @intCast(resolved.face))),
+                .index = @enumFromInt(resolved.glyph),
             };
             const glyph_entry =
                 cache.getAtlasEntry(glyph_id) orelse blk: {
-                    const bmp = self.font_ttf.glyphBitmap(
+                    const bmp = self.font_faces[resolved.face].glyphBitmap(
                         self.allocator,
                         &pixels_pool,
-                        glyph_index,
+                        resolved.glyph,
                     ) catch continue;
 
                     // const current_len = pixels_pool.items.len;
@@ -377,6 +436,10 @@ pub fn deinit(self: *App) void {
     self.io_event_loop.deinit(self.allocator);
 
     self.allocator.destroy(self.terminal);
+
+    for (self.font_faces) |*face| face.deinit();
+    self.allocator.free(self.font_faces);
+    self.allocator.free(self.font_face_data);
 
     AssetsManager.instance.deinit();
 }

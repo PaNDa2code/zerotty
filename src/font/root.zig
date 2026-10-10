@@ -46,8 +46,6 @@ pub const GlyphID = packed struct(u64) {
 };
 
 pub const Cache = @import("Cache.zig");
-// pub const Layout = @import("Layout.zig");
-// pub const Atlas = @import("Atlas.zig");
 pub const FontManager = @import("FontManager.zig");
 pub const Style = @import("Style.zig");
 pub const backend = @import("backend.zig");

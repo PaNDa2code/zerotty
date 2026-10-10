@@ -191,10 +191,4 @@
         .italic = true,
         .name = "JetBrainsMonoNL-ThinItalic.ttf",
     },
-    .{
-        .family = .symbols_nerdfont_mono,
-        .weight = .regular,
-        .italic = false,
-        .name = "SymbolsNerdFontMono-Regular.ttf",
-    },
 }
