@@ -64,18 +64,10 @@ pub fn FontInterface(comptime B: type) type {
         pub fn setSize(self: *Self, pixel_height: f32) void {
             self.b.setSize(pixel_height);
 
-            const vm = self.b.verticalMetrics();
-            const line_height: f32 = @floatFromInt(vm.ascent - vm.descent + vm.line_gap);
-            if (line_height == 0) {
-                self.scale_x = 0;
-                self.scale_y = 0;
-                return;
-            }
+            const backend_scale = self.b.scale();
 
-            // Horizontal scale tracks the vertical one so glyphs keep their
-            // designed proportions instead of being stretched.
-            self.scale_y = pixel_height / line_height;
-            self.scale_x = self.scale_y;
+            self.scale_x = backend_scale;
+            self.scale_y = backend_scale;
         }
 
         pub fn scale(self: *const Self) f32 {
@@ -131,11 +123,14 @@ pub fn FontInterface(comptime B: type) type {
                 (@as(f32, @floatFromInt(vm.ascent - vm.descent)) +
                     @as(f32, @floatFromInt(vm.line_gap))) * self.scale_y,
             );
-            const baseline_px = @ceil(@as(f32, @floatFromInt(vm.ascent)) * self.scale_y);
+            const ascent_px: f32 = @as(f32, @floatFromInt(vm.ascent)) * self.scale_y;
+            const baseline_px: f32 = @ceil(@max(0, ascent_px));
+            const below_baseline_px: f32 = @ceil(@max(0, -@as(f32, @floatFromInt(vm.descent)) * self.scale_y));
+            const cell_height_px: f32 = @max(line_height_px, baseline_px + below_baseline_px);
 
             return .{
                 .cell_width = @intFromFloat(@max(1, advance_px)),
-                .cell_height = @intFromFloat(@max(1, line_height_px)),
+                .cell_height = @intFromFloat(@max(1, cell_height_px)),
                 .baseline = @intFromFloat(@max(1, baseline_px)),
             };
         }

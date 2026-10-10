@@ -96,26 +96,22 @@ pub fn init(
 
     var event_loop = try myio.EventLoop.init(allocator, 100);
 
-    const terminal = try Terminal.init(
-        io,
-        environ_map,
-        allocator,
-        if (os_tag == .linux) .{
-            .shell_path = "/bin/bash",
-            .shell_args = &.{ "bash", "--norc", "--noprofile" },
-            .rows = initial_rows,
-            .cols = initial_cols,
-            .fg_color = config.fg_color,
-            .bg_color = config.bg_color,
-        } else if (os_tag == .windows) .{
-            .shell_path = "cmd.exe",
-            .shell_args = &.{"cmd"},
-            .rows = initial_rows,
-            .cols = initial_cols,
-            .fg_color = config.fg_color,
-            .bg_color = config.bg_color,
-        },
-    );
+    const shell_path = environ_map.get("SHELL") orelse
+        if (os_tag == .linux)
+            "bash"
+        else if (os_tag == .windows)
+            "cmd.exe"
+        else
+            unreachable;
+
+    const terminal = try Terminal.init(io, environ_map, allocator, .{
+        .shell_path = shell_path,
+        .shell_args = &.{shell_path},
+        .rows = initial_rows,
+        .cols = initial_cols,
+        .fg_color = config.fg_color,
+        .bg_color = config.bg_color,
+    });
 
     const buf = try allocator.alloc(u8, 1024);
     try event_loop.read(terminal.session.pty.readFile(), buf, ptyReadCallback, terminal);
@@ -271,6 +267,8 @@ pub fn run(self: *App) !void {
             // Deriving it from the codepoint keeps repeated frames hitting the
             // same atlas entry instead of rasterizing on every cell.
             const glyph_index = self.font_ttf.glyphIndexForCodepoint(@intCast(item.cell.unicode));
+            if (glyph_index == 0) continue;
+
             const glyph_id = font.GlyphID{
                 .font = @enumFromInt(0),
                 .index = @enumFromInt(glyph_index),

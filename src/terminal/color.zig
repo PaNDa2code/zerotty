@@ -54,7 +54,8 @@ pub const ansi = struct {
         underline: bool = false,
         strikethrough: bool = false,
         blink: bool = false,
-        _padding: u3 = 0,
+        inverse: bool = false,
+        _padding: u2 = 0,
     };
 
     pub const ColorState = struct {
@@ -184,5 +185,17 @@ pub const RGBA = packed struct(u32) {
             'A'...'F' => 10 + (c - 'A'),
             else => unreachable,
         };
+    }
+
+    pub fn format(
+        color: @This(),
+        writer: *std.Io.Writer,
+    ) std.Io.Writer.Error!void {
+        try writer.print("rgba({},{},{},{})", .{
+            color.r,
+            color.g,
+            color.b,
+            color.a,
+        });
     }
 };

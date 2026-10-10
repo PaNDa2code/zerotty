@@ -145,15 +145,27 @@ fn handleSGR(term: *Terminal, state: *const vt.ParserData) void {
     }
 
     var i: usize = 0;
+
+    const current_style = &term.emulator.current_style;
+
     while (i < state.num_params) : (i += 1) {
         const p = state.params[i];
 
         switch (p) {
-            0 => term.emulator.current_style = term.emulator.default_style,
+            0 => current_style.* = term.emulator.default_style,
 
-            1 => term.emulator.current_style.flags.bold = true,
-            4 => term.emulator.current_style.flags.underline = true,
-            // 7 => term.current_style.flags.inverse = true,
+            1 => current_style.flags.bold = true,
+            4 => current_style.flags.underline = true,
+            5, 6 => current_style.flags.blink = true,
+            7 => current_style.flags.inverse = true,
+            9 => current_style.flags.strikethrough = true,
+
+            22 => current_style.flags.bold = false,
+            23 => current_style.flags.italic = false,
+            24 => current_style.flags.underline = false,
+            25 => current_style.flags.blink = false,
+            27 => current_style.flags.inverse = false,
+            29 => current_style.flags.strikethrough = false,
 
             30...37, 90...97 => {
                 const is_bright = p >= 90;
@@ -163,7 +175,7 @@ fn handleSGR(term: *Terminal, state: *const vt.ParserData) void {
 
                 const color_index: color.ansi.ColorIndex = @enumFromInt(idx);
                 const ansi_color = term.emulator.color_palette.get(color_index);
-                term.emulator.current_style.fg_color = ansi_color;
+                current_style.fg_color = ansi_color;
             },
             40...47, 100...107 => {
                 const is_bright = p >= 100;
@@ -173,20 +185,22 @@ fn handleSGR(term: *Terminal, state: *const vt.ParserData) void {
 
                 const color_index: color.ansi.ColorIndex = @enumFromInt(idx);
                 const ansi_color = term.emulator.color_palette.get(color_index);
-                term.emulator.current_style.bg_color = ansi_color;
+                current_style.bg_color = ansi_color;
             },
 
             38, 48 => {
                 // 256-color: 38;5;N / 48;5;N
-                if (i + 2 < state.num_params and state.params[i + 1] == 5) {
-                    std.debug.assert(state.params[i + 2] > 256 and state.params[i + 2] < 256);
+                if (i + 2 < state.num_params and
+                    state.params[i + 1] == 5 and
+                    state.params[i + 2] < 256)
+                {
                     const color_index: color.ansi.ColorIndex = @enumFromInt(state.params[i + 2]);
                     const ansi_color = term.emulator.color_palette.get(color_index);
 
                     if (p == 38)
-                        term.emulator.current_style.fg_color = ansi_color
+                        current_style.fg_color = ansi_color
                     else
-                        term.emulator.current_style.bg_color = ansi_color;
+                        current_style.bg_color = ansi_color;
 
                     i += 2;
                 }
@@ -196,18 +210,21 @@ fn handleSGR(term: *Terminal, state: *const vt.ParserData) void {
                     const g = @as(u8, @intCast(state.params[i + 3]));
                     const b = @as(u8, @intCast(state.params[i + 4]));
                     if (p == 38)
-                        term.emulator.current_style.fg_color = .rgba(r, g, b, 255)
+                        current_style.fg_color = .rgba(r, g, b, 255)
                     else
-                        term.emulator.current_style.bg_color = .rgba(r, g, b, 255);
+                        current_style.bg_color = .rgba(r, g, b, 255);
                     i += 4;
                 }
             },
+
+            39 => current_style.fg_color = term.emulator.default_style.fg_color,
+            49 => current_style.bg_color = term.emulator.default_style.bg_color,
 
             else => {},
         }
     }
 
-    log.debug("{any}", .{term.emulator.current_style});
+    log.debug("style update: {f}", .{term.emulator.current_style});
 }
 
 fn cursorUp(terminal: *Terminal, n: usize) void {
