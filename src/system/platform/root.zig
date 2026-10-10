@@ -1,6 +1,7 @@
+const std = @import("std");
 const input = @import("../input/root.zig");
 
-const platform = @import("build_options").@"window";
+const platform = @import("build_options").window;
 
 pub const WindowNativeHandles = switch (platform) {
     .win32 => struct {
@@ -14,9 +15,7 @@ pub const WindowNativeHandles = switch (platform) {
     .glfw => struct {
         window: *anyopaque,
     },
-    .android => struct {
-
-    },
+    .android => struct {},
 };
 
 pub const Platform = switch (platform) {
@@ -57,6 +56,21 @@ pub const Event = union(enum) {
 
     focus: bool,
     expose: bool,
+
+    // debug formating
+    pub fn format(
+        event: @This(),
+        writer: *std.Io.Writer,
+    ) std.Io.Writer.Error!void {
+        try switch (event) {
+            .none => writer.writeAll("none_event"),
+            .close => writer.writeAll("close_event"),
+            .input => |in| writer.print("{f}", .{in}),
+            .resize => |rs| writer.print("resize({},{})", .{ rs.height, rs.width }),
+            .focus => |b| writer.print("focus({})", .{b}),
+            .expose => |b| writer.print("expose({})", .{b}),
+        };
+    }
 };
 
 const BoundedQueue = @import("zerotty").ds.queue.BoundedQueue;

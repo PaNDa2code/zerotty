@@ -202,7 +202,7 @@ pub fn run(self: *App) !void {
         if (shell_exit == .ended) break;
 
         while (events_queue.pop()) |event| {
-            std.log.debug("event: {any}", .{event});
+            std.log.debug("event: {f}", .{event});
 
             switch (event) {
                 .close => {
