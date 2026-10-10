@@ -59,17 +59,17 @@ pub fn buildAppArtifact(b: *Build, cfg: Config) AppArtifact {
     // else
     zerrotty_mod.addAnonymousImport("assets.tar", .{ .root_source_file = assets.tar_path });
 
-    const is_android = cfg.target.result.abi.isAndroid();
-
-    if (is_android) {
-        const apk = buildAndroidApk(b, zerrotty_mod, "aarch64", cfg);
-        if (apk) |path| {
-            return .{
-                .artifact = .{ .apk = path },
-                .mod = zerrotty_mod,
-            };
-        }
-    }
+    // const is_android = cfg.target.result.abi.isAndroid();
+    //
+    // if (is_android) {
+    //     const apk = buildAndroidApk(b, zerrotty_mod, "aarch64", cfg);
+    //     if (apk) |path| {
+    //         return .{
+    //             .artifact = .{ .apk = path },
+    //             .mod = zerrotty_mod,
+    //         };
+    //     }
+    // }
 
     const exe = b.addExecutable(.{
         .name = "zerotty",
