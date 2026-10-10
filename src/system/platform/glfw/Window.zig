@@ -30,8 +30,6 @@ pub fn open(self: *Window, allocator: Allocator, event_queue: *root.EventQueue) 
     if (@import("builtin").mode == .Debug)
         _ = c.glfwSetErrorCallback(callbacks.errorCallback);
 
-    _ = c.glfwInitHint(c.GLFW_PLATFORM, c.GLFW_PLATFORM_X11);
-
     _ = c.glfwInit();
 
     // if (render_backend != .opengl)
@@ -216,28 +214,28 @@ const callbacks = struct {
         const new_x: f32 = @floatCast(xpos);
         const new_y: f32 = @floatCast(ypos);
 
-        // var new_dx: f32 = 0;
-        // var new_dy: f32 = 0;
-        //
-        // if (window.event_queue.popLast()) |last_event| {
-        //     if (last_event == .input and last_event.input == .mouse and
-        //         last_event.input.mouse == .move)
-        //     {
-        //         new_dx = last_event.input.mouse.move.dx + new_x -
-        //             last_event.input.mouse.move.x;
-        //         new_dy = last_event.input.mouse.move.dy + new_y -
-        //             last_event.input.mouse.move.y;
-        //     } else {
-        //         window.event_queue.push(last_event) catch unreachable;
-        //     }
-        // }
+        var new_dx: f32 = 0;
+        var new_dy: f32 = 0;
+
+        if (window.event_queue.popLast()) |last_event| {
+            if (last_event == .input and last_event.input == .mouse and
+                last_event.input.mouse == .move)
+            {
+                new_dx = last_event.input.mouse.move.dx + new_x -
+                    last_event.input.mouse.move.x;
+                new_dy = last_event.input.mouse.move.dy + new_y -
+                    last_event.input.mouse.move.y;
+            } else {
+                window.event_queue.push(last_event) catch unreachable;
+            }
+        }
 
         const event = root.Event{
             .input = .{ .mouse = .{ .move = .{
                 .x = new_x,
                 .y = new_y,
-                // .dx = new_dx,
-                // .dy = new_dy,
+                .dx = new_dx,
+                .dy = new_dy,
             } } },
         };
 
@@ -264,6 +262,7 @@ const std = @import("std");
 const root = @import("zerotty").system.platform;
 const keyboard = @import("zerotty").system.input.keyboard;
 const c = @cImport({
+    @cDefine("GLFW_INCLUDE_NONE", "");
     @cDefine("GLFW_INCLUDE_VULKAN", "");
     @cInclude("GLFW/glfw3.h");
 });

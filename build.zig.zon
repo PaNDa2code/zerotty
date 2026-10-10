@@ -1,7 +1,7 @@
 .{
     .name = .zerotty,
 
-    .version = "0.0.0",
+    .version = "0.0.1",
 
     .fingerprint = 0x5c682fee5d121c4c,
 

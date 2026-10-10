@@ -32,7 +32,7 @@ pub fn resolveProfile(b: *Build, profile: BuildProfile) ResolvedConfig {
     };
 
     const mode = profile.optimize orelse .Debug;
-    const use_llvm = profile.use_llvm orelse (target.result.os.tag == .windows or is_android);
+    const use_llvm = profile.use_llvm orelse (mode != .Debug or target.result.os.tag == .windows or is_android);
 
     return .{
         .name = profile.name,
@@ -40,6 +40,23 @@ pub fn resolveProfile(b: *Build, profile: BuildProfile) ResolvedConfig {
         .window = window,
         .optimize = mode,
         .use_llvm = use_llvm,
+    };
+}
+
+pub fn fromTargetQuery(name: []const u8, target: std.Target.Query, window_override: ?Window) BuildProfile {
+    const is_android = if (target.abi) |abi| abi.isAndroid() else false;
+    const os = target.os_tag orelse .linux;
+    const window: Window = window_override orelse switch (os) {
+        .windows => .glfw,
+        .linux => if (is_android) .android else .glfw,
+        else => .glfw,
+    };
+
+    return .{
+        .name = name,
+        .target = target,
+        .window = window,
+        .use_llvm = true,
     };
 }
 

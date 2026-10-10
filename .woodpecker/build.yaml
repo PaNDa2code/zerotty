@@ -1,10 +1,10 @@
-when:
-  - event: push
-    branch: master
 
 steps:
   - name: check build and run tests
     image: alpine
+    when:
+      - event: push
+        branch: master
 
     commands:
       - |
@@ -24,3 +24,26 @@ steps:
       - zig build
 
       - zig build test
+
+  - name: deploy release
+    image: alpine
+    when:
+      - event: tag
+        master: master
+
+    commands:
+      - |
+        apk update && apk add --no-cache \
+          sudo \
+          curl \
+          bash \
+          xz \
+          git \
+          ca-certificates \
+          bison \
+          glslang \
+          python3
+
+      - curl -sSf https://raw.githubusercontent.com/MingFei2001/install-zig/refs/heads/main/install-zig.sh | bash
+
+      - zig build release -Darchive -Duse_llvm -Drelease_mode=ReleaseFast

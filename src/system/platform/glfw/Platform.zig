@@ -7,6 +7,7 @@ const root = @import("zerotty").system.platform;
 
 pub const Clipboard = struct {
     const c = @cImport({
+        @cDefine("GLFW_INCLUDE_NONE", "");
         @cInclude("GLFW/glfw3.h");
     });
 

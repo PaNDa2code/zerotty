@@ -15,9 +15,9 @@ pub const InputEvent = union(enum) {
         try switch (self) {
             .keyboard => |kb| writer.print("keyboard_{s}({})", .{ @tagName(kb.type), kb.code }),
             .mouse => |ms| switch (ms) {
-                .move => |mv| writer.print("mouse_move({},{},{},{})", .{ mv.x, mv.y, mv.dx, mv.dy }),
+                .move => |mv| writer.print("mouse_move({:.2},{:.2},{:.2},{:.2})", .{ mv.x, mv.y, mv.dx, mv.dy }),
                 .button => |mb| writer.print("mouse_button_{s}({})", .{ @tagName(mb.state), mb.button }),
-                .scroll => |sc| writer.print("mouse_scroll({},{})", .{ sc.x_offset, sc.y_offset }),
+                .scroll => |sc| writer.print("mouse_scroll({:.2},{:.2})", .{ sc.x_offset, sc.y_offset }),
             },
             .utf8_codepoint => |codepoint| writer.print("codepoint(0x{X})", .{codepoint}),
         };
