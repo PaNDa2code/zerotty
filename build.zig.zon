@@ -43,8 +43,8 @@
             .lazy = true,
         },
         .vulkan = .{
-            .url = "https://github.com/Snektron/vulkan-zig/archive/refs/heads/zig-0.16-compat.tar.gz",
-            .hash = "vulkan-0.0.0-r7Ytx2eGAwD4eDT80fTY2j7CD0pAUIxo9RXu7QvZph78",
+            .url = "git+https://github.com/Snektron/vulkan-zig#f75b0011214705d6593e6ad64948c4832b1e6f27",
+            .hash = "vulkan-0.0.0-r7Ytx759AwBNdwE-gHKt3vzRQaU7RFerBg3FmD7iTEv4",
             .lazy = true,
         },
         .emsdk = .{
