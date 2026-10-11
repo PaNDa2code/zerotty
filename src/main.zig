@@ -17,7 +17,7 @@ fn panicHandle(msg: []const u8, first_trace_addr: ?usize) noreturn {
     std.debug.defaultPanic(msg, first_trace_addr);
 }
 
-export fn wWinMain(
+pub fn wWinMain(
     hInstance: ?*anyopaque,
     hPrevInstance: ?*anyopaque,
     pCmdLine: *[*:0]const u16,

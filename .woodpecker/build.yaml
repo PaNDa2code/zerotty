@@ -9,7 +9,22 @@ steps:
 
     commands:
       - apt-get update
-      - apt-get install -y --no-install-recommends sudo curl bash xz-utils git ca-certificates bison glslang-tools zstd zip python3
+      - |
+        apt-get install -y --no-install-recommends \
+          sudo \
+          curl \
+          bash \
+          xz-utils \
+          git \
+          ca-certificates \
+          bison \
+          glslang-tools \
+          zstd \
+          zip \
+          libvulkan1 \
+          mesa-vulkan-drivers \
+          vulkan-tools \
+          python3
 
       - curl -sSf https://raw.githubusercontent.com/MingFei2001/install-zig/refs/heads/main/install-zig.sh | bash
 

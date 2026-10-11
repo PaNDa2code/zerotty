@@ -6,28 +6,55 @@ steps:
 
     commands:
       - apt-get update
-      - apt-get install -y --no-install-recommends sudo curl bash xz-utils git ca-certificates bison glslang-tools zstd zip python3
+      - |
+        apt-get install -y --no-install-recommends \
+          sudo \
+          curl \
+          bash \
+          xz-utils \
+          git \
+          ca-certificates \
+          bison \
+          glslang-tools \
+          zstd \
+          zip \
+          python3
 
       - curl -sSf https://raw.githubusercontent.com/MingFei2001/install-zig/refs/heads/main/install-zig.sh | bash
 
-      - zig build release -Darchive -Drelease_mode=Debug
-      - zig build release -Darchive -Duse_llvm -Drelease_mode=ReleaseFast
+      - |
+        zig build release \
+          -Darchive \
+          -Drelease_mode=Debug \
+          -Drelease_targets=$RELEASE_TARGETS
+
+      - |
+        zig build release \
+          -Darchive \
+          -Duse_llvm \
+          -Drelease_mode=$RELEASE_MODE \
+          -Drelease_targets=$RELEASE_TARGETS
 
       - ls -R zig-out
+
+    environment:
+      RELEASE_MODE: ReleaseFast
+      RELEASE_TARGETS: x86_64-linux,x86_64-windows,aarch64-linux,aarch64-windows
+
 
   - name: publish release
     image: woodpeckerci/plugin-release
     when:
       - event: tag
     settings:
+      prerelease: true
       api_key:
         from_secret: ACCESS_TOKEN
       base_url: https://codeberg.org
       files:
-        - zig-out/release/zerotty-x86_64-linux-Debug.tar.gz
-        - zig-out/release/zerotty-x86_64-windows-Debug.zip
-        - zig-out/release/zerotty-x86_64-linux-ReleaseFast.tar.gz
-        - zig-out/release/zerotty-x86_64-windows-ReleaseFast.zip
+        - zig-out/release/zerotty-*.tar.gz
+        - zig-out/release/zerotty-*.zip
 
       checksum: sha256
+      checksum-flatten: true
       title: ${CI_COMMIT_TAG}
