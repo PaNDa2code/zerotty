@@ -1,0 +1,27 @@
+steps:
+  - name: run zlint
+    image: alpine:latest
+    when:
+      - event: pull_request
+
+    commands:
+      - apk add --no-cache curl ca-certificates jq tar xz bash libc6-compat
+
+      - curl -fsSL https://raw.githubusercontent.com/DonIsaac/zlint/refs/heads/main/tasks/install.sh | bash
+
+      - code=0; zlint src -f json > lint.json 2>&1 || code=$?
+
+      - cat lint.json
+
+  - name: bot comment
+    image: python:3-alpine
+    when:
+      - event: pull_request
+        status: [success, failure]
+
+    environment:
+      BOT_TOKEN:
+        from_secret: bot_token
+
+    commands:
+      - python3 ci/zlint-report.py lint.json
