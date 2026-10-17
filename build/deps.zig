@@ -9,6 +9,17 @@ pub fn wireAllDeps(b: *Build, mod: *Build.Module, cfg: ResolvedConfig) void {
     wireCore(b, mod, cfg);
     wireVulkan(b, mod);
     wireWindow(b, mod, cfg);
+    wireCBindings(b, mod, cfg);
+}
+
+/// Whether `target` refers to the host. In Zig 0.17 `resolveTargetQuery` returns
+/// `graph.host` for native queries, whose `.query` is an explicit (non-native)
+/// triple, so `target.query.isNative()` can no longer be used for this.
+fn targetIsNative(b: *Build, target: Build.ResolvedTarget) bool {
+    const host = b.graph.host.result;
+    return target.result.cpu.arch == host.cpu.arch and
+        target.result.os.tag == host.os.tag and
+        target.result.abi == host.abi;
 }
 
 /// Core rendering/text/raster deps that every profile needs.
@@ -43,13 +54,13 @@ pub fn wireVulkan(b: *Build, mod: *Build.Module) void {
     const vulkan_headers = b.lazyDependency("vulkan_headers", .{});
     const vulkan_dep = if (vulkan_headers) |vh|
         b.lazyDependency("vulkan", .{
-            .optimize = .Debug,
+            .optimize = .debug,
             .target = "native",
             .registry = vh.path("registry/vk.xml"),
         })
     else
         b.lazyDependency("vulkan", .{
-            .optimize = .Debug,
+            .optimize = .debug,
             .target = "native",
         });
 
@@ -75,18 +86,18 @@ pub fn wireWindow(b: *Build, mod: *Build.Module, cfg: ResolvedConfig) void {
                 mod.addImport("win32", dep.module("win32"));
         },
         .xcb => {
-            if (target.query.isNative()) {
-                mod.linkSystemLibrary("xcb", .{});
-                mod.linkSystemLibrary("xkbcommon", .{});
-            } else {
-                if (b.lazyDependency("xcb", .{ .target = target, .optimize = optimize })) |dep|
-                    mod.linkLibrary(dep.artifact("xcb"));
-                if (b.lazyDependency("xkbcommon", .{
-                    .target = target,
-                    .optimize = optimize,
-                })) |dep|
-                    mod.linkLibrary(dep.artifact("xkbcommon"));
-            }
+            // if (targetIsNative(b, target)) {
+            mod.linkSystemLibrary("xcb", .{});
+            mod.linkSystemLibrary("xkbcommon", .{});
+            // } else {
+            //     if (b.lazyDependency("xcb", .{ .target = target, .optimize = optimize })) |dep|
+            //         mod.linkLibrary(dep.artifact("xcb"));
+            //     if (b.lazyDependency("xkbcommon", .{
+            //         .target = target,
+            //         .optimize = optimize,
+            //     })) |dep|
+            //         mod.linkLibrary(dep.artifact("xkbcommon"));
+            // }
         },
         .android => {
             // _ = b.lazyDependency("ndk_linux");
@@ -110,11 +121,46 @@ pub fn wireWindow(b: *Build, mod: *Build.Module, cfg: ResolvedConfig) void {
     }
 
     // The executable (main entry) links system libs that the app module doesn't.
-    if (target.result.os.tag == .linux and !target.result.abi.isAndroid()) {
-        if (b.lazyDependency("xkbcommon", .{
-            .target = target,
-            .optimize = optimize,
-            .@"xkb-config-root" = "/usr/share/X11/xkb",
-        })) |dep| mod.linkLibrary(dep.artifact("xkbcommon"));
+    // if (target.result.os.tag == .linux and !target.result.abi.isAndroid()) {
+    //     if (b.lazyDependency("xkbcommon", .{
+    //         .target = target,
+    //         .optimize = optimize,
+    //         .@"xkb-config-root" = "/usr/share/X11/xkb",
+    //     })) |dep| mod.linkLibrary(dep.artifact("xkbcommon"));
+    // }
+}
+
+/// Translate a C header into a Zig module using the compiler's built-in
+/// translate-c step (the `@cImport` replacement in Zig 0.17).
+fn translateC(
+    b: *Build,
+    c_source_file: Build.LazyPath,
+    target: Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+) *Build.Module {
+    const tc = b.addTranslateC(.{
+        .root_source_file = c_source_file,
+        .target = target,
+        .optimize = optimize,
+    });
+    return tc.createModule();
+}
+
+/// C headers translated for the selected window backend only, so a build never
+/// requires the headers of a backend it doesn't use.
+pub fn wireCBindings(b: *Build, mod: *Build.Module, cfg: ResolvedConfig) void {
+    const target = cfg.target;
+    const optimize = cfg.optimize;
+
+    switch (cfg.window) {
+        .xcb => {
+            mod.addImport("c_xcb", translateC(b, b.path("build/c/xcb.h"), target, optimize));
+            mod.addImport("c_xkbcommon", translateC(b, b.path("build/c/xkbcommon.h"), target, optimize));
+        },
+        .glfw => {
+            mod.addImport("c_glfw", translateC(b, b.path("build/c/glfw.h"), target, optimize));
+            mod.addImport("c_glfw_vk", translateC(b, b.path("build/c/glfw_vk.h"), target, optimize));
+        },
+        .win32, .android => {},
     }
 }

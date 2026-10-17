@@ -116,8 +116,9 @@ pub fn open(self: *Window, allocator: Allocator) !void {
         return error.CreateWindowFailed;
     }
 
-    const title = try allocator.dupeZ(u8, self.title);
+    const title = try allocator.allocSentinel(u8, self.title.len, 0);
     defer allocator.free(title);
+    @memcpy(title, self.title);
 
     const title_cookie = c.xcb_change_property_checked(
         self.connection,
@@ -427,11 +428,7 @@ const Allocator = std.mem.Allocator;
 const zigimg = @import("zigimg");
 const AssetsManger = zerotty.AssetsManager;
 
-const c = @cImport({
-    @cInclude("xcb/xcb.h");
-    @cInclude("X11/keysym.h");
-    @cInclude("stdlib.h");
-});
+const c = @import("c_xcb");
 
 const root = @import("../root.zig");
 

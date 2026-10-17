@@ -13,8 +13,8 @@ pub const Asset = struct {
         AssetReaderNotFixed,
     };
 
-    /// this returns a refrance slice to file bytes from the main **AssetsManager** memory,
-    /// the buffer is alive until you call `.deinit()` on the **AssetsManager**
+    /// this returns a refrance slice to file bytes from the main AssetsManager memory,
+    /// the buffer is alive until you call `.deinit()` on the AssetsManager
     pub fn fixedBuffer(asset: Asset) FixedBufferError![]const u8 {
         if (asset.reader.end != asset.size)
             return error.AssetReaderNotFixed;

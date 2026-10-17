@@ -25,9 +25,10 @@ pub const Style = struct {
     ) std.Io.Writer.Error!void {
         try writer.print("fg = {f}, bg = {f}", .{ style.fg_color, style.bg_color });
 
-        inline for (@typeInfo(color.ansi.Flags).@"struct".fields) |field| {
-            if (field.type == bool and @field(style.flags, field.name)) {
-                try writer.print(", {s}", .{field.name});
+        const flags_info = @typeInfo(color.ansi.Flags).@"struct";
+        inline for (flags_info.field_names, 0..) |field_name, i| {
+            if (flags_info.field_types[i] == bool and @field(style.flags, field_name)) {
+                try writer.print(", {s}", .{field_name});
             }
         }
     }
@@ -41,7 +42,7 @@ progress_state: ProgressBarState = .remove,
 bell_action_callback: ?*const fn (?*anyopaque) void = null,
 bell_action_data: ?*anyopaque = null,
 
-ocs_buffer: [128]u8 = [1]u8{0} ** 128,
+ocs_buffer: [128]u8 = @splat(0),
 ocs_buffer_len: usize = 0,
 
 /// Partial UTF-8 sequence, since PRINT hands us one byte at a time but cells

@@ -37,13 +37,13 @@ pub fn init(
     errdefer allocator.free(descriptor_set_layouts);
 
     descriptor_set_layouts[0] = try core.DescriptorSetLayout.Builder
-        .addBinding(0, .uniform_buffer, 1, .{ .vertex_bit = true, .fragment_bit = true })
-        .addBinding(1, .combined_image_sampler, 1, .{ .fragment_bit = true })
+        .addBinding(0, .uniform_buffer, 1, .{ .vertex = true, .fragment = true })
+        .addBinding(1, .combined_image_sampler, 1, .{ .fragment = true })
         .build(device);
     errdefer descriptor_set_layouts[0].deinit(device);
 
     descriptor_set_layouts[1] = try core.DescriptorSetLayout.Builder
-        .addBinding(0, .combined_image_sampler, 255, .{ .fragment_bit = true })
+        .addBinding(0, .combined_image_sampler, 255, .{ .fragment = true })
         .build(device);
     errdefer descriptor_set_layouts[1].deinit(device);
 
@@ -55,16 +55,16 @@ pub fn init(
         resources[i].vertex_buffer = try core.Buffer.initAlloc(
             device_allocator,
             1024 * 1024 * 16,
-            .{ .vertex_buffer_bit = true, .transfer_dst_bit = true },
-            .{ .device_local_bit = true },
+            .{ .vertex_buffer = true, .transfer_dst = true },
+            .{ .device_local = true },
             .exclusive,
         );
 
         resources[i].uniform_buffer = try core.Buffer.initAlloc(
             device_allocator,
             @sizeOf(vertex.TextUniform),
-            .{ .uniform_buffer_bit = true, .transfer_dst_bit = true },
-            .{ .host_visible_bit = true, .host_coherent_bit = true },
+            .{ .uniform_buffer = true, .transfer_dst = true },
+            .{ .host_visible = true, .host_coherent = true },
             .exclusive,
         );
 
@@ -89,8 +89,8 @@ pub fn init(
     const staging = try core.Buffer.initAlloc(
         device_allocator,
         @sizeOf(vertex.TextUniform),
-        .{ .transfer_src_bit = true },
-        .{ .host_visible_bit = true, .host_coherent_bit = true },
+        .{ .transfer_src = true },
+        .{ .host_visible = true, .host_coherent = true },
         .exclusive,
     );
 

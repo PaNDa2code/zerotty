@@ -86,7 +86,7 @@ pub fn init(
         .image_color_space = surface_format.color_space,
         .image_extent = extent,
         .image_array_layers = 1,
-        .image_usage = .{ .color_attachment_bit = true },
+        .image_usage = .{ .color_attachment = true },
         .image_sharing_mode = .exclusive,
         .queue_family_index_count = device.physical_device.present_family_index,
         .p_queue_family_indices = null,
@@ -127,7 +127,7 @@ pub fn init(
             .level_count = 1,
             .base_array_layer = 0,
             .layer_count = 1,
-            .aspect_mask = .{ .color_bit = true },
+            .aspect_mask = .{ .color = true },
         },
     };
 
@@ -280,10 +280,10 @@ fn choosePresentMode(
 
 fn chooseCompositeAlpha(supported: vk.CompositeAlphaFlagsKHR) vk.CompositeAlphaFlagsKHR {
     const preferred = [_]vk.CompositeAlphaFlagsKHR{
-        .{ .inherit_bit_khr = true },
-        .{ .opaque_bit_khr = true },
-        .{ .pre_multiplied_bit_khr = true },
-        .{ .post_multiplied_bit_khr = true },
+        .{ .inherit_khr = true },
+        .{ .opaque_khr = true },
+        .{ .pre_multiplied_khr = true },
+        .{ .post_multiplied_khr = true },
     };
 
     for (preferred) |flag| {

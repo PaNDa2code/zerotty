@@ -87,7 +87,7 @@ pub const Builder = struct {
                 .rasterizer_discard_enable = .false,
                 .polygon_mode = .fill,
                 .line_width = 1.0,
-                .cull_mode = .{ .back_bit = true },
+                .cull_mode = .{ .back = true },
                 .front_face = .clockwise,
                 .depth_bias_enable = .false,
                 .depth_bias_constant_factor = 0,
@@ -96,7 +96,7 @@ pub const Builder = struct {
             },
             .multisampling = .{
                 .sample_shading_enable = .false,
-                .rasterization_samples = .{ .@"1_bit" = true },
+                .rasterization_samples = .{ .@"1" = true },
                 .flags = .{},
                 .min_sample_shading = 0,
                 .alpha_to_coverage_enable = .false,

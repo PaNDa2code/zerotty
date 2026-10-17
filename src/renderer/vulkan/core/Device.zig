@@ -77,7 +77,7 @@ pub const CreateFenceError = vk.DeviceWrapper.CreateFenceError;
 pub fn createFence(self: *const Device, signaled: bool) CreateFenceError!vk.Fence {
     return self.vkd.createFence(
         self.handle,
-        &vk.FenceCreateInfo{ .flags = .{ .signaled_bit = signaled } },
+        &vk.FenceCreateInfo{ .flags = .{ .signaled = signaled } },
         self.vk_allocator,
     );
 }
@@ -149,7 +149,7 @@ fn createDevice(
     }
 
     const layers =
-        if (builtin.mode == .Debug)
+        if (builtin.mode == .debug)
             [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"}
         else
             [_][*:0]const u8{};
@@ -245,8 +245,8 @@ fn selectQueueFamilies(
     for (queue_props, 0..) |props, j| {
         const idx: u32 = @intCast(j);
 
-        const graphics_support = props.queue_flags.graphics_bit;
-        const transfer_support = props.queue_flags.transfer_bit;
+        const graphics_support = props.queue_flags.graphics;
+        const transfer_support = props.queue_flags.transfer;
 
         const present_support = surface != .null_handle and
             try instance.vki.getPhysicalDeviceSurfaceSupportKHR(

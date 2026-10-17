@@ -28,7 +28,7 @@ pub fn compiledShadersPathes(
     var glslangValidator: ?*Build.Step.Compile = null;
 
     if (!glslang_tools_installed) {
-        const glslang = b.lazyDependency("glslang", .{ .optimize = .ReleaseFast }) orelse return &.{};
+        const glslang = b.lazyDependency("glslang", .{ .optimize = .fast }) orelse return &.{};
         glslangValidator = glslang.artifact("glslangValidator");
         spirv_opt = glslang.artifact("spirv-opt");
     }
@@ -56,7 +56,7 @@ pub fn compiledShadersPathes(
         const shader_spv_path = glslangValidator_cmd.addOutputFileArg(output_basename);
 
         const output_path =
-            if (b.release_mode != .off) blk: {
+            if (b.graph.release_mode != .off) blk: {
                 const spirv_opt_cmd =
                     if (glslang_tools_installed)
                         b.addSystemCommand(&.{"spirv-opt"})
@@ -65,7 +65,7 @@ pub fn compiledShadersPathes(
 
                 spirv_opt_cmd.addFileArg(shader_spv_path);
 
-                switch (b.release_mode) {
+                switch (b.graph.release_mode) {
                     .small => spirv_opt_cmd.addArg("-Os"),
                     else => spirv_opt_cmd.addArg("-O"),
                 }
@@ -73,7 +73,7 @@ pub fn compiledShadersPathes(
                 break :blk spirv_opt_cmd.addOutputFileArg(output_basename);
             } else shader_spv_path;
 
-        if (b.release_mode == .off)
+        if (b.graph.release_mode == .off)
             glslangValidator_cmd.addArg("-gVS")
         else
             glslangValidator_cmd.addArg("-g0");
@@ -111,7 +111,7 @@ fn findPathAlloc(allocator: std.mem.Allocator, PATH: []const u8, exe: []const u8
     var it = std.mem.tokenizeScalar(u8, PATH, delimiter);
 
     while (it.next()) |search_path| {
-        const full_path = try std.fmt.bufPrintZ(&path_buf, "{s}{c}{s}{s}", .{ search_path, sep, exe, suffix });
+        const full_path = try std.fmt.bufPrintSentinel(&path_buf, "{s}{c}{s}{s}", .{ search_path, sep, exe, suffix }, 0);
         const file = std.Io.Dir.cwd().openFile(io, full_path, .{}) catch |err| {
             switch (err) {
                 error.FileNotFound, error.AccessDenied => continue,

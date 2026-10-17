@@ -15,15 +15,15 @@ pub fn debugMessenger(
 
     const debug_utils_messenger_create_info = vk.DebugUtilsMessengerCreateInfoEXT{
         .message_severity = .{
-            .verbose_bit_ext = true,
-            .warning_bit_ext = true,
-            .error_bit_ext = true,
-            // .info_bit_ext = true,
+            .verbose_ext = true,
+            .warning_ext = true,
+            .error_ext = true,
+            // .info_ext = true,
         },
         .message_type = .{
-            .general_bit_ext = true,
-            .validation_bit_ext = true,
-            .performance_bit_ext = true,
+            .general_ext = true,
+            .validation_ext = true,
+            .performance_ext = true,
         },
         .pfn_user_callback = &debugCallback,
     };
@@ -40,9 +40,9 @@ fn logSev(
     args: anytype,
     message_severity: vk.DebugUtilsMessageSeverityFlagsEXT,
 ) void {
-    if (message_severity.warning_bit_ext)
+    if (message_severity.warning_ext)
         log.warn(fmt, args)
-    else if (message_severity.error_bit_ext)
+    else if (message_severity.error_ext)
         log.err(fmt, args)
     else
         log.info(fmt, args);
@@ -55,11 +55,11 @@ fn debugCallback(
     _: ?*anyopaque,
 ) callconv(.c) vk.Bool32 {
     const message_type: Types =
-        if (message_types.general_bit_ext)
+        if (message_types.general_ext)
             .general
-        else if (message_types.validation_bit_ext)
+        else if (message_types.validation_ext)
             .validation
-        else if (message_types.performance_bit_ext)
+        else if (message_types.performance_ext)
             .performance
         else
             unreachable;

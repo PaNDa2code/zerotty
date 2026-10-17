@@ -50,7 +50,7 @@ pub fn setupReleasePipeline(b: *Build) *Build.Step {
         "Create .tar.gz and .zip archives of release bundles (default: false)",
     ) orelse false;
 
-    const optimize_mode = release_mode_opt orelse .ReleaseFast;
+    const optimize_mode = release_mode_opt orelse .fast;
 
     // Resolve list of profiles to build for the main `release` step
     const profiles = resolveReleaseProfiles(b, release_profiles_opt, release_targets_opt, targets_opt);
@@ -149,22 +149,16 @@ pub fn buildReleaseProfile(
     const app_artifact = app_mod.buildAppArtifact(b, cfg);
 
     const arch_name = @tagName(target.result.cpu.arch);
-    const mode_name = @tagName(optimize);
+    const mode_name = optimizeName(optimize);
     const os_name = @tagName(target.result.os.tag);
 
     // Name format: zerotty + arch + release mode (e.g. zerotty-x86_64-ReleaseFast)
     const release_base_name = b.fmt("zerotty-{s}-{s}-{s}", .{ arch_name, os_name, mode_name });
 
-    const group_step = b.allocator.create(Build.Step) catch @panic("OOM");
-    group_step.* = Build.Step.init(.{
-        .id = .custom,
-        .name = b.fmt("build-release-{s}-{s}", .{ cfg.name, mode_name }),
-        .owner = b,
-    });
-
     // Destination bundle directory in prefix: zig-out/release/{arch}-{os}/
+    const release_sub_path = b.fmt("release/{s}-{s}", .{ arch_name, os_name });
     const release_dir: Build.InstallDir = .{
-        .custom = b.fmt("release/{s}-{s}", .{ arch_name, os_name }),
+        .custom = release_sub_path,
     };
 
     const exe_name = if (is_windows) "zerotty.exe" else if (is_android) "zerotty.apk" else "zerotty";
@@ -174,7 +168,6 @@ pub fn buildReleaseProfile(
         .dest_dir = release_dir,
         .dest_sub_path = exe_name,
     });
-    group_step.dependOn(install_in_release_dir);
 
     // 2. Install target-prefixed executable into zig-out/bin/zerotty-{arch}-{mode}[.exe]
     const bin_name = if (is_windows)
@@ -187,47 +180,60 @@ pub fn buildReleaseProfile(
     const install_in_bin = app_mod.installAppArtifact(b, app_artifact, .{
         .dest_sub_path = bin_name,
     });
-    group_step.dependOn(install_in_bin);
 
     // 3. Include README.md and LICENSE in release bundle directory
     const copy_license = b.addInstallFileWithDir(b.path("LICENSE"), release_dir, "LICENSE");
     const copy_readme = b.addInstallFileWithDir(b.path("README.md"), release_dir, "README.md");
+
+    // Zig 0.17 removed custom build steps, so this group is represented by the
+    // last install step with the remaining install/archive steps attached to it.
+    const group_step = install_in_bin;
+    group_step.dependOn(install_in_release_dir);
     group_step.dependOn(&copy_license.step);
     group_step.dependOn(&copy_readme.step);
 
     // 4. Archive packaging if requested
     if (archive and !is_android) {
+        const bundle_dir = installPrefixPath(release_sub_path);
+        const out_zip_path = b.fmt("release/{s}.zip", .{release_base_name});
+        const out_tar_path = b.fmt("release/{s}.tar.gz", .{release_base_name});
         if (is_windows) {
             const zip_cmd = b.addSystemCommand(&.{"zip"});
-            const bundle_path = b.getInstallPath(release_dir, "");
-            zip_cmd.setCwd(.{ .cwd_relative = bundle_path });
+            zip_cmd.setCwd(bundle_dir);
             zip_cmd.addArgs(&.{ "-q", "-r" });
-            const out_zip_path = b.fmt("release/{s}.zip", .{release_base_name});
-            const zip_dest = b.getInstallPath(.prefix, out_zip_path);
-            zip_cmd.addArg(zip_dest);
+            zip_cmd.addFileArg2(installPrefixPath(out_zip_path), .{});
             zip_cmd.addArg(".");
-            zip_cmd.step.dependOn(install_in_release_dir);
-            zip_cmd.step.dependOn(&copy_license.step);
-            zip_cmd.step.dependOn(&copy_readme.step);
             group_step.dependOn(&zip_cmd.step);
         } else {
             const tar_cmd = b.addSystemCommand(&.{
                 "tar",
                 "-czf",
             });
-            const out_tar_path = b.fmt("release/{s}.tar.gz", .{release_base_name});
-            const tar_dest = b.getInstallPath(.prefix, out_tar_path);
-            tar_cmd.addArg(tar_dest);
+            tar_cmd.addFileArg2(installPrefixPath(out_tar_path), .{});
             tar_cmd.addArg("-C");
-            const bundle_dir = b.getInstallPath(release_dir, "");
-            tar_cmd.addArg(bundle_dir);
+            tar_cmd.addFileArg2(bundle_dir, .{});
             tar_cmd.addArg(".");
-            tar_cmd.step.dependOn(install_in_release_dir);
-            tar_cmd.step.dependOn(&copy_license.step);
-            tar_cmd.step.dependOn(&copy_readme.step);
             group_step.dependOn(&tar_cmd.step);
         }
     }
 
     return group_step;
+}
+
+/// `std.lang.Optimize` tag names are lowercase in Zig 0.17; keep the historical
+/// `ReleaseFast`-style naming used by release artifacts.
+fn optimizeName(optimize: std.lang.Optimize) []const u8 {
+    return switch (optimize) {
+        .debug => "Debug",
+        .safe => "ReleaseSafe",
+        .fast => "ReleaseFast",
+        .small => "ReleaseSmall",
+    };
+}
+
+/// A path relative to the install prefix. The prefix is only known at make
+/// time, so it is expressed lazily instead of via `b.getInstallPath` (removed
+/// in Zig 0.17).
+fn installPrefixPath(sub_path: []const u8) Build.LazyPath {
+    return .{ .relative = .{ .base = .install_prefix, .sub_path = sub_path } };
 }

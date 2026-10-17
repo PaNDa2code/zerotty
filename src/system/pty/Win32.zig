@@ -22,15 +22,15 @@ fn isInvaliedOrNull(handle: ?HANDLE) bool {
 var random = std.Random.DefaultPrng.init(0xAA);
 
 pub fn open(self: *Pty, options: PtyOptions) !void {
-    var stdin_read: ?HANDLE = undefined;
-    var stdin_write: ?HANDLE = undefined;
-    var stdout_read: ?HANDLE = undefined;
-    var stdout_write: ?HANDLE = undefined;
-    var h_pesudo_console: ?HPCON = undefined;
+    var stdin_read: ?HANDLE = null;
+    var stdin_write: ?HANDLE = null;
+    var stdout_read: ?HANDLE = null;
+    var stdout_write: ?HANDLE = null;
+    var h_pesudo_console: ?HPCON = null;
 
     var buffer: [1024]u8 = undefined;
 
-    const stdin_pipe_name = try std.fmt.bufPrintZ(buffer[0..], "\\\\.\\pipe\\{s}-{}", .{ "stdin", random.next() });
+    const stdin_pipe_name = try std.fmt.bufPrintSentinel(buffer[0..], "\\\\.\\pipe\\{s}-{}", .{ "stdin", random.next() }, 0);
 
     stdin_read = win32pipe.CreateNamedPipeA(
         stdin_pipe_name,
@@ -61,7 +61,7 @@ pub fn open(self: *Pty, options: PtyOptions) !void {
         std.debug.panic("CreateFileA: {s}", .{@tagName(win32.foundation.GetLastError())});
     }
 
-    const stdout_pipe_name = try std.fmt.bufPrintZ(buffer[0..], "\\\\.\\pipe\\{s}-{}", .{ "stdout", random.next() });
+    const stdout_pipe_name = try std.fmt.bufPrintSentinel(buffer[0..], "\\\\.\\pipe\\{s}-{}", .{ "stdout", random.next() }, 0);
 
     stdout_read = win32pipe.CreateNamedPipeA(
         stdout_pipe_name,
@@ -92,12 +92,12 @@ pub fn open(self: *Pty, options: PtyOptions) !void {
         std.debug.panic("CreateFileA: {s}", .{@tagName(win32.foundation.GetLastError())});
     }
 
-    // if (isInvaliedOrNull(stdin_read) or isInvaliedOrNull(stdin_write)) {
-    //     return error.PipeCreationFailed;
-    // }
-    // if (isInvaliedOrNull(stdout_read) or isInvaliedOrNull(stdout_write)) {
-    //     return error.PipeCreationFailed;
-    // }
+    if (isInvaliedOrNull(stdin_read) or isInvaliedOrNull(stdin_write)) {
+        return error.PipeCreationFailed;
+    }
+    if (isInvaliedOrNull(stdout_read) or isInvaliedOrNull(stdout_write)) {
+        return error.PipeCreationFailed;
+    }
 
     const hresult = win32con.CreatePseudoConsole(
         .{ .X = @intCast(options.size.width), .Y = @intCast(options.size.height) },
@@ -142,7 +142,7 @@ pub fn resize(self: *Pty, size: PtySize) !void {
         self.h_pesudo_console,
         .{ .X = @bitCast(size.width), .Y = @bitCast(size.height) },
     );
-    
+
     _ = hresult;
     // if (win32.zig.FAILED(hresult)) {
     //     return error.PtyResizeFailed;

@@ -37,7 +37,7 @@ pub fn findESCs(allocator: std.mem.Allocator, buffer: []const u8) !std.SinglyLin
     if (i < buffer.len) {
         chunk = null_vec;
 
-        var tail = [_]u8{0} ** v_len;
+        var tail: [v_len]u8 = @splat(0);
         @memcpy(tail[0 .. buffer.len - i], buffer[i..]);
         chunk = @bitCast(tail);
 

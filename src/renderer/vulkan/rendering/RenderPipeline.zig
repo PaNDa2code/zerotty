@@ -91,7 +91,7 @@ pub fn init(
 
     try renderpass_builder.addAttachment(.{
         .format = display_info.image_attachemnt_format,
-        .samples = .{ .@"1_bit" = true },
+        .samples = .{ .@"1" = true },
         .load_op = .clear,
         .store_op = .store,
         .stencil_load_op = .dont_care,
@@ -110,10 +110,10 @@ pub fn init(
     try renderpass_builder.addDependency(.{
         .src_subpass = vk.SUBPASS_EXTERNAL,
         .dst_subpass = 0,
-        .src_stage_mask = .{ .color_attachment_output_bit = true },
+        .src_stage_mask = .{ .color_attachment_output = true },
         .src_access_mask = .{},
-        .dst_stage_mask = .{ .color_attachment_output_bit = true },
-        .dst_access_mask = .{ .color_attachment_write_bit = true },
+        .dst_stage_mask = .{ .color_attachment_output = true },
+        .dst_access_mask = .{ .color_attachment_write = true },
     });
 
     const renderpass = try renderpass_builder.build(device);
@@ -148,10 +148,10 @@ pub fn init(
         .dst_alpha_blend_factor = .zero,
         .alpha_blend_op = .add,
         .color_write_mask = .{
-            .r_bit = true,
-            .g_bit = true,
-            .b_bit = true,
-            .a_bit = true,
+            .r = true,
+            .g = true,
+            .b = true,
+            .a = true,
         },
     };
 

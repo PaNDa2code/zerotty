@@ -20,11 +20,11 @@ pub const AppArtifact = struct {
         apk: Build.LazyPath,
     };
 
-    pub fn getStep(self: AppArtifact) *Build.Step {
+    pub fn getStep(self: AppArtifact, b: *Build) *Build.Step {
         return switch (self.artifact) {
             .exe => |exe| &exe.step,
             .apk => |apk| switch (apk) {
-                .generated => |g| @constCast(g.file.step),
+                .generated => |g| b.graph.generated_files.items[@intFromEnum(g.index)],
                 else => unreachable,
             },
         };
@@ -47,7 +47,7 @@ pub fn buildAppArtifact(b: *Build, cfg: Config) AppArtifact {
 
     const options = b.addOptions();
     options.addOption(profiles_mod.Window, "window", cfg.window);
-    options.addOption(bool, "renderer_debug", cfg.optimize == .Debug);
+    options.addOption(bool, "renderer_debug", cfg.optimize == .debug);
 
     zerrotty_mod.addImport("build_options", options.createModule());
     zerrotty_mod.addImport("zerotty", zerrotty_mod);
@@ -123,7 +123,7 @@ pub fn installAppArtifact(
 
 pub fn buildAppStep(b: *Build, cfg: Config, check_only: bool) *Build.Step {
     const app_artifact = buildAppArtifact(b, cfg);
-    if (check_only) return app_artifact.getStep();
+    if (check_only) return app_artifact.getStep(b);
 
     switch (app_artifact.artifact) {
         .apk => {

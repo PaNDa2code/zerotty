@@ -26,7 +26,7 @@ steps:
           vulkan-tools \
           python3
 
-      - curl -sSf https://raw.githubusercontent.com/MingFei2001/install-zig/refs/heads/main/install-zig.sh | bash
+      - ci/install-zig.sh
 
       - zig build
       - zig build test

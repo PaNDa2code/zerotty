@@ -174,7 +174,7 @@ pub const SwapchainTarget = struct {
             params.cmd,
             image_available,
             render_finished,
-            .{ .color_attachment_output_bit = true },
+            .{ .color_attachment_output = true },
             params.in_flight_fence,
         ) catch return error.QueueCannotPresnt;
 

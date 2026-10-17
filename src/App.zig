@@ -86,7 +86,7 @@ pub fn init(
     environ_map: *std.process.Environ.Map,
 ) !App {
     AssetsManager.instance =
-        if (builtin.mode == .ReleaseSmall)
+        if (builtin.mode == .small)
             try .decompressAndInit(
                 allocator,
                 AssetsManager.assets_archive,
@@ -357,9 +357,10 @@ pub fn run(self: *App) !void {
                         &new_atlas,
                     );
                 };
+            const glyph_entry_bits = glyph_entry.toInt();
             try instance_list.append(self.allocator, .{
                 .p_postion = (@as(u32, @intCast(item.y)) & 0xFFFF) | (@as(u32, @intCast(item.x)) << 16),
-                .p_glyph_entry = @bitCast(glyph_entry),
+                .p_glyph_entry = @as(*const @TypeOf(instance_list.items[0].p_glyph_entry), @ptrCast(&glyph_entry_bits)).*,
                 .fg_color = item.cell.fg_color,
                 .bg_color = item.cell.bg_color,
             });
@@ -412,8 +413,8 @@ pub fn run(self: *App) !void {
             const fps = @as(f64, @floatFromInt(frames)) / secands;
 
             var buf: [255]u8 = undefined;
-            const title = try std.fmt.bufPrintZ(&buf, "zerotty - FPS: {:.02}", .{fps});
-            try self.platform.current_window.?.setTitle(title);
+            const title = try std.fmt.bufPrintSentinel(buf[0 .. buf.len - 1], "zerotty - FPS: {:.02}", .{fps}, 0);
+            try self.platform.current_window.?.setTitle(buf[0..title.len]);
 
             frames = 0;
             frame_tik = .now(self.io, .real);

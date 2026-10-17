@@ -21,9 +21,9 @@
 //! The contract normalizes two things the backends disagree about, because
 //! everything above this layer depends on them being consistent:
 //!
-//! - **Glyph indices** are `u32` with `0` meaning `.notdef`. FreeType already
+//! -**Glyph indices**are `u32` with `0` meaning `.notdef`. FreeType already
 //!   reports `null` for index 0; TrueType returns a non-exhaustive enum.
-//! - **Metrics are unscaled font units.** Both backends are asked for
+//! -**Metrics are unscaled font units.**Both backends are asked for
 //!   unscaled values (`FT_LOAD_NO_SCALE`) so that scaling happens in exactly
 //!   one place -- `FontInterface` -- rather than once per backend.
 

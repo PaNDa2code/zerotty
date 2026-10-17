@@ -27,7 +27,7 @@ pub fn new(title: []const u8, height: u32, width: u32) Window {
 }
 
 pub fn open(self: *Window, allocator: Allocator, event_queue: *root.EventQueue) !void {
-    if (@import("builtin").mode == .Debug)
+    if (@import("builtin").mode == .debug)
         _ = c.glfwSetErrorCallback(callbacks.errorCallback);
 
     _ = c.glfwInit();
@@ -35,8 +35,9 @@ pub fn open(self: *Window, allocator: Allocator, event_queue: *root.EventQueue) 
     // if (render_backend != .opengl)
     c.glfwWindowHint(c.GLFW_CLIENT_API, c.GLFW_NO_API);
 
-    const title = try allocator.dupeZ(u8, self.title);
+    const title = try allocator.allocSentinel(u8, self.title.len, 0);
     defer allocator.free(title);
+    @memcpy(title, self.title);
 
     self.window = c.glfwCreateWindow(
         @intCast(self.width),
@@ -72,9 +73,10 @@ pub fn open(self: *Window, allocator: Allocator, event_queue: *root.EventQueue) 
 }
 
 pub fn setTitle(self: *Window, title: []const u8) !void {
-    const title_z = try std.heap.c_allocator.dupeZ(u8, title);
+    const title_z = try std.heap.c_allocator.allocSentinel(u8, title.len, 0);
+    defer std.heap.c_allocator.free(title_z);
+    @memcpy(title_z, title);
     c.glfwSetWindowTitle(self.window, title_z);
-    std.heap.c_allocator.free(title_z);
 }
 
 pub fn poll(_: *Window) void {
@@ -261,10 +263,6 @@ const std = @import("std");
 
 const root = @import("zerotty").system.platform;
 const keyboard = @import("zerotty").system.input.keyboard;
-const c = @cImport({
-    @cDefine("GLFW_INCLUDE_NONE", "");
-    @cDefine("GLFW_INCLUDE_VULKAN", "");
-    @cInclude("GLFW/glfw3.h");
-});
+const c = @import("c_glfw");
 
 const Allocator = std.mem.Allocator;

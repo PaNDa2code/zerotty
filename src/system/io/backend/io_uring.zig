@@ -275,22 +275,18 @@ const Operation = root.Operation;
 const Result = root.Result;
 
 test "io_uring pipe write test" {
-    const c_unistd = @cImport({
-        @cInclude("unistd.h");
-    });
-
     var context: Context = undefined;
     try context.setup();
     defer context.close();
 
     // Create a pipe
-    var fds: [2]c_int = undefined;
-    if (c_unistd.pipe(&fds) != 0) {
+    var fds: [2]linux.fd_t = undefined;
+    if (linux.pipe(&fds) != 0) {
         std.debug.print("pipe creation failed\n", .{});
         return;
     }
-    defer _ = c_unistd.close(fds[0]);
-    defer _ = c_unistd.close(fds[1]);
+    defer _ = linux.close(fds[0]);
+    defer _ = linux.close(fds[1]);
 
     // Buffer to write
     const buf: []const u8 = @as([1000]u8, @splat(0xAA))[0..];
@@ -310,6 +306,6 @@ test "io_uring pipe write test" {
     try std.testing.expect(res == buf.len);
 
     var read_buf: [1002]u8 = undefined;
-    const n = c_unistd.read(fds[0], &read_buf, @intCast(read_buf.len));
+    const n = linux.read(fds[0], &read_buf, read_buf.len);
     try std.testing.expectEqualSlices(u8, buf[0..], read_buf[0..@intCast(n)]);
 }

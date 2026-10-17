@@ -16,18 +16,18 @@ pub const Builder = struct {
     image_type: vk.ImageType = .@"2d",
     mip_levels: u32 = 1,
     array_layers: u32 = 1,
-    samples: vk.SampleCountFlags = .{ .@"1_bit" = true },
+    samples: vk.SampleCountFlags = .{ .@"1" = true },
     tiling: vk.ImageTiling = .optimal,
     sharing_mode: vk.SharingMode = .exclusive,
     initial_layout: vk.ImageLayout = .undefined,
     flags: vk.ImageCreateFlags = .{},
 
     memory_flags: vk.MemoryPropertyFlags = .{
-        .device_local_bit = true,
+        .device_local = true,
     },
 
     view_type: vk.ImageViewType = .@"2d",
-    aspect_mask: vk.ImageAspectFlags = .{ .color_bit = true },
+    aspect_mask: vk.ImageAspectFlags = .{ .color = true },
     component_mapping: vk.ComponentMapping = .{
         .r = .identity,
         .g = .identity,
@@ -81,16 +81,16 @@ pub const Builder = struct {
     }
 
     pub fn asColorAttachment(self: *Builder) *Builder {
-        _ = self.addUsage(.{ .color_attachment_bit = true });
+        _ = self.addUsage(.{ .color_attachment = true });
         _ = self.setFormat(.b8g8r8a8_srgb);
         return self;
     }
 
     pub fn asDepthAttachment(self: *Builder) *Builder {
-        _ = self.addUsage(.{ .depth_stencil_attachment_bit = true });
+        _ = self.addUsage(.{ .depth_stencil_attachment = true });
         _ = self.setFormat(.d32_sfloat);
-        _ = self.setAspect(.{ .depth_bit = true });
-        self.memory_flags = .{ .device_local_bit = true };
+        _ = self.setAspect(.{ .depth = true });
+        self.memory_flags = .{ .device_local = true };
         return self;
     }
 

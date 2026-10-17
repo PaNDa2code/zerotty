@@ -198,25 +198,37 @@ fn startLinux(
         else
             try std.Io.Dir.realPathFileAbsoluteAlloc(io, path, arina);
 
-    const pathZ = try arina.dupeZ(u8, path_absolute);
-    const argsZ = try arina.allocSentinel(?[*:0]u8, self.args.len, null);
+    // build zero-terminated paths
+    var pathZbuf: [std.fs.max_path_bytes]u8 = undefined;
+    const pathZlen = @min(path_absolute.len, pathZbuf.len - 1);
+    @memcpy(pathZbuf[0..pathZlen], path_absolute[0..pathZlen]);
+    pathZbuf[pathZlen] = 0;
+    const pathZptr = pathZbuf[0..pathZlen :0].ptr;
+
+    var argZptrs: []?[*:0]u8 = try arina.alloc(?[*:0]u8, self.args.len + 1);
     for (self.args, 0..) |arg, i| {
-        argsZ[i] = try arina.dupeZ(u8, arg);
+        const buf = try arina.allocSentinel(u8, arg.len, 0);
+        @memcpy(buf, arg);
+        argZptrs[i] = buf.ptr;
     }
+    argZptrs[self.args.len] = null;
 
     const envZ: [*:null]const ?[*:0]u8 = envz: {
-        const envZ = try arina.allocSentinel(?[*:0]u8, environ_map.count(), null);
         var it = environ_map.iterator();
         var i: usize = 0;
+        while (it.next()) |_| : (i += 1) {}
+        var envSentinel = try arina.allocSentinel(?[*:0]u8, i, null);
+        it = environ_map.iterator();
+        i = 0;
         while (it.next()) |entry| : (i += 1) {
-            envZ[i] = try std.fmt.allocPrintSentinel(
+            envSentinel[i] = try std.fmt.allocPrintSentinel(
                 arina,
                 "{s}={s}",
                 .{ entry.key_ptr.*, entry.value_ptr.* },
                 0,
             );
         }
-        break :envz envZ.ptr;
+        break :envz envSentinel.ptr;
     };
 
     const pid: isize = @bitCast(linux.fork());
@@ -249,7 +261,7 @@ fn startLinux(
         _ = linux.close(p.slave);
     }
 
-    const ret = linux.execve(pathZ, argsZ, envZ);
+    const ret = linux.execve(pathZptr, @ptrCast(argZptrs.ptr), envZ);
     _ = linux.exit(@intCast(ret));
 }
 
@@ -261,7 +273,7 @@ fn waitLinux(self: *const ChildProcess, block: bool) !WaitResult {
     var status: u32 = 0;
     const res = linux.waitpid(
         self.id,
-        &status,
+        @ptrCast(&status),
         if (!block) linux.W.NOHANG else 0,
     );
 
@@ -299,7 +311,8 @@ fn findPathAlloc(
     var it = std.mem.tokenizeScalar(u8, PATH, delimiter);
 
     while (it.next()) |search_path| {
-        const full_path = try std.fmt.bufPrintZ(&path_buf, "{s}{c}{s}{s}", .{ search_path, sep, exe, suffix });
+        const full_path = try std.fmt.bufPrint(&path_buf, "{s}{c}{s}{s}", .{ search_path, sep, exe, suffix });
+        path_buf[full_path.len] = 0;
         const file = std.Io.Dir.cwd().openFile(io, full_path, .{}) catch |err| {
             switch (err) {
                 error.FileNotFound, error.AccessDenied => continue,

@@ -34,7 +34,7 @@ pub fn initFromImages(
             .level_count = 1,
             .base_array_layer = 0,
             .layer_count = 1,
-            .aspect_mask = .{ .color_bit = true },
+            .aspect_mask = .{ .color = true },
         },
     };
 

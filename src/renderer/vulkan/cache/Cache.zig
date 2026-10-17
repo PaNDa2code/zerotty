@@ -91,7 +91,7 @@ pub fn recordCopyCmd(
                 .depth = 1,
             },
             .image_subresource = .{
-                .aspect_mask = .{ .color_bit = true },
+                .aspect_mask = .{ .color = true },
                 .mip_level = 0,
                 .base_array_layer = 0,
                 .layer_count = 1,
@@ -112,7 +112,7 @@ pub fn recordCopyCmd(
         try transitionImageLayout(
             cmd,
             tex.image.handle,
-            .{ .color_bit = true },
+            .{ .color = true },
             tex.layout,
             .transfer_dst_optimal,
             arina_alloc,
@@ -128,7 +128,7 @@ pub fn recordCopyCmd(
         try transitionImageLayout(
             cmd,
             tex.image.handle,
-            .{ .color_bit = true },
+            .{ .color = true },
             .transfer_dst_optimal,
             .shader_read_only_optimal,
             arina_alloc,
@@ -165,27 +165,27 @@ fn transitionImageLayout(
     switch (old_layout) {
         .undefined, .preinitialized => {
             src_access_mask = .{};
-            src_stage_mask.top_of_pipe_bit = true;
+            src_stage_mask.top_of_pipe = true;
         },
         .transfer_dst_optimal => {
-            src_access_mask.transfer_write_bit = true;
-            src_stage_mask.all_transfer_bit = true;
+            src_access_mask.transfer_write = true;
+            src_stage_mask.all_transfer = true;
         },
         .shader_read_only_optimal => {
-            src_access_mask.shader_read_bit = true;
-            src_stage_mask.all_graphics_bit = true;
+            src_access_mask.shader_read = true;
+            src_stage_mask.all_graphics = true;
         },
         else => {},
     }
 
     switch (new_layout) {
         .transfer_dst_optimal => {
-            dst_access_mask.transfer_write_bit = true;
-            dst_stage_mask.all_transfer_bit = true;
+            dst_access_mask.transfer_write = true;
+            dst_stage_mask.all_transfer = true;
         },
         .shader_read_only_optimal => {
-            dst_access_mask.shader_read_bit = true;
-            dst_stage_mask.fragment_shader_bit = true;
+            dst_access_mask.shader_read = true;
+            dst_stage_mask.fragment_shader = true;
         },
         else => {},
     }

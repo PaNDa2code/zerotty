@@ -5,7 +5,7 @@ const asBytes = std.mem.asBytes;
 
 fn staticList(comptime T: type, comptime n: usize, comptime fill: T) type {
     return struct {
-        items: [n]T = [_]T{fill} ** n,
+        items: [n]T = @splat(fill),
         len: usize = 0,
         fn decOrder(_: void, lhs: @This(), rhs: @This()) bool {
             return lhs.len > rhs.len;
@@ -80,7 +80,7 @@ pub fn PerfectHashMap(comptime K: type, comptime V: type) type {
                 .@"struct" => |s| blk: {
                     if (s.is_tuple) @compileError("tuple keys are not supported");
                     var n: usize = 0;
-                    inline for (s.fields) |f| n += encodedSize(f.type);
+                    inline for (s.field_types) |f| n += encodedSize(f);
                     break :blk n;
                 },
                 else => @compileError("unsupported key type: " ++ @typeName(T)),
@@ -113,8 +113,8 @@ pub fn PerfectHashMap(comptime K: type, comptime V: type) type {
                     i += int_slot;
                 },
                 .@"struct" => |s| {
-                    inline for (s.fields) |f| {
-                        i += encode(f.type, @field(v, f.name), buf[i..]).len;
+                    inline for (s.field_names, 0..) |field_name, fi| {
+                        i += encode(s.field_types[fi], @field(v, field_name), buf[i..]).len;
                     }
                 },
                 else => @compileError("unsupported key type: " ++ @typeName(T)),
@@ -251,10 +251,10 @@ pub fn PerfectHashMap(comptime K: type, comptime V: type) type {
                 // O(N²)
                 @setEvalBranchQuota(@max(n * n, 100_000));
 
-                var keys: [n]K = [1]K{undefined} ** n;
-                var values: [n]V = [1]V{undefined} ** n;
-                var value_setted: [n]bool = [1]bool{false} ** n;
-                var displacement_table: [n]isize = [1]isize{0} ** n;
+                var keys: [n]K = undefined;
+                var values: [n]V = undefined;
+                var value_setted: [n]bool = @splat(false);
+                var displacement_table: [n]isize = @splat(0);
 
                 for (kv_list, 0..) |a, i| {
                     for (kv_list[i + 1 ..]) |b| {
@@ -265,7 +265,7 @@ pub fn PerfectHashMap(comptime K: type, comptime V: type) type {
 
                 const bucketType = staticList(usize, n, 0);
 
-                var buckets: [n]bucketType = [1]bucketType{.{}} ** n;
+                var buckets: [n]bucketType = @splat(.{});
 
                 for (kv_list, 0..) |kv, key_index| {
                     buckets[hash(kv.@"0", 0, n)].append(key_index);

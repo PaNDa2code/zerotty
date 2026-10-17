@@ -1,3 +1,4 @@
+const std = @import("std");
 const DynamicLibrary = @This();
 
 lib: usize,
@@ -27,9 +28,9 @@ pub fn deinit(self: *const DynamicLibrary) void {
 }
 
 fn initPosix(library_name: [*:0]const u8) !DynamicLibrary {
-    return .{ .lib = @intFromPtr(dlfcn_c.dlopen(
+    return .{ .lib = @intFromPtr(std.c.dlopen(
         library_name,
-        dlfcn_c.RTLD_NOW,
+        .{ .NOW = true },
     ) orelse return error.FailedToLoadDynamicLibrary) };
 }
 
@@ -42,7 +43,7 @@ fn getProcAddressWindows(self: *const DynamicLibrary, name: [*:0]const u8) ?*con
 }
 
 fn getProcAddressPosix(self: *const DynamicLibrary, name: [*:0]const u8) ?*const anyopaque {
-    return dlfcn_c.dlsym(@ptrFromInt(self.lib), name);
+    return std.c.dlsym(@ptrFromInt(self.lib), name);
 }
 
 fn deinitWindows(self: *const DynamicLibrary) void {
@@ -50,17 +51,13 @@ fn deinitWindows(self: *const DynamicLibrary) void {
 }
 
 fn deinitPosix(self: *const DynamicLibrary) void {
-    _ = dlfcn_c.dlclose(@ptrFromInt(self.lib));
+    _ = std.c.dlclose(@ptrFromInt(self.lib));
 }
 
 const win32 = @import("win32");
 const LoadLibrary = win32.system.library_loader.LoadLibraryA;
 const GetProcAddress = win32.system.library_loader.GetProcAddress;
 const FreeLibrary = win32.system.library_loader.FreeLibrary;
-
-const dlfcn_c = @cImport({
-    @cInclude("dlfcn.h");
-});
 
 test DynamicLibrary {
     const loader = try DynamicLibrary.init(if (@import("builtin").os.tag == .windows) "C:\\Windows\\System32\\opengl32.dll" else "libGL.so.1");

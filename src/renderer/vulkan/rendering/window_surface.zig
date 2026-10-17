@@ -89,7 +89,7 @@ pub fn createWindowSurface(
         var surface: vk.SurfaceKHR = .null_handle;
 
         const vkres = c.glfwCreateWindowSurface(
-            @ptrFromInt(@intFromEnum(instance.handle)),
+            @ptrCast(instance.handle),
             @ptrCast(surface_creation_info.glfw.window),
             @ptrCast(instance.vk_allocator),
             @ptrCast(&surface),
@@ -139,8 +139,4 @@ pub fn createWindowSurface(
 
 const platform = @import("zerotty").system.platform;
 
-const c = @cImport({
-    @cDefine("GLFW_INCLUDE_NONE", "");
-    @cDefine("GLFW_INCLUDE_VULKAN", "");
-    @cInclude("GLFW/glfw3.h");
-});
+const c = @import("c_glfw_vk");

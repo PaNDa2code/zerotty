@@ -70,7 +70,7 @@ pub fn beginSecondary(
     };
 
     if (render_pass) |rp| {
-        flags.render_pass_continue_bit = true;
+        flags.render_pass_continue = true;
         inheritance_info.render_pass = rp.handle;
         inheritance_info.subpass = subpass;
         inheritance_info.framebuffer = if (framebuffer) |fb| fb.handle else .null_handle;
@@ -102,7 +102,7 @@ pub const ResetError = vk.DeviceWrapper.ResetCommandBufferError;
 pub fn reset(self: *CommandBuffer, release_resources: bool) ResetError!void {
     try self.device.vkd.resetCommandBuffer(
         self.handle,
-        .{ .release_resources_bit = release_resources },
+        .{ .release_resources = release_resources },
     );
 }
 

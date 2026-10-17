@@ -133,7 +133,7 @@ pub const CommandBufferRegistry = struct {
         const thread_context_ptr =
             self.findThreadContextPtr() orelse return error.NoThreadContext;
 
-        return thread_context_ptr.command_buffers[@intFromEnum(cmd.handle)];
+        return thread_context_ptr.command_buffers[@intFromPtr(cmd.handle)];
     }
 
     pub fn begin(

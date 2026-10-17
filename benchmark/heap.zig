@@ -30,9 +30,9 @@ pub const ProfilingAllocator = struct {
     resize_shrink: usize = 0,
     resize_fail: usize = 0,
 
-    alloc_hist: [bucket_limits.len + 1]usize = .{0} ** (bucket_limits.len + 1),
+    alloc_hist: [bucket_limits.len + 1]usize = @splat(0),
 
-    alloc_bytes_hist: [bucket_limits.len + 1]usize = .{0} ** (bucket_limits.len + 1),
+    alloc_bytes_hist: [bucket_limits.len + 1]usize = @splat(0),
 
     pub fn init(child: Allocator) ProfilingAllocator {
         return .{ .child = child };

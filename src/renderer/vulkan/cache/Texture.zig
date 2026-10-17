@@ -33,7 +33,7 @@ pub fn init(
     const image = try image_builder
         .setFormat(options.format)
         .setSize(width, height)
-        .addUsage(.{ .sampled_bit = true, .transfer_dst_bit = true })
+        .addUsage(.{ .sampled = true, .transfer_dst = true })
         .setMipLevels(1)
         .build(device_allocator);
 

@@ -33,32 +33,25 @@ pub const Ndk = struct {
         target: Build.ResolvedTarget,
         api_level: u32,
     ) !Build.LazyPath {
-        const path = try ndk.cli_path.getPath4(b, null);
-
-        const ndk_root = try path.root_dir.join(
-            b.allocator,
-            &.{path.sub_path},
-        );
-
-        const sysroot = b.fmt("{s}/toolchains/llvm/prebuilt/{s}/sysroot", .{
-            ndk_root,
-            hostPrebuiltDir(),
-        });
-
         const triple = ndkTriple(target.result.cpu.arch);
 
-        const write = b.addWriteFiles();
+        const sysroot = ndk.cli_path.path(b, b.fmt(
+            "toolchains/llvm/prebuilt/{s}/sysroot",
+            .{hostPrebuiltDir()},
+        ));
 
-        const content = b.fmt(
-            \\include_dir={0s}/usr/include
-            \\sys_include_dir={0s}/usr/include/{1s}
-            \\crt_dir={0s}/usr/lib/{1s}/{2d}
-            \\msvc_lib_dir=
-            \\kernel32_lib_dir=
-            \\gcc_dir=
-        , .{ sysroot, triple, api_level });
-
-        return write.add("libc.txt", content);
+        // Zig 0.17 splits the configure phase from the make phase, so the NDK
+        // path and the install prefix are not known while `build.zig` runs.
+        // Generate the libc file during the make phase instead, passing the
+        // resolved sysroot path to the shell.
+        const gen = b.addSystemCommand(&.{ "sh", "-c" });
+        gen.addArg(b.fmt(
+            "printf 'include_dir=%s/usr/include\\nsys_include_dir=%s/usr/include/{0s}\\ncrt_dir=%s/usr/lib/{0s}/{1d}\\nmsvc_lib_dir=\\nkernel32_lib_dir=\\ngcc_dir=\\n' \"$1\" \"$1\" \"$1\" > \"$2\"",
+            .{ triple, api_level },
+        ));
+        gen.addArg("libc-sh"); // $0
+        gen.addFileArg2(sysroot, .{ .make_absolute = true }); // $1
+        return gen.addOutputFileArg("libc.txt"); // $2
     }
 
     /// adds the glue layer C code and let you import the translated
@@ -87,13 +80,11 @@ pub const Ndk = struct {
         native_app_glue_translate.addSystemIncludePath(sysroot_include);
         native_app_glue_translate.addSystemIncludePath(sysroot_arch_include);
         // Suppress NDK nullability annotations that zig translate-c can't handle
-        // (e.g. `_Nullable` applied to array types in sys/time.h).
         native_app_glue_translate.defineCMacro("_Nullable", "");
         native_app_glue_translate.defineCMacro("_Nonnull", "");
         native_app_glue_translate.defineCMacro("_Null_unspecified", "");
 
-        const native_app_glue_mod = native_app_glue_translate.createModule();
-        mod.addImport(module_name, native_app_glue_mod);
+        mod.addImport(module_name, native_app_glue_translate.createModule());
     }
 };
 
@@ -110,7 +101,7 @@ const Sdk = struct {
 
         run.addFileArg(sdk.path.path(b, "bin/sdkmanager"));
 
-        run.setStdIn(.{ .bytes = "y\n" ** 100 });
+        // run.setStdIn(.{ .bytes = "y\n"**100 });
 
         return run;
     }

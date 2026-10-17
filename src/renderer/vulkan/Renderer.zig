@@ -86,16 +86,16 @@ pub fn init(
     const staging_buffer = try core.Buffer.initAlloc(
         render_context.device_allocator,
         2048 * 2048,
-        .{ .transfer_src_bit = true },
-        .{ .host_visible_bit = true, .host_coherent_bit = true },
+        .{ .transfer_src = true },
+        .{ .host_visible = true, .host_coherent = true },
         .exclusive,
     );
 
     const glyph_staging_buffer = try core.Buffer.initAlloc(
         render_context.device_allocator,
         2048 * 2048,
-        .{ .transfer_src_bit = true },
-        .{ .host_visible_bit = true, .host_coherent_bit = true },
+        .{ .transfer_src = true },
+        .{ .host_visible = true, .host_coherent = true },
         .exclusive,
     );
 
@@ -106,7 +106,7 @@ pub fn init(
     const bg_color_image = try bg_image_builder
         .setFormat(.r8g8b8a8_unorm)
         .setSize(bg_grid_cols, bg_grid_rows)
-        .addUsage(.{ .sampled_bit = true, .transfer_dst_bit = true })
+        .addUsage(.{ .sampled = true, .transfer_dst = true })
         .build(render_context.device_allocator);
 
     const bg_color_sampler = try core.Sampler.init(render_context.device, .{
@@ -118,8 +118,8 @@ pub fn init(
     const bg_color_staging = try core.Buffer.initAlloc(
         render_context.device_allocator,
         1024 * 1024,
-        .{ .transfer_src_bit = true },
-        .{ .host_visible_bit = true, .host_coherent_bit = true },
+        .{ .transfer_src = true },
+        .{ .host_visible = true, .host_coherent = true },
         .exclusive,
     );
 
@@ -182,7 +182,7 @@ pub fn beginFrame(self: *Renderer) !void {
 
     const cmd = &frame.main_cmd;
 
-    try cmd.begin(.{ .one_time_submit_bit = true });
+    try cmd.begin(.{ .one_time_submit = true });
 
     try frame.descriptor_sets[0].reset();
     try frame.descriptor_sets[0].addDescriptor(0, 0, .{
@@ -242,7 +242,10 @@ pub fn endFrame(self: *Renderer) !void {
             .cell_size = .from(cell_w, cell_h),
             .cell_size_inv = .from(1.0 / cell_w, 1.0 / cell_h),
             .grid_size = .from(@floatFromInt(self.bg_grid_cols), @floatFromInt(self.bg_grid_rows)),
-            .bg_color = @bitCast(self.bg_color.floatArray()),
+            .bg_color = blk: {
+                const arr = self.bg_color.floatArray();
+                break :blk .{ .x = arr[0], .y = arr[1], .z = arr[2], .w = arr[3] };
+            },
             .baseline = baseline,
         };
 
@@ -390,8 +393,8 @@ pub fn cacheGlyphs(
         self.glyph_staging_buffer = try .initAlloc(
             self.render_context.device_allocator,
             bitmap_pool.len,
-            .{ .transfer_src_bit = true },
-            .{ .host_visible_bit = true, .host_coherent_bit = true },
+            .{ .transfer_src = true },
+            .{ .host_visible = true, .host_coherent = true },
             .exclusive,
         );
     }
@@ -416,8 +419,8 @@ pub fn reserveBatch(self: *Renderer, count: usize) ![]vertex.TextInstance {
         self.staging_buffer = try .initAlloc(
             self.render_context.device_allocator,
             count * @sizeOf(vertex.TextInstance),
-            .{ .transfer_src_bit = true },
-            .{ .host_visible_bit = true, .host_coherent_bit = true },
+            .{ .transfer_src = true },
+            .{ .host_visible = true, .host_coherent = true },
             .exclusive,
         );
     }
@@ -435,8 +438,8 @@ pub fn commitBatch(self: *Renderer, count: usize) !void {
             frame.vertex_buffer = try .initAlloc(
                 self.render_context.device_allocator,
                 count * @sizeOf(vertex.TextInstance),
-                .{ .transfer_dst_bit = true },
-                .{ .device_local_bit = true },
+                .{ .transfer_dst = true },
+                .{ .device_local = true },
                 .exclusive,
             );
         }
@@ -481,7 +484,7 @@ pub fn setGridSize(self: *Renderer, cols: u32, rows: u32) !void {
     self.bg_color_image = try bg_image_builder
         .setFormat(.r8g8b8a8_unorm)
         .setSize(new_cols, new_rows)
-        .addUsage(.{ .sampled_bit = true, .transfer_dst_bit = true })
+        .addUsage(.{ .sampled = true, .transfer_dst = true })
         .build(self.render_context.device_allocator);
 
     self.bg_grid_cols = new_cols;
@@ -504,8 +507,8 @@ pub fn uploadBackground(self: *Renderer, rows: u32, cols: u32, colors: []const u
         self.bg_color_staging = try .initAlloc(
             self.render_context.device_allocator,
             need,
-            .{ .transfer_src_bit = true },
-            .{ .host_visible_bit = true, .host_coherent_bit = true },
+            .{ .transfer_src = true },
+            .{ .host_visible = true, .host_coherent = true },
             .exclusive,
         );
         self.bg_color_staging_capacity = need;
@@ -533,7 +536,7 @@ pub fn uploadBackground(self: *Renderer, rows: u32, cols: u32, colors: []const u
             .depth = 1,
         },
         .image_subresource = .{
-            .aspect_mask = .{ .color_bit = true },
+            .aspect_mask = .{ .color = true },
             .mip_level = 0,
             .base_array_layer = 0,
             .layer_count = 1,
@@ -572,27 +575,27 @@ fn transitionImageLayout(
     switch (old_layout) {
         .undefined, .preinitialized => {
             src_access_mask = .{};
-            src_stage_mask.top_of_pipe_bit = true;
+            src_stage_mask.top_of_pipe = true;
         },
         .transfer_dst_optimal => {
-            src_access_mask.transfer_write_bit = true;
-            src_stage_mask.all_transfer_bit = true;
+            src_access_mask.transfer_write = true;
+            src_stage_mask.all_transfer = true;
         },
         .shader_read_only_optimal => {
-            src_access_mask.shader_read_bit = true;
-            src_stage_mask.all_graphics_bit = true;
+            src_access_mask.shader_read = true;
+            src_stage_mask.all_graphics = true;
         },
         else => {},
     }
 
     switch (new_layout) {
         .transfer_dst_optimal => {
-            dst_access_mask.transfer_write_bit = true;
-            dst_stage_mask.all_transfer_bit = true;
+            dst_access_mask.transfer_write = true;
+            dst_stage_mask.all_transfer = true;
         },
         .shader_read_only_optimal => {
-            dst_access_mask.shader_read_bit = true;
-            dst_stage_mask.fragment_shader_bit = true;
+            dst_access_mask.shader_read = true;
+            dst_stage_mask.fragment_shader = true;
         },
         else => {},
     }
@@ -611,7 +614,7 @@ fn transitionImageLayout(
         .dst_queue_family_index = vk.QUEUE_FAMILY_IGNORED,
         .image = image,
         .subresource_range = .{
-            .aspect_mask = .{ .color_bit = true },
+            .aspect_mask = .{ .color = true },
             .base_mip_level = 0,
             .level_count = 1,
             .base_array_layer = 0,

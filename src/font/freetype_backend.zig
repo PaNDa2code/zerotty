@@ -4,14 +4,13 @@
 //! value of normalizing shows up. FreeType differs from TrueType on three
 //! points that would otherwise leak upward:
 //!
-//! - **Scaling is set on the face, not passed per call.** `setSize` becomes a
+//! -**Scaling is set on the face, not passed per call.**`setSize` becomes a
 //!   `setPixelSizes` call, and the scale factor TrueType wants has nowhere to
 //!   go.
-//! - **Metrics come back in 26.6 fixed-point pixels, not font units.** All
+//! -**Metrics come back in 26.6 fixed-point pixels, not font units.**All
 //!   metric reads use `FT_LOAD_NO_SCALE` so the values are converted back to
 //!   font units here, keeping the contract's "unscaled font units" promise.
-//! - **Glyph indices are `null`, not 0, for absent codepoints.**
-//!
+//! -**Glyph indices are `null`, not 0, for absent codepoints.**//!
 //! Bitmap pitch can be negative (bottom-up rows) and need not be a multiple of
 //! the width, so rows are flipped and repacked rather than handed over as-is.
 

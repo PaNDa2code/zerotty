@@ -6,10 +6,7 @@ pub const Window = @import("Window.zig");
 const root = @import("zerotty").system.platform;
 
 pub const Clipboard = struct {
-    const c = @cImport({
-        @cDefine("GLFW_INCLUDE_NONE", "");
-        @cInclude("GLFW/glfw3.h");
-    });
+    const c = @import("c_glfw");
 
     window: ?*c.GLFWwindow,
 

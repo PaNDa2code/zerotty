@@ -38,7 +38,7 @@ pub const ImageTarget = struct {
         const image = try core.Image.Builder.new()
             .setSize(options.extent.width, options.extent.height)
             .setFormat(options.format)
-            .setUsage(.{ .color_attachment_bit = true, .sampled_bit = true })
+            .setUsage(.{ .color_attachment = true, .sampled = true })
             .build(device_allocator);
 
         errdefer image.deinit(device_allocator);
@@ -90,7 +90,7 @@ pub const ImageTarget = struct {
             params.cmd,
             .null_handle,
             .null_handle,
-            .{ .color_attachment_output_bit = true },
+            .{ .color_attachment_output = true },
             params.in_flight_fence,
         ) catch return error.QueueCannotPresnt;
     }
@@ -134,7 +134,7 @@ pub const ImageTarget = struct {
 
         try builder.addAttachment(.{
             .format = format,
-            .samples = .{ .@"1_bit" = true },
+            .samples = .{ .@"1" = true },
             .load_op = .clear,
             .store_op = .store,
             .stencil_load_op = .dont_care,
@@ -153,10 +153,10 @@ pub const ImageTarget = struct {
         try builder.addDependency(.{
             .src_subpass = vk.SUBPASS_EXTERNAL,
             .dst_subpass = 0,
-            .src_stage_mask = .{ .color_attachment_output_bit = true },
+            .src_stage_mask = .{ .color_attachment_output = true },
             .src_access_mask = .{},
-            .dst_stage_mask = .{ .color_attachment_output_bit = true },
-            .dst_access_mask = .{ .color_attachment_write_bit = true },
+            .dst_stage_mask = .{ .color_attachment_output = true },
+            .dst_access_mask = .{ .color_attachment_write = true },
         });
 
         return builder.build(device);

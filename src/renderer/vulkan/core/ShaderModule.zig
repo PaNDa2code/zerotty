@@ -13,8 +13,8 @@ pub const ShaderType = enum {
 
     pub fn flags(self: ShaderType) vk.ShaderStageFlags {
         return switch (self) {
-            .vertex => .{ .vertex_bit = true },
-            .fragment => .{ .fragment_bit = true },
+            .vertex => .{ .vertex = true },
+            .fragment => .{ .fragment = true },
         };
     }
 };

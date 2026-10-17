@@ -35,9 +35,9 @@ pub fn init(allocator: std.mem.Allocator, extent: vk.Extent2D) !testing_target {
         .setSize(extent.width, extent.height)
         .setFormat(.b8g8r8a8_srgb)
         .setUsage(.{
-            .color_attachment_bit = true,
-            .sampled_bit = true,
-            .transfer_src_bit = true,
+            .color_attachment = true,
+            .sampled = true,
+            .transfer_src = true,
         })
         .build(&device_allocator);
 
@@ -76,7 +76,7 @@ pub fn deinit(self: *testing_target, allocator: std.mem.Allocator) void {
 }
 
 pub fn renderClearColor(self: *testing_target, clear_color: [4]f32) !void {
-    try self.command_buffer.begin(.{ .one_time_submit_bit = true });
+    try self.command_buffer.begin(.{ .one_time_submit = true });
 
     const clear_values = [_]vk.ClearValue{
         .{ .color = .{ .float_32 = clear_color } },
@@ -99,7 +99,7 @@ pub fn renderClearColor(self: *testing_target, clear_color: [4]f32) !void {
         &self.command_buffer,
         .null_handle,
         .null_handle,
-        .{ .color_attachment_output_bit = true },
+        .{ .color_attachment_output = true },
         fence,
     );
 
@@ -112,27 +112,27 @@ pub fn readBackPixels(self: *testing_target, allocator: std.mem.Allocator) ![]u8
     var staging = try core.Buffer.initAlloc(
         &self.device_allocator,
         pixel_count,
-        .{ .transfer_dst_bit = true },
-        .{ .host_visible_bit = true, .host_coherent_bit = true },
+        .{ .transfer_dst = true },
+        .{ .host_visible = true, .host_coherent = true },
         .exclusive,
     );
     defer staging.deinit(&self.device_allocator);
 
-    try self.command_buffer.begin(.{ .one_time_submit_bit = true });
+    try self.command_buffer.begin(.{ .one_time_submit = true });
 
     {
         const barrier = vk.ImageMemoryBarrier2{
-            .src_stage_mask = .{ .all_commands_bit = true },
-            .src_access_mask = .{ .memory_write_bit = true },
-            .dst_stage_mask = .{ .all_commands_bit = true },
-            .dst_access_mask = .{ .memory_read_bit = true },
+            .src_stage_mask = .{ .all_commands = true },
+            .src_access_mask = .{ .memory_write = true },
+            .dst_stage_mask = .{ .all_commands = true },
+            .dst_access_mask = .{ .memory_read = true },
             .old_layout = .shader_read_only_optimal,
             .new_layout = .transfer_src_optimal,
             .src_queue_family_index = vk.QUEUE_FAMILY_IGNORED,
             .dst_queue_family_index = vk.QUEUE_FAMILY_IGNORED,
             .image = self.image.handle,
             .subresource_range = .{
-                .aspect_mask = .{ .color_bit = true },
+                .aspect_mask = .{ .color = true },
                 .base_mip_level = 0,
                 .level_count = 1,
                 .base_array_layer = 0,
@@ -141,8 +141,8 @@ pub fn readBackPixels(self: *testing_target, allocator: std.mem.Allocator) ![]u8
         };
 
         try self.command_buffer.pipelineBarrierAuto(allocator, .{
-            .src_stage_mask = .{ .all_commands_bit = true },
-            .dst_stage_mask = .{ .all_commands_bit = true },
+            .src_stage_mask = .{ .all_commands = true },
+            .dst_stage_mask = .{ .all_commands = true },
             .image_barriers = &.{barrier},
         });
     }
@@ -153,7 +153,7 @@ pub fn readBackPixels(self: *testing_target, allocator: std.mem.Allocator) ![]u8
             .buffer_row_length = 0,
             .buffer_image_height = 0,
             .image_subresource = .{
-                .aspect_mask = .{ .color_bit = true },
+                .aspect_mask = .{ .color = true },
                 .mip_level = 0,
                 .base_array_layer = 0,
                 .layer_count = 1,
@@ -177,17 +177,17 @@ pub fn readBackPixels(self: *testing_target, allocator: std.mem.Allocator) ![]u8
 
     {
         const barrier = vk.ImageMemoryBarrier2{
-            .src_stage_mask = .{ .all_commands_bit = true },
-            .src_access_mask = .{ .memory_write_bit = true },
-            .dst_stage_mask = .{ .all_commands_bit = true },
-            .dst_access_mask = .{ .memory_read_bit = true },
+            .src_stage_mask = .{ .all_commands = true },
+            .src_access_mask = .{ .memory_write = true },
+            .dst_stage_mask = .{ .all_commands = true },
+            .dst_access_mask = .{ .memory_read = true },
             .old_layout = .transfer_src_optimal,
             .new_layout = .shader_read_only_optimal,
             .src_queue_family_index = vk.QUEUE_FAMILY_IGNORED,
             .dst_queue_family_index = vk.QUEUE_FAMILY_IGNORED,
             .image = self.image.handle,
             .subresource_range = .{
-                .aspect_mask = .{ .color_bit = true },
+                .aspect_mask = .{ .color = true },
                 .base_mip_level = 0,
                 .level_count = 1,
                 .base_array_layer = 0,
@@ -196,8 +196,8 @@ pub fn readBackPixels(self: *testing_target, allocator: std.mem.Allocator) ![]u8
         };
 
         try self.command_buffer.pipelineBarrierAuto(allocator, .{
-            .src_stage_mask = .{ .all_commands_bit = true },
-            .dst_stage_mask = .{ .all_commands_bit = true },
+            .src_stage_mask = .{ .all_commands = true },
+            .dst_stage_mask = .{ .all_commands = true },
             .image_barriers = &.{barrier},
         });
     }
@@ -211,7 +211,7 @@ pub fn readBackPixels(self: *testing_target, allocator: std.mem.Allocator) ![]u8
         &self.command_buffer,
         .null_handle,
         .null_handle,
-        .{ .all_commands_bit = true },
+        .{ .all_commands = true },
         fence,
     );
 
@@ -287,7 +287,7 @@ fn createRenderPass(device: *const core.Device, allocator: std.mem.Allocator) !c
 
     try builder.addAttachment(.{
         .format = .b8g8r8a8_srgb,
-        .samples = .{ .@"1_bit" = true },
+        .samples = .{ .@"1" = true },
         .load_op = .clear,
         .store_op = .store,
         .stencil_load_op = .dont_care,
@@ -306,10 +306,10 @@ fn createRenderPass(device: *const core.Device, allocator: std.mem.Allocator) !c
     try builder.addDependency(.{
         .src_subpass = vk.SUBPASS_EXTERNAL,
         .dst_subpass = 0,
-        .src_stage_mask = .{ .color_attachment_output_bit = true },
+        .src_stage_mask = .{ .color_attachment_output = true },
         .src_access_mask = .{},
-        .dst_stage_mask = .{ .color_attachment_output_bit = true },
-        .dst_access_mask = .{ .color_attachment_write_bit = true },
+        .dst_stage_mask = .{ .color_attachment_output = true },
+        .dst_access_mask = .{ .color_attachment_write = true },
     });
 
     return builder.build(device);

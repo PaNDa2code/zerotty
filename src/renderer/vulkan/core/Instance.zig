@@ -10,7 +10,7 @@ vki: vk.InstanceWrapper,
 
 vk_allocator: ?*const vk.AllocationCallbacks,
 
-debug_messenger: if (builtin.mode == .Debug and renderer_debug) vk.DebugUtilsMessengerEXT else void,
+debug_messenger: if (builtin.mode == .debug and renderer_debug) vk.DebugUtilsMessengerEXT else void,
 
 pub const InitError = std.mem.Allocator.Error ||
     vk.BaseWrapper.CreateInstanceError ||
@@ -29,7 +29,7 @@ pub fn init(
     };
 
     const vkb = vk.BaseWrapper.load(struct {
-        pub fn load(_: vk.Instance, procname: [*:0]const u8) vk.PfnVoidFunction {
+        pub fn load(_: anytype, procname: [*:0]const u8) vk.PfnVoidFunction {
             const lib = DynamicLibrary.init(vk_lib_path) catch unreachable;
             const symbol = lib.getProcAddress(procname);
             return @ptrCast(@alignCast(symbol));
@@ -46,7 +46,7 @@ pub fn init(
 
     const slices = [_][]const [*:0]const u8{
         required_extensions,
-    } ++ if (builtin.mode == .Debug and renderer_debug) [_][]const [*:0]const u8{&debug_extentions} else .{};
+    } ++ if (builtin.mode == .debug and renderer_debug) [_][]const [*:0]const u8{&debug_extentions} else .{};
 
     const extensions = try std.mem.concatMaybeSentinel(allocator, [*:0]const u8, &slices, null);
     defer allocator.free(extensions);
@@ -54,7 +54,7 @@ pub fn init(
     const validation_layers_supported = try debug.checkValidationLayerSupport(&vkb, allocator);
 
     const layers: []const [*:0]const u8 =
-        if (builtin.mode == .Debug and validation_layers_supported)
+        if (builtin.mode == .debug and validation_layers_supported)
             validation_layers[0..]
         else
             &.{};
@@ -88,7 +88,7 @@ pub fn init(
         vkb.dispatch.vkGetInstanceProcAddr.?,
     );
 
-    const debug_messenger = if (builtin.mode == .Debug and renderer_debug)
+    const debug_messenger = if (builtin.mode == .debug and renderer_debug)
         try debug.debugMessenger(
             &vki,
             handle,
@@ -107,7 +107,7 @@ pub fn init(
 }
 
 pub fn deinit(self: *const Instance) void {
-    if (builtin.mode == .Debug)
+    if (builtin.mode == .debug)
         self.vki.destroyDebugUtilsMessengerEXT(
             self.handle,
             self.debug_messenger,
@@ -127,4 +127,4 @@ const DynamicLibrary = @import("zerotty").system.DynamicLibrary;
 
 const renderer_debug =
     @import("build_options").@"renderer_debug" and
-    !builtin.is_test and builtin.mode == .Debug;
+    !builtin.is_test and builtin.mode == .debug;

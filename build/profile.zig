@@ -18,10 +18,22 @@ pub const BuildProfile = struct {
     use_llvm: ?bool = null,
 };
 
+/// Whether an explicit target query resolves to the same target as the host.
+/// An explicit (even host-identical) triple makes Zig treat the build as
+/// cross-compilation and drop its native system-library search paths, so a
+/// host-identical query is resolved as a plain native query instead.
+fn resolvesToHost(b: *Build, target: Build.ResolvedTarget) bool {
+    const host = b.graph.host.result;
+    return target.result.cpu.arch == host.cpu.arch and
+        target.result.os.tag == host.os.tag and
+        target.result.abi == host.abi;
+}
+
 pub fn resolveProfile(b: *Build, profile: BuildProfile) ResolvedConfig {
     validateProfile(profile) catch @panic("ProfileMismatch");
 
-    const target = b.resolveTargetQuery(profile.target);
+    const requested = b.resolveTargetQuery(profile.target);
+    const target = if (resolvesToHost(b, requested)) b.resolveTargetQuery(.{}) else requested;
 
     const is_android = target.result.abi.isAndroid();
 
@@ -31,8 +43,8 @@ pub fn resolveProfile(b: *Build, profile: BuildProfile) ResolvedConfig {
         else => .glfw,
     };
 
-    const mode = profile.optimize orelse .Debug;
-    const use_llvm = profile.use_llvm orelse (mode != .Debug or target.result.os.tag == .windows or is_android);
+    const mode = profile.optimize orelse .debug;
+    const use_llvm = profile.use_llvm orelse (mode != .debug or target.result.os.tag == .windows or is_android);
 
     return .{
         .name = profile.name,

@@ -11,7 +11,7 @@ pub const DeviceAllocation = struct {
     host_address: usize = 0,
 
     pub fn map(self: *DeviceAllocation, device: *const core.Device) usize {
-        if (!self.props.host_visible_bit)
+        if (!self.props.host_visible)
             return 0;
 
         if (self.host_address != 0)
@@ -49,12 +49,12 @@ pub const AllocError = error{
 pub fn alloc(
     self: *DeviceAllocator,
     size: usize,
-    type_bits: u32,
+    types: u32,
     flags: vk.MemoryPropertyFlags,
 ) AllocError!DeviceAllocation {
     const memory_type_index = try findMemoryType(
         &self.device.physical_device.memory_properties,
-        type_bits,
+        types,
         flags,
     );
 
@@ -120,10 +120,10 @@ pub fn free(self: *DeviceAllocator, allocation: DeviceAllocation) void {
 
 fn findMemoryType(
     mem_properties: *const vk.PhysicalDeviceMemoryProperties,
-    memory_type_bits: u32,
+    memory_types: u32,
     properties: vk.MemoryPropertyFlags,
 ) !u32 {
-    var mask = memory_type_bits;
+    var mask = memory_types;
     while (mask != 0) : (mask &= mask - 1) {
         const i = @ctz(mask);
         if (i < mem_properties.memory_type_count and

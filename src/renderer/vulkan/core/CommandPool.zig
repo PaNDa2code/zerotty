@@ -10,7 +10,7 @@ pub fn init(
     queue_family_index: u32,
 ) InitError!CommandPool {
     const pool_info = vk.CommandPoolCreateInfo{
-        .flags = .{ .reset_command_buffer_bit = true },
+        .flags = .{ .reset_command_buffer = true },
         .queue_family_index = queue_family_index,
     };
 
@@ -84,7 +84,7 @@ pub fn allocBuffer(
         .command_buffer_count = 1,
     };
 
-    var handle = [_]vk.CommandBuffer{.null_handle};
+    var handle = [_]vk.CommandBuffer{undefined};
 
     try self.device.vkd.allocateCommandBuffers(
         self.device.handle,
@@ -106,7 +106,7 @@ pub fn reset(self: *const CommandPool, release_resources: bool) !void {
     try self.device.vkd.resetCommandPool(
         self.device.handle,
         self.handle,
-        .{ .release_resources_bit = release_resources },
+        .{ .release_resources = release_resources },
     );
 }
 

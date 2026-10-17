@@ -4,10 +4,7 @@ const root = @import("../../input/root.zig");
 const keyboard = root.keyboard;
 const mouse = root.mouse;
 
-pub const c = @cImport({
-    @cInclude("xkbcommon/xkbcommon.h");
-    // @cInclude("xkbcommon/xkbcommon-x11.h");
-});
+pub const c = @import("c_xkbcommon");
 
 ctx: *c.xkb_context,
 keymap: *c.xkb_keymap,

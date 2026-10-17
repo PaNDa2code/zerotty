@@ -15,7 +15,7 @@ pub fn BoundedQueue(T: type, default_value: T, max_slots: comptime_int) type {
 
         const max_mask = max_slots - 1;
 
-        queue: [max_slots]T = [1]T{default_value} ** max_slots,
+        queue: [max_slots]T = @splat(default_value),
         read: usize = 0,
         write: usize = 0,
         count: usize = 0,
