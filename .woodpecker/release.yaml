@@ -20,12 +20,12 @@ steps:
           zip \
           python3
 
-      - curl -sSf https://raw.githubusercontent.com/MingFei2001/install-zig/refs/heads/main/install-zig.sh | bash
+      - ./ci/install-zig.sh
 
       - |
         zig build release \
           -Darchive \
-          -Drelease_mode=Debug \
+          -Drelease_mode=debug \
           -Drelease_targets=$RELEASE_TARGETS
 
       - |
@@ -38,7 +38,7 @@ steps:
       - ls -R zig-out
 
     environment:
-      RELEASE_MODE: ReleaseFast
+      RELEASE_MODE: fast
       RELEASE_TARGETS: x86_64-linux,x86_64-windows,aarch64-linux,aarch64-windows
 
 

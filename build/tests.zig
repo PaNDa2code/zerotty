@@ -18,7 +18,11 @@ pub fn testAllRunStep(
         .root_source_file = tests_root,
     });
 
-    deps_mod.wireAllDeps(b, tests_mod, cfg);
+    deps_mod.wireAllDeps(b, tests_mod, cfg) catch |err| {
+        switch (err) {
+            error.LazyDependencyNeeded => {},
+        }
+    };
 
     const unit_tests = b.addTest(.{
         .name = "zerotty tests",

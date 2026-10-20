@@ -16,7 +16,7 @@ pub const DEFAULT_RELEASE_PROFILES = [_]BuildProfileEnum{
 
 /// Sets up the release pipeline, creating the `release` top-level step and
 /// individual `release-<preset>` steps.
-pub fn setupReleasePipeline(b: *Build) *Build.Step {
+pub fn setupReleasePipeline(b: *Build) !*Build.Step {
     const release_step = b.step("release", "Build release artifacts for all specified targets");
 
     // CLI options for release configuration
@@ -56,7 +56,7 @@ pub fn setupReleasePipeline(b: *Build) *Build.Step {
     const profiles = resolveReleaseProfiles(b, release_profiles_opt, release_targets_opt, targets_opt);
 
     for (profiles) |prof| {
-        const prof_step = buildReleaseProfile(b, prof, optimize_mode, archive_opt);
+        const prof_step = try buildReleaseProfile(b, prof, optimize_mode, archive_opt);
         release_step.dependOn(prof_step);
     }
 
@@ -69,7 +69,7 @@ pub fn setupReleasePipeline(b: *Build) *Build.Step {
     for (aliases) |alias| {
         if (b.top_level_steps.get(alias.step_name) == null) {
             const single_step = b.step(alias.step_name, b.fmt("Build release artifact for {s}", .{alias.step_name}));
-            const prof_step = buildReleaseProfile(b, alias.preset_enum.getProfile(), optimize_mode, archive_opt);
+            const prof_step = try buildReleaseProfile(b, alias.preset_enum.getProfile(), optimize_mode, archive_opt);
             single_step.dependOn(prof_step);
         }
     }
@@ -79,7 +79,7 @@ pub fn setupReleasePipeline(b: *Build) *Build.Step {
         const step_name = b.fmt("release-{s}", .{preset.name});
         if (b.top_level_steps.get(step_name) == null) {
             const single_step = b.step(step_name, b.fmt("Build release artifact for {s}", .{preset.name}));
-            const prof_step = buildReleaseProfile(b, preset, optimize_mode, archive_opt);
+            const prof_step = try buildReleaseProfile(b, preset, optimize_mode, archive_opt);
             single_step.dependOn(prof_step);
         }
     }
@@ -136,7 +136,7 @@ pub fn buildReleaseProfile(
     profile: BuildProfile,
     optimize: std.builtin.OptimizeMode,
     archive: bool,
-) *Build.Step {
+) !*Build.Step {
     var prof = profile;
     prof.optimize = optimize;
     prof.use_llvm = true;
@@ -146,10 +146,10 @@ pub fn buildReleaseProfile(
     const is_windows = target.result.os.tag == .windows;
     const is_android = target.result.abi.isAndroid();
 
-    const app_artifact = app_mod.buildAppArtifact(b, cfg);
+    const app_artifact = try app_mod.buildAppArtifact(b, cfg);
 
     const arch_name = @tagName(target.result.cpu.arch);
-    const mode_name = optimizeName(optimize);
+    const mode_name = if (optimize == .debug) "debug" else "release";
     const os_name = @tagName(target.result.os.tag);
 
     // Name format: zerotty + arch + release mode (e.g. zerotty-x86_64-ReleaseFast)
@@ -192,19 +192,24 @@ pub fn buildReleaseProfile(
     group_step.dependOn(&copy_license.step);
     group_step.dependOn(&copy_readme.step);
 
-    // 4. Archive packaging if requested
+    // 4. Archive packaging if requested. Zig 0.17 has no custom step tags, so
+    // there is no plain "group" step: `install_in_bin` doubles as the group
+    // step returned to the caller. The archive command must wait for the
+    // bundle directory to be populated (exe + LICENSE + README installs),
+    // otherwise it races those installs: zip/tar either spawns in a directory
+    // that doesn't exist yet (FileNotFound) or packages a partial bundle.
     if (archive and !is_android) {
         const bundle_dir = installPrefixPath(release_sub_path);
         const out_zip_path = b.fmt("release/{s}.zip", .{release_base_name});
         const out_tar_path = b.fmt("release/{s}.tar.gz", .{release_base_name});
-        if (is_windows) {
+        const archive_cmd: *Build.Step = if (is_windows) blk: {
             const zip_cmd = b.addSystemCommand(&.{"zip"});
             zip_cmd.setCwd(bundle_dir);
             zip_cmd.addArgs(&.{ "-q", "-r" });
             zip_cmd.addFileArg2(installPrefixPath(out_zip_path), .{});
             zip_cmd.addArg(".");
-            group_step.dependOn(&zip_cmd.step);
-        } else {
+            break :blk &zip_cmd.step;
+        } else blk: {
             const tar_cmd = b.addSystemCommand(&.{
                 "tar",
                 "-czf",
@@ -213,22 +218,15 @@ pub fn buildReleaseProfile(
             tar_cmd.addArg("-C");
             tar_cmd.addFileArg2(bundle_dir, .{});
             tar_cmd.addArg(".");
-            group_step.dependOn(&tar_cmd.step);
-        }
+            break :blk &tar_cmd.step;
+        };
+        archive_cmd.dependOn(install_in_release_dir);
+        archive_cmd.dependOn(&copy_license.step);
+        archive_cmd.dependOn(&copy_readme.step);
+        group_step.dependOn(archive_cmd);
     }
 
     return group_step;
-}
-
-/// `std.lang.Optimize` tag names are lowercase in Zig 0.17; keep the historical
-/// `ReleaseFast`-style naming used by release artifacts.
-fn optimizeName(optimize: std.lang.Optimize) []const u8 {
-    return switch (optimize) {
-        .debug => "Debug",
-        .safe => "ReleaseSafe",
-        .fast => "ReleaseFast",
-        .small => "ReleaseSmall",
-    };
 }
 
 /// A path relative to the install prefix. The prefix is only known at make

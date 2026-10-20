@@ -24,7 +24,7 @@ pub const AppArtifact = struct {
         return switch (self.artifact) {
             .exe => |exe| &exe.step,
             .apk => |apk| switch (apk) {
-                .generated => |g| b.graph.generated_files.items[@intFromEnum(g.index)],
+                .generated => |g| b.graph.generated_files.items[@backingInt(g.index)],
                 else => unreachable,
             },
         };
@@ -36,14 +36,14 @@ pub const InstallOptions = struct {
     dest_sub_path: ?[]const u8 = null,
 };
 
-pub fn buildAppArtifact(b: *Build, cfg: Config) AppArtifact {
+pub fn buildAppArtifact(b: *Build, cfg: Config) !AppArtifact {
     const zerrotty_mod = b.createModule(.{
         .root_source_file = b.path("src/root.zig"),
         .target = cfg.target,
         .optimize = cfg.optimize,
     });
 
-    deps_mod.wireAllDeps(b, zerrotty_mod, cfg);
+    try deps_mod.wireAllDeps(b, zerrotty_mod, cfg);
 
     const options = b.addOptions();
     options.addOption(profiles_mod.Window, "window", cfg.window);
@@ -121,8 +121,8 @@ pub fn installAppArtifact(
     }
 }
 
-pub fn buildAppStep(b: *Build, cfg: Config, check_only: bool) *Build.Step {
-    const app_artifact = buildAppArtifact(b, cfg);
+pub fn buildAppStep(b: *Build, cfg: Config, check_only: bool) !*Build.Step {
+    const app_artifact = try buildAppArtifact(b, cfg);
     if (check_only) return app_artifact.getStep(b);
 
     switch (app_artifact.artifact) {

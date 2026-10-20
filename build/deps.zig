@@ -5,11 +5,10 @@ const profile_mod = @import("profile.zig");
 const Window = profile_mod.Window;
 const ResolvedConfig = profile_mod.ResolvedConfig;
 
-pub fn wireAllDeps(b: *Build, mod: *Build.Module, cfg: ResolvedConfig) void {
+pub fn wireAllDeps(b: *Build, mod: *Build.Module, cfg: ResolvedConfig) !void {
     wireCore(b, mod, cfg);
     wireVulkan(b, mod);
-    wireWindow(b, mod, cfg);
-    wireCBindings(b, mod, cfg);
+    try wireWindow(b, mod, cfg);
 }
 
 /// Whether `target` refers to the host. In Zig 0.17 `resolveTargetQuery` returns
@@ -72,14 +71,38 @@ pub fn wireVulkan(b: *Build, mod: *Build.Module) void {
 
 /// Window-system specific deps: linked libraries and imports chosen by `cfg.window`.
 /// All resolved lazily so unrelated profiles don't pull foreign deps.
-pub fn wireWindow(b: *Build, mod: *Build.Module, cfg: ResolvedConfig) void {
+pub fn wireWindow(b: *Build, mod: *Build.Module, cfg: ResolvedConfig) !void {
     const target = cfg.target;
     const optimize = cfg.optimize;
 
     switch (cfg.window) {
         .glfw => {
-            if (b.lazyDependency("glfw_zig", .{ .target = target, .optimize = optimize })) |dep|
-                mod.linkLibrary(dep.artifact("glfw"));
+            const glfw_dep = try b.dependencyLazy("glfw_zig", .{ .target = target, .optimize = optimize });
+
+            const glfw_lib = glfw_dep.artifact("glfw");
+            const include_path = glfw_dep.path("glfw/include");
+
+            const glfw_tc = b.addTranslateC(.{
+                .root_source_file = b.path("build/c/glfw.h"),
+                .target = cfg.target,
+                .optimize = cfg.optimize,
+            });
+            glfw_tc.addIncludePath(include_path);
+
+            const glfw_vk_tc = b.addTranslateC(.{
+                .root_source_file = b.path("build/c/glfw_vk.h"),
+                .target = cfg.target,
+                .optimize = cfg.optimize,
+            });
+            glfw_vk_tc.addIncludePath(include_path);
+
+            const vh = try b.dependencyLazy("vulkan_headers", .{});
+            glfw_vk_tc.addIncludePath(vh.path("include"));
+
+            mod.addImport("c_glfw", glfw_tc.createModule());
+            mod.addImport("c_glfw_vk", glfw_vk_tc.createModule());
+
+            mod.linkLibrary(glfw_lib);
         },
         .win32 => {
             if (b.lazyDependency("zigwin32", .{})) |dep|
@@ -128,39 +151,4 @@ pub fn wireWindow(b: *Build, mod: *Build.Module, cfg: ResolvedConfig) void {
     //         .@"xkb-config-root" = "/usr/share/X11/xkb",
     //     })) |dep| mod.linkLibrary(dep.artifact("xkbcommon"));
     // }
-}
-
-/// Translate a C header into a Zig module using the compiler's built-in
-/// translate-c step (the `@cImport` replacement in Zig 0.17).
-fn translateC(
-    b: *Build,
-    c_source_file: Build.LazyPath,
-    target: Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
-) *Build.Module {
-    const tc = b.addTranslateC(.{
-        .root_source_file = c_source_file,
-        .target = target,
-        .optimize = optimize,
-    });
-    return tc.createModule();
-}
-
-/// C headers translated for the selected window backend only, so a build never
-/// requires the headers of a backend it doesn't use.
-pub fn wireCBindings(b: *Build, mod: *Build.Module, cfg: ResolvedConfig) void {
-    const target = cfg.target;
-    const optimize = cfg.optimize;
-
-    switch (cfg.window) {
-        .xcb => {
-            mod.addImport("c_xcb", translateC(b, b.path("build/c/xcb.h"), target, optimize));
-            mod.addImport("c_xkbcommon", translateC(b, b.path("build/c/xkbcommon.h"), target, optimize));
-        },
-        .glfw => {
-            mod.addImport("c_glfw", translateC(b, b.path("build/c/glfw.h"), target, optimize));
-            mod.addImport("c_glfw_vk", translateC(b, b.path("build/c/glfw_vk.h"), target, optimize));
-        },
-        .win32, .android => {},
-    }
 }
