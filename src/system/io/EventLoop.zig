@@ -22,16 +22,18 @@ event_pool: []Event,
 free_events: std.ArrayList(usize),
 
 pub fn init(allocator: std.mem.Allocator, max_events: usize) !EventLoop {
+    var backend_context: BackendContext = undefined;
+    try backend_context.setup();
+    errdefer backend_context.close();
+
     const event_pool = try allocator.alloc(Event, max_events);
     errdefer allocator.free(event_pool);
 
     var free_events = try std.ArrayList(usize).initCapacity(allocator, max_events);
+    errdefer free_events.deinit(allocator);
 
     for (0..max_events) |i|
         free_events.appendAssumeCapacity(i);
-
-    var backend_context: BackendContext = undefined;
-    try backend_context.setup();
 
     return .{
         .backend_context = backend_context,
@@ -149,7 +151,12 @@ const Result = root.Result;
 const BackendContext = root.Backend.Context;
 
 test "event loop basic pipe rw" {
-    var loop = try EventLoop.init(std.testing.allocator, 8);
+    var loop = EventLoop.init(std.testing.allocator, 8) catch |err| {
+        switch (err) {
+            error.IoUringSetupFailed => return error.SkipZigTest,
+            else => return err,
+        }
+    };
     defer loop.deinit(std.testing.allocator);
 
     // var fds: [2]std.c.fd_t = undefined;

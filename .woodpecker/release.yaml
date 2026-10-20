@@ -1,45 +1,32 @@
 steps:
   - name: build release
-    image: debian:bookworm-slim
+    image: alpine:latest
     when:
       - event: tag
 
     commands:
-      - apt-get update
-      - |
-        apt-get install -y --no-install-recommends \
-          sudo \
-          curl \
-          bash \
-          xz-utils \
-          git \
-          ca-certificates \
-          bison \
-          glslang-tools \
-          zstd \
-          zip \
-          python3
+      - apk add --no-cache sudo curl bash xz git ca-certificates bison minisign glslang zstd zip python3
 
       - ./ci/install-zig.sh
 
-      - |
-        zig build release \
-          -Darchive \
-          -Drelease_mode=debug \
-          -Drelease_targets=$RELEASE_TARGETS
+      - >-
+        zig build release
+        -Darchive
+        -Drelease_mode=debug
+        -Drelease_targets=$RELEASE_TARGETS
 
-      - |
-        zig build release \
-          -Darchive \
-          -Duse_llvm \
-          -Drelease_mode=$RELEASE_MODE \
-          -Drelease_targets=$RELEASE_TARGETS
+      - >-
+        zig build release
+        -Darchive
+        -Duse_llvm
+        -Drelease_mode=$RELEASE_MODE
+        -Drelease_targets=$RELEASE_TARGETS
 
       - ls -R zig-out
 
     environment:
       RELEASE_MODE: fast
-      RELEASE_TARGETS: x86_64-linux,x86_64-windows,aarch64-linux,aarch64-windows
+      RELEASE_TARGETS: x86_64-linux-gnu,x86_64-windows-gnu,aarch64-linux-gnu,aarch64-windows-gnu
 
 
   - name: publish release

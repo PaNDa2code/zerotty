@@ -188,7 +188,7 @@ pub const Context = struct {
 
     pub fn dequeue(self: *const Self, res: *i32) !*const Request {
         const ret = linux.io_uring_enter(self.fd, 0, 1, linux.IORING_ENTER_GETEVENTS, null);
-        if (@as(linux.E, @enumFromInt(ret)) != .SUCCESS) {
+        if (@as(linux.E, @fromBackingInt(@intCast(ret))) != .SUCCESS) {
             return error.DequeueFailed;
         }
 
@@ -276,7 +276,12 @@ const Result = root.Result;
 
 test "io_uring pipe write test" {
     var context: Context = undefined;
-    try context.setup();
+    context.setup() catch |err| {
+        switch (err) {
+            error.IoUringSetupFailed => return error.SkipZigTest,
+            else => return err,
+        }
+    };
     defer context.close();
 
     // Create a pipe

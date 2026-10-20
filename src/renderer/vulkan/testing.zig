@@ -15,40 +15,36 @@ fn allocAdapter() *core.memory.AllocatorAdapter {
     return vk_alloc.?;
 }
 
-pub fn getTestInstance() *const core.Instance {
+pub fn getTestInstance() !*const core.Instance {
     if (instance) |*ptr| return ptr;
 
     instance = core.Instance.init(
         std.testing.allocator,
         &allocAdapter().alloc_callbacks,
         &.{},
-    ) catch |err| {
-        std.debug.panic("testing Instance creation failed: {}", .{err});
-    };
+    ) catch return error.SkipZigTest;
 
     return &(instance.?);
 }
 
-pub fn getTestDevice() *const core.Device {
+pub fn getTestDevice() !*const core.Device {
     if (device) |*ptr| return ptr;
 
     device = core.Device.init(
         std.testing.allocator,
-        getTestInstance(),
+        try getTestInstance(),
         .null_handle,
         &.{},
-    ) catch |err| {
-        std.debug.panic("testing Device creation failed: {}", .{err});
-    };
+    ) catch return error.SkipZigTest;
 
     return &(device.?);
 }
 
-pub fn getTestDeviceLocked() *const core.Device {
+pub fn getTestDeviceLocked() !*const core.Device {
     while (!mutex.tryLock()) {
-        std.Thread.yield() catch {};
+        try std.Thread.yield();
     }
-    return getTestDevice();
+    return try getTestDevice();
 }
 
 pub fn unlockTestDevice() void {

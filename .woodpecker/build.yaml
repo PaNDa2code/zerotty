@@ -5,26 +5,10 @@ when:
 
 steps:
   - name: build and run tests
-    image: debian:bookworm-slim
+    image: alpine:latest
 
     commands:
-      - apt-get update
-      - |
-        apt-get install -y --no-install-recommends \
-          sudo \
-          curl \
-          bash \
-          xz-utils \
-          git \
-          ca-certificates \
-          bison \
-          glslang-tools \
-          zstd \
-          zip \
-          libvulkan1 \
-          mesa-vulkan-drivers \
-          vulkan-tools \
-          python3
+      - apk add --no-cache sudo curl bash xz minisign git ca-certificates bison glslang zstd zip python3 vulkan-loader mesa-vulkan-swrast vulkan-tools
 
       - ci/install-zig.sh
 

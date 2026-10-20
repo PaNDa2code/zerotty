@@ -230,7 +230,7 @@ const Texture = @import("Texture.zig");
 test Cache {
     const vk_testing = @import("../testing.zig");
 
-    const device = vk_testing.getTestDeviceLocked();
+    const device = try vk_testing.getTestDeviceLocked();
     defer vk_testing.unlockTestDevice();
 
     var device_allocator = core.memory.DeviceAllocator.init(

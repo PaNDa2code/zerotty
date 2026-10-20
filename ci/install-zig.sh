@@ -11,6 +11,7 @@ INSTALL_DIR="/usr/local/zig"
 ZIG_ARCHIVE="zig-$HOST_ARCH-$HOST_OS-$ZIG_VERSION.tar.xz"
 
 MIRRORS=$(curl -sSf https://ziglang.org/download/community-mirrors.txt | shuf)
+PUBKEY='RWSGOq2NVecA2UPNdBUZykf1CCb147pkmdtYxgb3Ti+JO/wCYvhbAb/U'
 
 downloaded=false
 
@@ -19,12 +20,15 @@ do
   ZIG_URL="$MIRROR/$ZIG_ARCHIVE"
   echo "Downloading $ZIG_URL"
 
-  if curl -# -fL --retry 2 -o "$ZIG_ARCHIVE" "$ZIG_URL" &&
-    xz -t "$ZIG_ARCHIVE"; then
+  if curl -s -fL --retry 2 -o "$ZIG_ARCHIVE.minisig" "$ZIG_URL.minisig" &&
+    curl -s -fL --retry 2 -o "$ZIG_ARCHIVE" "$ZIG_URL" &&
+    xz -t "$ZIG_ARCHIVE" &&
+    minisign -Vm "$ZIG_ARCHIVE" -P "$PUBKEY"; then
     downloaded=true
     break
   fi
 
+  echo "Mirror failed or signature invalid, trying next" >&2
 done
 
 if [ "$downloaded" != true ]; then
@@ -32,6 +36,7 @@ if [ "$downloaded" != true ]; then
   exit 1
 fi
 
+echo "Downloaded $ZIG_ARCHIVE"
 
 ZIG_DIR=$(basename $ZIG_ARCHIVE .tar.xz)
 
@@ -42,7 +47,4 @@ sudo mv "$ZIG_DIR" "$INSTALL_DIR"
 
 sudo ln -sf "$INSTALL_DIR/zig" /usr/local/bin/zig
 
-export PATH="/usr/local/bin:$PATH"
-ls -l /usr/local/bin/zig
-
-zig version
+echo "Installed zig $(zig version) successfully"
