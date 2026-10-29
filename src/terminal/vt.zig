@@ -6,6 +6,49 @@ const zerotty = @import("zerotty");
 const color = zerotty.terminal.color;
 const log = std.log.scoped(.vt);
 
+const CursorMoveAction = union(enum) {
+    abs: struct { x: ?u16 = null, y: ?u16 = null },
+    relative: struct { dx: i32 = 0, dy: i32 = 0 },
+};
+
+const EraseMode = enum(u2) {
+    to_end = 0,
+    to_start = 1,
+    all = 2,
+};
+
+const VTColor = union(enum) {
+    ansi_index: color.ansi.ColorIndex,
+    true_color: color.RGBA,
+};
+
+pub const Action = union(enum) {
+    print: u21,
+    cursor_move: CursorMoveAction,
+    erase_display: EraseMode,
+    erase_line: EraseMode,
+    erase_chars: u16,
+    delete_chars: u16,
+
+    // if null reset
+    change_fg: ?VTColor,
+    change_bg: ?VTColor,
+
+    set_attr: struct { flag: color.ansi.Flags, on: bool },
+
+    reset_style,
+
+    set_progress: struct {
+        state: Emulator.ProgressBarState,
+        value: u8,
+    },
+
+    linefeed,
+    carriage_return,
+    backspace,
+    bell,
+};
+
 pub const Parser = vt.VTParser;
 
 pub fn vtparserEntry(state: *const vt.ParserData, to_action: vt.Action, char: u8, user_data: ?*anyopaque) void {
@@ -40,7 +83,7 @@ pub fn vtparserEntry(state: *const vt.ParserData, to_action: vt.Action, char: u8
                 },
                 'J' => { // Erase in Display
                     const mode = if (state.num_params > 0) state.params[0] else 0;
-                    terminal.grid.eraseDisplay(terminal.allocator, @enumFromInt(mode)) catch unreachable;
+                    terminal.grid.eraseDisplay(terminal.allocator, @fromBackingInt(@intCast(mode))) catch unreachable;
                 },
                 'K' => { // Erase in Line
                     const mode = if (state.num_params > 0) state.params[0] else 0;
@@ -92,7 +135,7 @@ pub fn vtparserEntry(state: *const vt.ParserData, to_action: vt.Action, char: u8
                 const progress_str = it.next() orelse "0";
                 const progress_int = std.fmt.parseInt(u32, progress_str, 10) catch return;
 
-                terminal.emulator.progress_state = @enumFromInt(state_int);
+                terminal.emulator.progress_state = @fromBackingInt(@intCast(state_int));
                 terminal.emulator.progress = @min(progress_int, 100);
 
                 log.debug("progress: {} {}%", .{ terminal.emulator.progress_state, terminal.emulator.progress });
@@ -164,7 +207,7 @@ fn handleSGR(term: *Terminal, state: *const vt.ParserData) void {
                 const offset: u8 = if (is_bright) 8 else 0;
                 const idx: u8 = @intCast((p - base) + offset);
 
-                const color_index: color.ansi.ColorIndex = @enumFromInt(idx);
+                const color_index: color.ansi.ColorIndex = @fromBackingInt(@intCast(idx));
                 const ansi_color = term.emulator.color_palette.get(color_index);
                 current_style.fg_color = ansi_color;
             },
@@ -174,7 +217,7 @@ fn handleSGR(term: *Terminal, state: *const vt.ParserData) void {
                 const offset: u8 = if (is_bright) 8 else 0;
                 const idx: u8 = @intCast((p - base) + offset);
 
-                const color_index: color.ansi.ColorIndex = @enumFromInt(idx);
+                const color_index: color.ansi.ColorIndex = @fromBackingInt(@intCast(idx));
                 const ansi_color = term.emulator.color_palette.get(color_index);
                 current_style.bg_color = ansi_color;
             },
@@ -185,7 +228,7 @@ fn handleSGR(term: *Terminal, state: *const vt.ParserData) void {
                     state.params[i + 1] == 5 and
                     state.params[i + 2] < 256)
                 {
-                    const color_index: color.ansi.ColorIndex = @enumFromInt(state.params[i + 2]);
+                    const color_index: color.ansi.ColorIndex = @fromBackingInt(@intCast(state.params[i + 2]));
                     const ansi_color = term.emulator.color_palette.get(color_index);
 
                     if (p == 38)
