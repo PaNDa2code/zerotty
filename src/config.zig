@@ -16,7 +16,33 @@ pub const Config = struct {
     gpu_acceleration: bool = true,
 };
 
-pub fn configFile(
+pub const ConfigJson = struct {
+    theme: []const u8 = "",
+    fg_color: []const u8 = "",
+    bg_color: []const u8 = "",
+    font_size: u32 = 20,
+
+    fn resolveColorValue(color_str: []const u8) !color.RGBA {
+        if (color_str.len >= 6 and color_str.len >= 6 and color_str[0] == '#') {
+            return color.RGBA.fromRGBHexString(color_str);
+        } else if (std.meta.stringToEnum(color.CSSColors, color_str)) |css| {
+            return css.toRGBA();
+        } else return error.InvalidColorValue;
+    }
+
+    pub fn resolve(cfg: ConfigJson) !Config {
+        const fg_color = resolveColorValue(cfg.fg_color) catch return error.InvalidFgColorValue;
+        const bg_color = resolveColorValue(cfg.bg_color) catch return error.InvalidBgColorValue;
+
+        return .{
+            .fg_color = fg_color,
+            .bg_color = bg_color,
+            .font_size = cfg.font_size,
+        };
+    }
+};
+
+fn configFile(
     io: std.Io,
     allocator: std.mem.Allocator,
     env_map: *std.process.Environ.Map,
@@ -24,6 +50,8 @@ pub fn configFile(
     const home = env_map.get("HOME") orelse return error.FileNotFound;
     const config_dir_path = try std.fs.path.join(allocator, &.{ home, ".config" });
     defer allocator.free(config_dir_path);
+
+    std.log.debug("config path {s}/zerotty.json", .{config_dir_path});
 
     const config_dir = try std.Io.Dir.openDirAbsolute(io, config_dir_path, .{});
     defer config_dir.close(io);
@@ -46,7 +74,7 @@ pub fn getConfig(
     _ = try config_file.readPositionalAll(io, data, 0);
 
     const config = try std.json.parseFromSlice(
-        Config,
+        ConfigJson,
         allocator,
         data,
         .{ .allocate = .alloc_if_needed },
@@ -54,7 +82,7 @@ pub fn getConfig(
 
     defer config.deinit();
 
-    return config.value;
+    return config.value.resolve();
 }
 
 test Config {

@@ -32,7 +32,7 @@ bg_color_data: std.ArrayList(u8) = .empty,
 
 const min_font_size: u32 = 20;
 const max_font_size: u32 = 96;
-const font_size_step: u32 = 10;
+const font_size_step: u32 = 4;
 
 /// Fallback chain, primary first. Each entry is an asset path; faces are
 /// resolved left-to-right so the first font that covers a codepoint wins.
@@ -96,8 +96,7 @@ pub fn init(
                 AssetsManager.assets_tar,
             );
 
-    const config = zerotty.config.getConfig(io, environ_map, allocator) catch
-        Config{};
+    const config = zerotty.config.getConfig(io, environ_map, allocator) catch Config{};
 
     const loaded_fonts = try loadFaces(allocator, @floatFromInt(config.font_size));
 
@@ -329,8 +328,8 @@ pub fn run(self: *App) !void {
             }
 
             const glyph_id = font.GlyphID{
-                .font = @enumFromInt(@as(u32, @intCast(resolved.face))),
-                .index = @enumFromInt(resolved.glyph),
+                .font = @fromBackingInt(@intCast(@as(u32, @intCast(resolved.face)))),
+                .index = @fromBackingInt(@intCast(resolved.glyph)),
             };
             const glyph_entry =
                 cache.getAtlasEntry(glyph_id) orelse blk: {

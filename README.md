@@ -2,11 +2,7 @@
   <img src="docs/assets/images/zerotty.png" alt="ZeroTTY Logo">
   <h1>ZeroTTY</h1>
   <p>
-    <b>A high-performance, cross-platform terminal emulator built with Zig.</b>
-  </p>
-  <p>
-    <a href="https://github.com/PaNDa2code/zerotty/actions/workflows/test.yml"><img src="https://raw.githubusercontent.com/PaNDa2code/zerotty/badges/.badges/master/badges/test-x86_64-linux-gnu.svg" alt="Linux Test Status"></a>
-    <a href="https://github.com/PaNDa2code/zerotty/actions/workflows/test.yml"><img src="https://raw.githubusercontent.com/PaNDa2code/zerotty/badges/.badges/master/badges/test-x86_64-windows-gnu.svg" alt="Windows Test Status"></a>
+    A high-performance, cross-platform terminal emulator built with Zig.
   </p>
 </div>
 
@@ -15,20 +11,20 @@ ZeroTTY is a modern terminal emulator designed for speed, efficiency, and cross-
 > **⚠️ This project is currently in an early stage of development.  
 > Expect bugs, missing features, and fast-moving changes**
 
-## Features
-
-*   **Cross-Platform:** Runs on Linux, Windows, and macOS.
-*   **Multiple Renderer Backends:** Supports Vulkan and OpenGL.
-*   **High Performance:** Built for speed and low resource usage.
-*   **Customizable:** Configure fonts, colors, and more.
-*   **Minimal Dependencies:** A lightweight and focused design.
-
 ## Getting Started
 
 ### Prerequisites
 
 *   **Zig:** The project is built using the Zig compiler.
 *   **System Libraries:** Additional system libraries may be required depending on your OS, chosen windowing system, and rendering backend (e.g., `X11`, `xcb`, `xkbcommon`, `GL` for Linux).
+
+### Install
+
+**Linux**
+
+```bash
+curl -fsSL https://codeberg.org/panda2code/zerotty/raw/branch/master/ci/install-zerotty.sh | sh
+```
 
 ### Building from Source
 

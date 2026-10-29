@@ -7,18 +7,18 @@ pub const ansi = struct {
         colors: [256]RGBA,
 
         pub fn get(self: *const Palette, index: ColorIndex) RGBA {
-            return self.colors[@intFromEnum(index)];
+            return self.colors[@backingInt(index)];
         }
 
         pub fn set(self: *Palette, index: ColorIndex, color: RGBA) void {
-            self.colors[@intFromEnum(index)] = color;
+            self.colors[@backingInt(index)] = color;
         }
 
         pub const default = blk: {
             @setEvalBranchQuota(1500);
             var palette: Palette = undefined;
             for (0..256) |i| {
-                const color_index: ColorIndex = @enumFromInt(i);
+                const color_index: ColorIndex = @fromBackingInt(@intCast(i));
                 palette.set(color_index, colorIndexToRGBA(color_index));
             }
             break :blk palette;
@@ -125,6 +125,10 @@ pub const RGBA = packed struct(u32) {
     pub const black = rgba(0,   0,  0,  255);
     // zig fmt: on
 
+    pub fn rgb(r: u8, g: u8, b: u8) RGBA {
+        return .{ .r = r, .g = g, .b = b, .a = 255 };
+    }
+
     pub fn rgba(r: u8, g: u8, b: u8, a: u8) RGBA {
         return .{ .r = r, .g = g, .b = b, .a = a };
     }
@@ -197,5 +201,143 @@ pub const RGBA = packed struct(u32) {
             color.b,
             color.a,
         });
+    }
+};
+
+pub const CSSColors = enum {
+    // Red & Pink
+    red,
+    crimson,
+    darkred,
+    pink,
+    lightpink,
+    hotpink,
+    deeppink,
+
+    // Orange & Yellow
+    coral,
+    tomato,
+    orange,
+    darkorange,
+    gold,
+    yellow,
+    lightyellow,
+
+    // Purple
+    lavender,
+    thistle,
+    plum,
+    violet,
+    magenta,
+    fuchsia,
+    purple,
+    indigo,
+
+    // Green
+    green,
+    lime,
+    limegreen,
+    forestgreen,
+    darkgreen,
+    seagreen,
+    olive,
+
+    // Blue & Cyan
+    aqua,
+    cyan,
+    teal,
+    skyblue,
+    dodgerblue,
+    blue,
+    navy,
+    darkblue,
+
+    // Brown
+    cornsilk,
+    wheat,
+    sandybrown,
+    chocolate,
+    saddlebrown,
+    brown,
+    maroon,
+
+    // White & Gray / Black
+    white,
+    snow,
+    gainsboro,
+    lightgray,
+    silver,
+    gray,
+    dimgray,
+    darkgray,
+    black,
+
+    pub fn toRGBA(c: CSSColors) RGBA {
+        return switch (c) {
+            // Red & Pink
+            .red => .rgb(255, 0, 0),
+            .crimson => .rgb(220, 20, 60),
+            .darkred => .rgb(139, 0, 0),
+            .pink => .rgb(255, 192, 203),
+            .lightpink => .rgb(255, 182, 193),
+            .hotpink => .rgb(255, 105, 180),
+            .deeppink => .rgb(255, 20, 147),
+
+            // Orange & Yellow
+            .coral => .rgb(255, 127, 80),
+            .tomato => .rgb(255, 99, 71),
+            .orange => .rgb(255, 165, 0),
+            .darkorange => .rgb(255, 140, 0),
+            .gold => .rgb(255, 215, 0),
+            .yellow => .rgb(255, 255, 0),
+            .lightyellow => .rgb(255, 255, 224),
+
+            // Purple
+            .lavender => .rgb(230, 230, 250),
+            .thistle => .rgb(216, 191, 216),
+            .plum => .rgb(221, 160, 221),
+            .violet => .rgb(238, 130, 238),
+            .magenta, .fuchsia => .rgb(255, 0, 255),
+            .purple => .rgb(128, 0, 128),
+            .indigo => .rgb(75, 0, 130),
+
+            // Green
+            .green => .rgb(0, 128, 0),
+            .lime => .rgb(0, 255, 0),
+            .limegreen => .rgb(50, 205, 50),
+            .forestgreen => .rgb(34, 139, 34),
+            .darkgreen => .rgb(0, 100, 0),
+            .seagreen => .rgb(46, 139, 87),
+            .olive => .rgb(128, 128, 0),
+
+            // Blue & Cyan
+            .aqua, .cyan => .rgb(0, 255, 255),
+            .teal => .rgb(0, 128, 128),
+            .skyblue => .rgb(135, 206, 235),
+            .dodgerblue => .rgb(30, 144, 255),
+            .blue => .rgb(0, 0, 255),
+            .navy => .rgb(0, 0, 128),
+            .darkblue => .rgb(0, 0, 139),
+
+            // Brown
+            .cornsilk => .rgb(255, 248, 220),
+            .wheat => .rgb(245, 222, 179),
+            .sandybrown => .rgb(244, 164, 96),
+            .chocolate => .rgb(210, 105, 30),
+            .saddlebrown => .rgb(139, 69, 19),
+            .brown => .rgb(165, 42, 42),
+            .maroon => .rgb(128, 0, 0),
+
+            // White & Gray / Black
+            .white => .rgb(255, 255, 255),
+            .snow => .rgb(255, 250, 250),
+            .gainsboro => .rgb(220, 220, 220),
+            .lightgray => .rgb(211, 211, 211),
+            .silver => .rgb(190, 190, 190),
+            .gray => .rgb(128, 128, 128),
+            .dimgray => .rgb(105, 105, 105),
+            .darkgray => .rgb(169, 169, 169),
+            .black => .rgb(0, 0, 0),
+        };
     }
 };
