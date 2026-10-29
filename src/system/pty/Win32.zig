@@ -10,10 +10,7 @@ master_write: HANDLE,
 
 h_pesudo_console: HPCON,
 
-child: ?HANDLE,
-
-size: struct { height: u16, width: u16 },
-id: u32,
+size: pty.PtySize,
 
 fn isInvaliedOrNull(handle: ?HANDLE) bool {
     return handle == null or handle == win32fnd.INVALID_HANDLE_VALUE;
@@ -21,7 +18,7 @@ fn isInvaliedOrNull(handle: ?HANDLE) bool {
 
 var random = std.Random.DefaultPrng.init(0xAA);
 
-pub fn open(self: *Pty, options: PtyOptions) !void {
+pub fn open(options: PtyOptions) !Pty {
     var stdin_read: ?HANDLE = null;
     var stdin_write: ?HANDLE = null;
     var stdout_read: ?HANDLE = null;
@@ -111,11 +108,15 @@ pub fn open(self: *Pty, options: PtyOptions) !void {
         win32.zig.panicHresult("CreatePseudoConsole", hresult);
     }
 
-    self.h_pesudo_console = h_pesudo_console.?;
-    self.master_write = stdin_write.?;
-    self.master_read = stdout_read.?;
-    self.slave_write = stdout_write.?;
-    self.slave_read = stdin_read.?;
+    return .{
+        .h_pesudo_console = h_pesudo_console.?,
+        .master_write = stdin_write.?,
+        .master_read = stdout_read.?,
+        .slave_write = stdout_write.?,
+        .slave_read = stdin_read.?,
+
+        .size = options.size,
+    };
 }
 
 pub fn close(self: *Pty) void {
@@ -143,10 +144,9 @@ pub fn resize(self: *Pty, size: PtySize) !void {
         .{ .X = @bitCast(size.width), .Y = @bitCast(size.height) },
     );
 
-    _ = hresult;
-    // if (win32.zig.FAILED(hresult)) {
-    //     return error.PtyResizeFailed;
-    // }
+    if (win32.zig.FAILED(hresult)) {
+        return error.PtyResizeFailed;
+    }
 }
 
 pub fn readFile(self: *const Pty) std.Io.File {
@@ -165,21 +165,14 @@ pub fn writeFile(self: *const Pty) std.Io.File {
 
 const std = @import("std");
 const win32 = @import("win32");
-const builtin = @import("builtin");
 const pty = @import("root.zig");
 const PtySize = pty.PtySize;
 const PtyOptions = pty.PtyOptions;
 
-const L = std.unicode.utf8ToUtf16LeStringLiteral;
-const W = std.unicode.utf8ToUtf16LeAllocZ;
-
 const win32con = win32.system.console;
 const win32fnd = win32.foundation;
 const win32pipe = win32.system.pipes;
-const win32sec = win32.security;
-const win32thread = win32.system.threading;
 const win32storeage = win32.storage;
 const win32fs = win32storeage.file_system;
-const win32mem = win32.system.memory;
 const HANDLE = win32fnd.HANDLE;
 const HPCON = win32con.HPCON;

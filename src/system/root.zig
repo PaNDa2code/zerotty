@@ -4,7 +4,7 @@ pub const input = @import("input/root.zig");
 
 pub const platform = @import("platform/root.zig");
 
-pub const ChildProcess = @import("ChildProcess.zig");
+pub const Process = @import("Process.zig");
 pub const CircularBuffer = @import("CircularBuffer.zig");
 pub const DynamicLibrary = @import("DynamicLibrary.zig");
 

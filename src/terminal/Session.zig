@@ -4,12 +4,12 @@ const Session = @This();
 const std = @import("std");
 const zerotty = @import("zerotty");
 const Pty = zerotty.system.pty.Pty;
-const ChildProcess = zerotty.system.ChildProcess;
+const Process = zerotty.system.Process;
 
 pub const Status = enum(u8) { running = 0, idle, killed };
 
 pty: Pty,
-shell: ChildProcess,
+shell: Process,
 
 status: std.atomic.Value(Status) = .init(.idle),
 
@@ -22,9 +22,7 @@ pub fn init(
     pty_rows: u16,
     pty_columns: u16,
 ) !Session {
-    var pty: Pty = undefined;
-
-    try pty.open(.{
+    var pty = try Pty.open(.{
         .async_io = true,
         .size = .{
             .height = pty_rows,
@@ -33,12 +31,12 @@ pub fn init(
     });
     errdefer pty.close();
 
-    var shell = ChildProcess{
+    const shell = try Process.start(io, allocator, .{
         .exe_path = shell_path,
-        .args = shell_args,
-    };
-
-    try shell.start(io, env, allocator, &pty);
+        .exe_args = shell_args,
+        .environ_map = env,
+        .pty = pty,
+    });
 
     return .{
         .pty = pty,
@@ -52,8 +50,7 @@ pub fn deinit(session: *Session) void {
 
     session.shell.terminate();
 
-    const wait_res = session.shell.wait(true) catch unreachable;
-    std.debug.assert(wait_res == .ended);
+    _ = session.shell.wait(true) catch {};
 
     session.shell.deinit();
     session.pty.close();
@@ -70,11 +67,11 @@ pub fn isRunning(session: *const Session) bool {
     return session.status.load(.acq_rel) == .running;
 }
 
-pub fn writer(session: *const Session, io: std.Io, buf: []u8) std.Io.Writer {
+pub fn writer(session: *const Session, io: std.Io, buf: []u8) !std.Io.Writer {
     try session.pty.writeFile().writer(io, buf);
 }
 
-pub fn reader(session: *const Session, io: std.Io, buf: []u8) std.Io.Reader {
+pub fn reader(session: *const Session, io: std.Io, buf: []u8) !std.Io.Reader {
     try session.pty.readFile().reader(io, buf);
 }
 

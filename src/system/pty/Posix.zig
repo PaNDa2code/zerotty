@@ -2,17 +2,11 @@ const Pty = @This();
 
 master: Fd,
 slave: Fd,
-child: ?switch (builtin.os.tag) {
-    .windows => win32.foundation.HANDLE,
-    .macos, .linux => posix.pid_t,
-    else => @compileError("os is not supported"),
-} = null,
 size: PtySize,
-id: u32,
 
-pub fn open(self: *Pty, options: PtyOptions) !void {
-    var master: i32 = undefined;
-    var slave: i32 = undefined;
+pub fn open(options: PtyOptions) !Pty {
+    var master: i32 = -1;
+    var slave: i32 = -1;
 
     var ws: posix.winsize = .{
         .row = @intCast(options.size.height),
@@ -28,15 +22,17 @@ pub fn open(self: *Pty, options: PtyOptions) !void {
         _ = posix.close(slave);
     }
 
-    self.master = master;
-    self.slave = slave;
-    self.child = null;
-
     if (builtin.os.tag == .linux) {
         // SET O_NONBLOCK flag
         const master_flags = std.os.linux.fcntl(master, 3, 0);
         _ = std.os.linux.fcntl(master, 4, master_flags | 0x0080);
     }
+
+    return .{
+        .master = master,
+        .slave = slave,
+        .size = options.size,
+    };
 }
 
 pub fn close(self: *Pty) void {
@@ -56,12 +52,8 @@ pub fn resize(self: *Pty, size: PtySize) !void {
     const err =
         std.posix.system.ioctl(self.master, std.posix.system.T.IOCSWINSZ, @intFromPtr(&ws));
 
-    if (err < 0) {
+    if (err < 0)
         return error.PtyResizeFailed;
-    }
-
-    if (self.child) |child_id|
-        try posix.kill(child_id, posix.SIG.WINCH);
 }
 
 pub fn readFile(self: *const Pty) std.Io.File {
@@ -87,6 +79,3 @@ const PtySize = pty.PtySize;
 const PtyOptions = pty.PtyOptions;
 
 pub const Fd = posix.fd_t;
-
-const ChildProcess = @import("zerotty").system.ChildProcess;
-const win32 = @import("win32");
