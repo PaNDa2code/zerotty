@@ -16,6 +16,9 @@ pub fn destroy(self: Window, allocator: Allocator) void {
 
 pub fn create(allocator: Allocator, options: root.WindowOptions) !Window {
     const event_queue = try allocator.create(root.EventQueue);
+    errdefer allocator.destroy(event_queue);
+
+    event_queue.* = .empty;
 
     if (@import("builtin").mode == .debug)
         _ = c.glfwSetErrorCallback(callbacks.errorCallback);
@@ -71,11 +74,17 @@ pub fn setTitle(self: *Window, title: []const u8) !void {
     c.glfwSetWindowTitle(self.window, title_z);
 }
 
-pub fn poll(_: *Window) void {
+pub fn poll(self: *Window) void {
     var counter: usize = 0;
     while (counter < root.EventQueue.limit) : (counter += 1) {
         c.glfwPollEvents();
     }
+
+    var width: c_int = 0;
+    var height: c_int = 0;
+    c.glfwGetFramebufferSize(self.window, &width, &height);
+    self.width = @intCast(width);
+    self.height = @intCast(height);
 }
 
 pub fn close(_: *Window) void {
@@ -102,11 +111,15 @@ fn hasEnv(name: []const u8) bool {
 }
 
 const callbacks = struct {
+    fn eventQueue(glfw_window: ?*c.GLFWwindow) ?*root.EventQueue {
+        return @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return null));
+    }
+
     fn key(glfw_window: ?*c.GLFWwindow, key_: c_int, scancode: c_int, action: c_int, mods: c_int) callconv(.c) void {
-        const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
+        const queue = eventQueue(glfw_window) orelse return;
 
         if (key_ == c.GLFW_KEY_ESCAPE) {
-            window.event_queue.push(.close) catch unreachable;
+            queue.push(.close) catch unreachable;
             return;
         }
 
@@ -136,11 +149,11 @@ const callbacks = struct {
             },
         };
 
-        window.event_queue.push(event) catch unreachable;
+        queue.push(event) catch unreachable;
     }
 
     fn char(glfw_window: ?*c.GLFWwindow, codepoint: c_uint) callconv(.c) void {
-        const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
+        const queue = eventQueue(glfw_window) orelse return;
 
         const event = root.Event{
             .input = .{
@@ -148,11 +161,11 @@ const callbacks = struct {
             },
         };
 
-        window.event_queue.push(event) catch unreachable;
+        queue.push(event) catch unreachable;
     }
 
     fn scroll(glfw_window: ?*c.GLFWwindow, xoffset: f64, yoffset: f64) callconv(.c) void {
-        const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
+        const queue = eventQueue(glfw_window) orelse return;
 
         const event = root.Event{ .input = .{
             .mouse = .{ .scroll = .{
@@ -161,14 +174,11 @@ const callbacks = struct {
             } },
         } };
 
-        window.event_queue.push(event) catch unreachable;
+        queue.push(event) catch unreachable;
     }
 
     fn framebufferSize(glfw_window: ?*c.GLFWwindow, width: c_int, height: c_int) callconv(.c) void {
-        const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
-
-        window.height = @intCast(height);
-        window.width = @intCast(width);
+        const queue = eventQueue(glfw_window) orelse return;
 
         const event = root.Event{
             .resize = .{
@@ -179,11 +189,11 @@ const callbacks = struct {
             },
         };
 
-        window.event_queue.push(event) catch unreachable;
+        queue.push(event) catch unreachable;
     }
 
     fn mouseButton(glfw_window: ?*c.GLFWwindow, button: c_int, action: c_int, mods: c_int) callconv(.c) void {
-        const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
+        const queue = eventQueue(glfw_window) orelse return;
 
         _ = mods;
 
@@ -199,11 +209,11 @@ const callbacks = struct {
             },
         };
 
-        window.event_queue.push(event) catch unreachable;
+        queue.push(event) catch unreachable;
     }
 
     fn cursorPos(glfw_window: ?*c.GLFWwindow, xpos: f64, ypos: f64) callconv(.c) void {
-        const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
+        const queue = eventQueue(glfw_window) orelse return;
 
         const new_x: f32 = @floatCast(xpos);
         const new_y: f32 = @floatCast(ypos);
@@ -211,7 +221,7 @@ const callbacks = struct {
         var new_dx: f32 = 0;
         var new_dy: f32 = 0;
 
-        if (window.event_queue.popLast()) |last_event| {
+        if (queue.popLast()) |last_event| {
             if (last_event == .input and last_event.input == .mouse and
                 last_event.input.mouse == .move)
             {
@@ -220,7 +230,7 @@ const callbacks = struct {
                 new_dy = last_event.input.mouse.move.dy + new_y -
                     last_event.input.mouse.move.y;
             } else {
-                window.event_queue.push(last_event) catch unreachable;
+                queue.push(last_event) catch unreachable;
             }
         }
 
@@ -233,17 +243,17 @@ const callbacks = struct {
             } } },
         };
 
-        window.event_queue.push(event) catch unreachable;
+        queue.push(event) catch unreachable;
     }
 
     fn windowClose(glfw_window: ?*c.GLFWwindow) callconv(.c) void {
-        const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
-        window.event_queue.push(.close) catch unreachable;
+        const queue = eventQueue(glfw_window) orelse return;
+        queue.push(.close) catch unreachable;
     }
 
     fn iconify(glfw_window: ?*c.GLFWwindow, iconified: c_int) callconv(.c) void {
-        const window: *Window = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(glfw_window) orelse return));
-        window.event_queue.push(.{ .expose = iconified == c.GLFW_TRUE }) catch unreachable;
+        const queue = eventQueue(glfw_window) orelse return;
+        queue.push(.{ .expose = iconified == c.GLFW_TRUE }) catch unreachable;
     }
 
     fn errorCallback(code: c_int, description: [*c]const u8) callconv(.c) void {

@@ -45,6 +45,10 @@ pub fn BoundedQueue(T: type, default_value: T, max_slots: comptime_int) type {
 
         pub fn push(self: *Self, event: T) PushError!void {
             if (self.count == max_slots) return error.QueueIsFull;
+            pushAssumeCapacity(self, event);
+        }
+
+        pub fn pushAssumeCapacity(self: *Self, event: T) void {
             self.queue[self.write] = event;
 
             self.write += 1;

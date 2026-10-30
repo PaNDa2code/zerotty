@@ -25,8 +25,6 @@ allocator: std.mem.Allocator,
 current_window: ?Window = null,
 clipboard: Clipboard = undefined,
 
-event_queue: ?*root.EventQueue = null,
-
 pub fn init(allocator: std.mem.Allocator) Platform {
     return .{
         .allocator = allocator,
@@ -35,10 +33,7 @@ pub fn init(allocator: std.mem.Allocator) Platform {
 
 pub fn deinit(self: *Platform) void {
     if (self.current_window) |w|
-        self.allocator.destroy(w);
-
-    if (self.event_queue) |q|
-        self.allocator.destroy(q);
+        w.destroy(self.allocator);
 }
 
 pub fn createWindow(self: *Platform, options: root.WindowOptions) !void {
@@ -57,8 +52,8 @@ pub fn pollEvents(self: *Platform) !void {
     w.poll();
 }
 
-pub fn eventQueue(self: *const Platform) *root.EventQueue {
-    return self.event_queue orelse unreachable;
+pub fn eventQueue(self: *Platform) *root.EventQueue {
+    return (self.getWindow() catch unreachable).event_queue;
 }
 
 fn getWindow(self: *Platform) !*Window {

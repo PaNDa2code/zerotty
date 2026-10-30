@@ -42,15 +42,6 @@ progress_state: ProgressBarState = .remove,
 bell_action_callback: ?*const fn (?*anyopaque) void = null,
 bell_action_data: ?*anyopaque = null,
 
-ocs_buffer: [128]u8 = @splat(0),
-ocs_buffer_len: usize = 0,
-
-/// Partial UTF-8 sequence, since PRINT hands us one byte at a time but cells
-/// hold whole codepoints (box drawing, CJK, emoji are 2-4 bytes).
-utf8_buf: [4]u8 = undefined,
-utf8_len: u8 = 0,
-charset: Charset = .ascii,
-
 color_palette: color.ansi.Palette = .default,
 
 default_style: Style,

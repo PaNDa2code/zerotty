@@ -14,6 +14,7 @@ allocator: std.mem.Allocator,
 grid: Grid,
 session: Session,
 vtparser: vt.Parser,
+decoder: vt.Decoder,
 emulator: Emulator,
 
 pub const TerminalSettings = struct {
@@ -67,6 +68,7 @@ pub fn init(
             .bg_color = settings.bg_color,
         },
         .vtparser = .init(vt.vtparserEntry, terminal),
+        .decoder = .{},
         .emulator = .{
             .default_style = style,
             .current_style = style,

@@ -5,7 +5,7 @@ config: Config,
 io: std.Io,
 allocator: std.mem.Allocator,
 
-io_event_loop: myio.EventLoop,
+// io_event_loop: myio.EventLoop,
 
 platform: Platform,
 renderer: Renderer,
@@ -29,6 +29,8 @@ pending_font_size: ?u32 = null,
 /// (rows * cols * 4 RGBA8 bytes). Refreshed every frame, mirroring
 /// the per-frame regeneration of the text instance list.
 bg_color_data: std.ArrayList(u8) = .empty,
+
+io_batch: std.Io.Batch,
 
 const min_font_size: u32 = 20;
 const max_font_size: u32 = 96;
@@ -133,7 +135,7 @@ pub fn init(
         },
     );
 
-    var event_loop = try myio.EventLoop.init(allocator, 100);
+    // var event_loop = try myio.EventLoop.init(allocator, 100);
 
     const shell_path = environ_map.get("SHELL") orelse
         if (os_tag == .linux)
@@ -152,8 +154,18 @@ pub fn init(
         .bg_color = config.bg_color,
     });
 
-    const buf = try allocator.alloc(u8, 1024);
-    try event_loop.read(terminal.session.pty.readFile(), buf, ptyReadCallback, terminal);
+    const buf = try allocator.alloc(u8, 64 * 1024);
+    // try event_loop.read(terminal.session.pty.readFile(), buf, ptyReadCallback, terminal);
+
+    const storage = try allocator.alloc(std.Io.Operation.Storage, 1);
+    var batch = std.Io.Batch.init(storage);
+
+    _ = batch.add(.{
+        .file_read_streaming = .{
+            .file = terminal.session.pty.readFile(),
+            .data = &.{buf},
+        },
+    });
 
     return .{
         .config = config,
@@ -164,7 +176,7 @@ pub fn init(
         .platform = platform,
         .renderer = renderer,
 
-        .io_event_loop = event_loop,
+        // .io_event_loop = event_loop,
 
         .buf = buf,
         .terminal = terminal,
@@ -174,6 +186,8 @@ pub fn init(
 
         .font_faces = loaded_fonts.faces,
         .font_face_data = loaded_fonts.data,
+
+        .io_batch = batch,
     };
 }
 
@@ -244,7 +258,41 @@ pub fn run(self: *App) !void {
         try self.platform.pollEvents();
         const events_queue = self.platform.eventQueue();
 
-        try self.io_event_loop.poll(0);
+        var reads: usize = 0;
+
+        const zero_timeout: std.Io.Timeout = .{
+            .duration = .{
+                .raw = .fromNanoseconds(0),
+                .clock = .awake,
+            },
+        };
+
+        while (reads < 4) : (reads += 1) {
+            self.io_batch.awaitConcurrent(self.io, zero_timeout) catch |err| switch (err) {
+                error.Timeout => break,
+                error.Canceled => return,
+                else => return err,
+            };
+
+            const completion = self.io_batch.next() orelse break;
+
+            const n = completion.result.file_read_streaming catch |err| switch (err) {
+                error.EndOfStream => {
+                    running = false;
+                    break;
+                },
+                else => return err,
+            };
+
+            self.terminal.vtparser.parse(self.buf[0..n]);
+
+            self.io_batch.addAt(completion.index, .{
+                .file_read_streaming = .{
+                    .file = self.terminal.session.pty.readFile(),
+                    .data = &.{self.buf},
+                },
+            });
+        }
 
         const shell_exit =
             try self.terminal.session.shell.wait(false);
@@ -433,9 +481,11 @@ pub fn deinit(self: *App) void {
     self.platform.deinit();
     self.terminal.deinit();
     self.allocator.free(self.buf);
-    self.io_event_loop.deinit(self.allocator);
+    // self.io_event_loop.deinit(self.allocator);
+    self.bg_color_data.deinit(self.allocator);
 
-    self.allocator.destroy(self.terminal);
+    self.io_batch.cancel(self.io);
+    self.allocator.free(self.io_batch.storage);
 
     for (self.font_faces) |*face| face.deinit();
     self.allocator.free(self.font_faces);

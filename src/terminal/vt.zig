@@ -6,15 +6,12 @@ const zerotty = @import("zerotty");
 const color = zerotty.terminal.color;
 const log = std.log.scoped(.vt);
 
+const Grid = zerotty.terminal.grid.Grid;
+pub const EraseMode = Grid.EraseMode;
+
 const CursorMoveAction = union(enum) {
     abs: struct { x: ?u16 = null, y: ?u16 = null },
     relative: struct { dx: i32 = 0, dy: i32 = 0 },
-};
-
-const EraseMode = enum(u2) {
-    to_end = 0,
-    to_start = 1,
-    all = 2,
 };
 
 const VTColor = union(enum) {
@@ -30,12 +27,10 @@ pub const Action = union(enum) {
     erase_chars: u16,
     delete_chars: u16,
 
-    // if null reset
     change_fg: ?VTColor,
     change_bg: ?VTColor,
 
-    set_attr: struct { flag: color.ansi.Flags, on: bool },
-
+    set_attrs: struct { to_set: color.ansi.Flags, on: bool },
     reset_style,
 
     set_progress: struct {
@@ -43,10 +38,50 @@ pub const Action = union(enum) {
         value: u8,
     },
 
+    set_charset: Emulator.Charset,
+
     linefeed,
     carriage_return,
     backspace,
     bell,
+
+    pub fn format(
+        self: Action,
+        writer: *std.Io.Writer,
+    ) std.Io.Writer.Error!void {
+        try switch (self) {
+            .print => |cb| writer.print("Action.print({})", .{cb}),
+            .cursor_move => |cmv| switch (cmv) {
+                .abs => |abs| writer.print("Action.cursor_move.abs({?},{?})", .{ abs.x, abs.y }),
+                .relative => |rel| writer.print("Action.cursor_move.relative({},{})", .{ rel.dx, rel.dy }),
+            },
+            .erase_display => |mode| writer.print("Action.erase_display({})", .{@backingInt(mode)}),
+            .erase_line => |mode| writer.print("Action.erase_line({})", .{@backingInt(mode)}),
+            .erase_chars => |n| writer.print("Action.erase_chars({})", .{n}),
+            .delete_chars => |n| writer.print("Action.delete_chars({})", .{n}),
+
+            .change_fg => |c| writer.print("Action.change_fg({?})", .{c}),
+            .change_bg => |c| writer.print("Action.change_bg({?})", .{c}),
+
+            .set_charset => |chr| writer.print("Action.set_charset({s})", .{@tagName(chr)}),
+
+            else => writer.print("Action.{s}", .{@tagName(self)}),
+        };
+    }
+};
+
+// Only SGR can emit more than one, and it emits at most one per parameter.
+pub const ActionQueue = zerotty.ds.queue.BoundedQueue(Action, .reset_style, 16);
+
+/// Decodes vt state-machine to `Action`
+pub const Decoder = struct {
+    osc_buffer: [128]u8 = @splat(0),
+    osc_len: usize = 0,
+
+    utf8_buffer: [4]u8 = @splat(0),
+    utf8_len: u8 = 0,
+
+    charset: Emulator.Charset = .ascii,
 };
 
 pub const Parser = vt.VTParser;
@@ -54,152 +89,185 @@ pub const Parser = vt.VTParser;
 pub fn vtparserEntry(state: *const vt.ParserData, to_action: vt.Action, char: u8, user_data: ?*anyopaque) void {
     const terminal: *Terminal = @ptrCast(@alignCast(user_data));
 
-    switch (to_action) {
-        .CSI_DISPATCH => {
-            switch (char) {
-                'm' => handleSGR(terminal, state),
+    var actions: ActionQueue = .{};
+    decode(state, to_action, char, &terminal.decoder, &actions);
 
-                'A' => { // Cursor Up
-                    const n: usize = if (state.num_params > 0) @max(state.params[0], 1) else 1;
-                    cursorUp(terminal, n);
-                },
-                'B' => { // Cursor Down
-                    const n: usize = if (state.num_params > 0) @max(state.params[0], 1) else 1;
-                    cursorDown(terminal, n);
-                },
-                'C' => { // Cursor Right
-                    const n: usize = if (state.num_params > 0) @max(state.params[0], 1) else 1;
-                    cursorRight(terminal, n);
-                },
-                'D' => { // Cursor Left
-                    const n: usize = if (state.num_params > 0) @max(state.params[0], 1) else 1;
-                    cursorLeft(terminal, n);
-                },
-
-                'H', 'f' => { // Cursor Position
-                    const row = if (state.num_params > 0) state.params[0] else 1;
-                    const col = if (state.num_params > 1) state.params[1] else 1;
-                    setCursorPosition(terminal, row, col);
-                },
-                'J' => { // Erase in Display
-                    const mode = if (state.num_params > 0) state.params[0] else 0;
-                    terminal.grid.eraseDisplay(terminal.allocator, @fromBackingInt(@intCast(mode))) catch unreachable;
-                },
-                'K' => { // Erase in Line
-                    const mode = if (state.num_params > 0) state.params[0] else 0;
-                    terminal.grid.eraseLine(terminal.allocator, mode) catch unreachable;
-                },
-                'P' => { // DCH — Delete Character(s)
-                    const n: usize = if (state.num_params > 0) @max(state.params[0], 1) else 1;
-                    terminal.grid.deleteChars(terminal.allocator, n) catch unreachable;
-                },
-                'h' => {}, // Set Mode (ignore for now)
-                'l' => {}, // Reset Mode (ignore for now)
-                else => {},
-            }
-        },
-        .ESC_DISPATCH => {
-            if (state.num_intermediate_chars == 1 and state.intermediate_chars[0] == '(') {
-                switch (char) {
-                    '0' => terminal.emulator.charset = .dec_special_graphics,
-                    'B' => terminal.emulator.charset = .ascii,
-                    else => unreachable,
-                }
-            } else switch (char) {
-                '=' => {}, // Application Keypad (ignore)
-                '>' => {}, // Normal Keypad (ignore)
-                else => {},
-            }
-        },
-        .PRINT => printByte(terminal, char),
-        .OSC_START => {
-            terminal.emulator.ocs_buffer_len = 0;
-        },
-        .OSC_PUT => {
-            std.debug.assert(terminal.emulator.ocs_buffer_len < terminal.emulator.ocs_buffer.len);
-
-            terminal.emulator.ocs_buffer[terminal.emulator.ocs_buffer_len] = char;
-            terminal.emulator.ocs_buffer_len += 1;
-        },
-        .OSC_END => {
-            const payload = terminal.emulator.ocs_buffer[0..terminal.emulator.ocs_buffer_len];
-
-            if (std.mem.startsWith(u8, payload, "9;4;")) {
-                const args = payload[4..];
-
-                var it = std.mem.splitScalar(u8, args, ';');
-
-                const state_str = it.next() orelse return;
-                const state_int = std.fmt.parseInt(u3, state_str, 10) catch return;
-
-                const progress_str = it.next() orelse "0";
-                const progress_int = std.fmt.parseInt(u32, progress_str, 10) catch return;
-
-                terminal.emulator.progress_state = @fromBackingInt(@intCast(state_int));
-                terminal.emulator.progress = @min(progress_int, 100);
-
-                log.debug("progress: {} {}%", .{ terminal.emulator.progress_state, terminal.emulator.progress });
-
-                return;
-            }
-        },
-        .EXECUTE => {
-            switch (char) {
-                0x0A => {
-                    terminal.grid.linefeed(terminal.allocator) catch unreachable;
-                },
-                0x0D => {
-                    terminal.grid.carriageReturn();
-                },
-                0x08 => { // Backspace - move cursor left
-                    backspace(terminal);
-                },
-                0x07 => {
-                    if (terminal.emulator.bell_action_callback) |action|
-                        action(terminal.emulator.bell_action_data);
-                },
-                0x50 => {
-                    const count = if (state.num_params > 1) state.params[0] else 1;
-                    terminal.grid.deleteChars(terminal.allocator, count) catch unreachable;
-                },
-                else => {},
-            }
-        },
-        else => {},
+    while (actions.pop()) |action| {
+        log.debug("{f}", .{action});
+        apply(terminal, action);
     }
-
-    log.debug("{0s} 0x{1x:02} {1c}", .{ @tagName(to_action), char });
 }
 
-fn handleSGR(term: *Terminal, state: *const vt.ParserData) void {
+/// Turn one vtparse event into zero or more terminal-independent actions.
+pub fn decode(
+    state: *const vt.ParserData,
+    to_action: vt.Action,
+    char: u8,
+    decoder: *Decoder,
+    out: *ActionQueue,
+) void {
+    switch (to_action) {
+        .CSI_DISPATCH => decodeCsi(state, char, out),
+        .ESC_DISPATCH => decodeEsc(state, char, out),
+        .PRINT => decodePrint(decoder, char, out),
+        .OSC_START => decoder.osc_len = 0,
+        .OSC_PUT => {
+            if (decoder.osc_len < decoder.osc_buffer.len) {
+                decoder.osc_buffer[decoder.osc_len] = char;
+                decoder.osc_len += 1;
+            }
+        },
+        .OSC_END => decodeOsc(decoder, out),
+        .EXECUTE => decodeExecute(state, char, out),
+        else => {},
+    }
+}
+
+/// Apply a decoded action to the terminal.
+pub fn apply(terminal: *Terminal, action: Action) void {
+    switch (action) {
+        .print => |codepoint| putCodepoint(terminal, codepoint),
+        .cursor_move => |move| applyCursorMove(terminal, move),
+        .erase_display => |mode| terminal.grid.eraseDisplay(terminal.allocator, mode) catch unreachable,
+        .erase_line => |mode| terminal.grid.eraseLine(terminal.allocator, @backingInt(mode)) catch unreachable,
+        .erase_chars => {}, // ECH is not supported by Grid yet.
+        .delete_chars => |n| terminal.grid.deleteChars(terminal.allocator, n) catch unreachable,
+
+        .change_fg => |value| terminal.emulator.current_style.fg_color =
+            resolveColor(terminal, value, terminal.emulator.default_style.fg_color),
+        .change_bg => |value| terminal.emulator.current_style.bg_color =
+            resolveColor(terminal, value, terminal.emulator.default_style.bg_color),
+
+        .set_attrs => |attrs| {
+            const flags_info = @typeInfo(color.ansi.Flags).@"struct";
+            inline for (flags_info.field_names, flags_info.field_types) |field_name, field_type| {
+                if (field_type == bool and @field(attrs.to_set, field_name)) {
+                    @field(terminal.emulator.current_style.flags, field_name) = attrs.on;
+                }
+            }
+        },
+        .reset_style => terminal.emulator.current_style = terminal.emulator.default_style,
+
+        .set_progress => |progress| {
+            terminal.emulator.progress_state = progress.state;
+            terminal.emulator.progress = progress.value;
+            log.debug("progress: {} {}%", .{ terminal.emulator.progress_state, terminal.emulator.progress });
+        },
+
+        .set_charset => |charset| terminal.decoder.charset = charset,
+
+        .linefeed => terminal.grid.linefeed(terminal.allocator) catch unreachable,
+        .carriage_return => terminal.grid.carriageReturn(),
+        .backspace => backspace(terminal),
+        .bell => {
+            if (terminal.emulator.bell_action_callback) |callback|
+                callback(terminal.emulator.bell_action_data);
+        },
+    }
+}
+
+fn decodeCsi(state: *const vt.ParserData, char: u8, out: *ActionQueue) void {
+    switch (char) {
+        'm' => decodeSgr(state, out),
+
+        'A' => emitCursorRelative(out, 0, -countParam(state, 0)), // Cursor Up
+        'B' => emitCursorRelative(out, 0, countParam(state, 0)), // Cursor Down
+        'C' => emitCursorRelative(out, countParam(state, 0), 0), // Cursor Right
+        'D' => emitCursorRelative(out, -countParam(state, 0), 0), // Cursor Left
+
+        'H', 'f' => { // Cursor Position
+            const row = positionParam(state, 0, 1);
+            const col = positionParam(state, 1, 1);
+            out.pushAssumeCapacity(.{ .cursor_move = .{ .abs = .{ .x = col, .y = row } } });
+        },
+        'J' => out.pushAssumeCapacity(.{ .erase_display = eraseMode(paramOr(state, 0, 0)) }), // Erase in Display
+        'K' => out.pushAssumeCapacity(.{ .erase_line = eraseMode(paramOr(state, 0, 0)) }), // Erase in Line
+        'P' => out.pushAssumeCapacity(.{ .delete_chars = countParamU16(state, 0) }), // DCH — Delete Character(s)
+
+        'h' => {}, // Set Mode (ignore for now)
+        'l' => {}, // Reset Mode (ignore for now)
+        else => {},
+    }
+}
+
+fn decodeEsc(state: *const vt.ParserData, char: u8, out: *ActionQueue) void {
+    if (state.num_intermediate_chars == 1 and state.intermediate_chars[0] == '(') {
+        switch (char) {
+            '0' => out.pushAssumeCapacity(.{ .set_charset = .dec_special_graphics }),
+            'B' => out.pushAssumeCapacity(.{ .set_charset = .ascii }),
+            else => {},
+        }
+    }
+    // '=' (application keypad) and '>' (normal keypad) are ignored for now.
+}
+
+fn decodeExecute(state: *const vt.ParserData, char: u8, out: *ActionQueue) void {
+    switch (char) {
+        0x0A => out.pushAssumeCapacity(.linefeed),
+        0x0D => out.pushAssumeCapacity(.carriage_return),
+        0x08 => out.pushAssumeCapacity(.backspace),
+        0x07 => out.pushAssumeCapacity(.bell),
+        0x50 => out.pushAssumeCapacity(.{ .delete_chars = countParamU16(state, 0) }),
+        else => {},
+    }
+}
+
+fn decodeOsc(decoder: *Decoder, out: *ActionQueue) void {
+    const payload = decoder.osc_buffer[0..decoder.osc_len];
+
+    if (!std.mem.startsWith(u8, payload, "9;4;")) return;
+
+    const args = payload[4..];
+    var it = std.mem.splitScalar(u8, args, ';');
+
+    const state_str = it.next() orelse return;
+    const state_int = std.fmt.parseInt(u3, state_str, 10) catch return;
+
+    const progress_state: Emulator.ProgressBarState = switch (state_int) {
+        0 => .remove,
+        1 => .set,
+        2 => .@"error",
+        3 => .indeterminate,
+        4 => .pause,
+        else => return,
+    };
+
+    const progress_str = it.next() orelse "0";
+    const progress_int = std.fmt.parseInt(u32, progress_str, 10) catch return;
+
+    out.pushAssumeCapacity(.{ .set_progress = .{
+        .state = progress_state,
+        .value = @intCast(@min(progress_int, 100)),
+    } });
+}
+
+fn decodeSgr(state: *const vt.ParserData, out: *ActionQueue) void {
     // No params = reset
     if (state.num_params == 0) {
-        term.emulator.current_style = term.emulator.default_style;
+        out.pushAssumeCapacity(.reset_style);
         return;
     }
 
     var i: usize = 0;
 
-    const current_style = &term.emulator.current_style;
-
     while (i < state.num_params) : (i += 1) {
         const p = state.params[i];
 
         switch (p) {
-            0 => current_style.* = term.emulator.default_style,
+            0 => out.pushAssumeCapacity(.reset_style),
 
-            1 => current_style.flags.bold = true,
-            4 => current_style.flags.underline = true,
-            5, 6 => current_style.flags.blink = true,
-            7 => current_style.flags.inverse = true,
-            9 => current_style.flags.strikethrough = true,
+            1 => emitAttr(out, .{ .bold = true }, true),
+            4 => emitAttr(out, .{ .underline = true }, true),
+            5, 6 => emitAttr(out, .{ .blink = true }, true),
+            7 => emitAttr(out, .{ .inverse = true }, true),
+            9 => emitAttr(out, .{ .strikethrough = true }, true),
 
-            22 => current_style.flags.bold = false,
-            23 => current_style.flags.italic = false,
-            24 => current_style.flags.underline = false,
-            25 => current_style.flags.blink = false,
-            27 => current_style.flags.inverse = false,
-            29 => current_style.flags.strikethrough = false,
+            22 => emitAttr(out, .{ .bold = false }, false),
+            23 => emitAttr(out, .{ .italic = false }, false),
+            24 => emitAttr(out, .{ .underline = false }, false),
+            25 => emitAttr(out, .{ .blink = false }, false),
+            27 => emitAttr(out, .{ .inverse = false }, false),
+            29 => emitAttr(out, .{ .strikethrough = false }, false),
 
             30...37, 90...97 => {
                 const is_bright = p >= 90;
@@ -207,9 +275,7 @@ fn handleSGR(term: *Terminal, state: *const vt.ParserData) void {
                 const offset: u8 = if (is_bright) 8 else 0;
                 const idx: u8 = @intCast((p - base) + offset);
 
-                const color_index: color.ansi.ColorIndex = @fromBackingInt(@intCast(idx));
-                const ansi_color = term.emulator.color_palette.get(color_index);
-                current_style.fg_color = ansi_color;
+                out.pushAssumeCapacity(.{ .change_fg = .{ .ansi_index = @fromBackingInt(idx) } });
             },
             40...47, 100...107 => {
                 const is_bright = p >= 100;
@@ -217,9 +283,7 @@ fn handleSGR(term: *Terminal, state: *const vt.ParserData) void {
                 const offset: u8 = if (is_bright) 8 else 0;
                 const idx: u8 = @intCast((p - base) + offset);
 
-                const color_index: color.ansi.ColorIndex = @fromBackingInt(@intCast(idx));
-                const ansi_color = term.emulator.color_palette.get(color_index);
-                current_style.bg_color = ansi_color;
+                out.pushAssumeCapacity(.{ .change_bg = .{ .ansi_index = @fromBackingInt(idx) } });
             },
 
             38, 48 => {
@@ -228,116 +292,83 @@ fn handleSGR(term: *Terminal, state: *const vt.ParserData) void {
                     state.params[i + 1] == 5 and
                     state.params[i + 2] < 256)
                 {
-                    const color_index: color.ansi.ColorIndex = @fromBackingInt(@intCast(state.params[i + 2]));
-                    const ansi_color = term.emulator.color_palette.get(color_index);
+                    const idx: u8 = @intCast(state.params[i + 2]);
+                    const value: VTColor = .{ .ansi_index = @fromBackingInt(idx) };
 
                     if (p == 38)
-                        current_style.fg_color = ansi_color
+                        out.pushAssumeCapacity(.{ .change_fg = value })
                     else
-                        current_style.bg_color = ansi_color;
+                        out.pushAssumeCapacity(.{ .change_bg = value });
 
                     i += 2;
                 }
                 // Truecolor: 38;2;R;G;B / 48;2;R;G;B
                 else if (i + 4 < state.num_params and state.params[i + 1] == 2) {
-                    const r = @as(u8, @intCast(state.params[i + 2]));
-                    const g = @as(u8, @intCast(state.params[i + 3]));
-                    const b = @as(u8, @intCast(state.params[i + 4]));
+                    const r: u8 = @intCast(@min(state.params[i + 2], 255));
+                    const g: u8 = @intCast(@min(state.params[i + 3], 255));
+                    const b: u8 = @intCast(@min(state.params[i + 4], 255));
+                    const value: VTColor = .{ .true_color = .rgba(r, g, b, 255) };
+
                     if (p == 38)
-                        current_style.fg_color = .rgba(r, g, b, 255)
+                        out.pushAssumeCapacity(.{ .change_fg = value })
                     else
-                        current_style.bg_color = .rgba(r, g, b, 255);
+                        out.pushAssumeCapacity(.{ .change_bg = value });
+
                     i += 4;
                 }
             },
 
-            39 => current_style.fg_color = term.emulator.default_style.fg_color,
-            49 => current_style.bg_color = term.emulator.default_style.bg_color,
+            39 => out.pushAssumeCapacity(.{ .change_fg = null }),
+            49 => out.pushAssumeCapacity(.{ .change_bg = null }),
 
             else => {},
         }
     }
-
-    log.debug("style update: {f}", .{term.emulator.current_style});
 }
 
-fn cursorUp(terminal: *Terminal, n: usize) void {
-    terminal.grid.clearWrapPending();
-    if (n > terminal.grid.cursor_y)
-        terminal.grid.cursor_y = 0
-    else
-        terminal.grid.cursor_y -= n;
-}
-
-fn cursorDown(terminal: *Terminal, n: usize) void {
-    terminal.grid.clearWrapPending();
-    terminal.grid.cursor_y = @min(terminal.grid.cursor_y + n, terminal.grid.visable_rows -| 1);
-}
-
-fn cursorLeft(terminal: *Terminal, n: usize) void {
-    terminal.grid.clearWrapPending();
-    if (n > terminal.grid.cursor_x)
-        terminal.grid.cursor_x = 0
-    else
-        terminal.grid.cursor_x -= n;
-}
-
-fn cursorRight(terminal: *Terminal, n: usize) void {
-    terminal.grid.clearWrapPending();
-    terminal.grid.cursor_x = @min(terminal.grid.cursor_x + n, terminal.grid.rows_width -| 1);
-}
-
-fn setCursorPosition(terminal: *Terminal, row: usize, col: usize) void {
-    terminal.grid.clearWrapPending();
-    terminal.grid.cursor_y = @min(row -| 1, terminal.grid.visable_rows -| 1);
-    terminal.grid.cursor_x = @min(col -| 1, terminal.grid.rows_width -| 1);
-}
-
-/// Write one streamed byte. ASCII goes straight to the grid; the rest is
-/// buffered until a full UTF-8 codepoint is available.
-fn printByte(terminal: *Terminal, char: u8) void {
+fn decodePrint(decoder: *Decoder, char: u8, out: *ActionQueue) void {
     if (char < 0x80) {
-        flushUtf8(terminal);
-        putCodepoint(terminal, translate(terminal.emulator.charset, char));
+        flushUtf8(decoder, out);
+        out.pushAssumeCapacity(.{ .print = translate(decoder.charset, char) });
         return;
     }
 
-    if (terminal.emulator.utf8_len == 0) {
+    if (decoder.utf8_len == 0) {
         const expected = std.unicode.utf8ByteSequenceLength(char) catch 1;
 
-        terminal.emulator.utf8_buf[0] = char;
-        terminal.emulator.utf8_len = 1;
+        decoder.utf8_buffer[0] = char;
+        decoder.utf8_len = 1;
 
-        if (terminal.emulator.utf8_len >= expected)
-            flushUtf8(terminal);
+        if (decoder.utf8_len >= expected)
+            flushUtf8(decoder, out);
     } else {
-        const expected = std.unicode.utf8ByteSequenceLength(terminal.emulator.utf8_buf[0]) catch {
-            putCodepoint(terminal, 0xFFFD); // stray continuation / invalid lead
-            terminal.emulator.utf8_len = 0;
+        const expected = std.unicode.utf8ByteSequenceLength(decoder.utf8_buffer[0]) catch {
+            out.pushAssumeCapacity(.{ .print = 0xFFFD }); // stray continuation / invalid lead
+            decoder.utf8_len = 0;
             return;
         };
 
-        terminal.emulator.utf8_buf[terminal.emulator.utf8_len] = char;
-        terminal.emulator.utf8_len += 1;
+        decoder.utf8_buffer[decoder.utf8_len] = char;
+        decoder.utf8_len += 1;
 
-        if (terminal.emulator.utf8_len >= expected)
-            flushUtf8(terminal);
+        if (decoder.utf8_len >= expected)
+            flushUtf8(decoder, out);
     }
 }
 
-/// Decode the buffered bytes and emit one cell. A truncated sequence at the
-/// end of the stream (or a control char interrupting it) becomes U+FFFD.
-fn flushUtf8(terminal: *Terminal) void {
-    if (terminal.emulator.utf8_len == 0) return;
-    const expected = std.unicode.utf8ByteSequenceLength(terminal.emulator.utf8_buf[0]) catch 0;
+/// Decode the buffered bytes and emit one print action. A truncated sequence
+/// at the end of the stream (or a control char interrupting it) becomes U+FFFD.
+fn flushUtf8(decoder: *Decoder, out: *ActionQueue) void {
+    if (decoder.utf8_len == 0) return;
 
+    const expected = std.unicode.utf8ByteSequenceLength(decoder.utf8_buffer[0]) catch 0;
     var codepoint: u21 = 0xFFFD;
 
-    if (terminal.emulator.utf8_len == expected)
-        codepoint = std.unicode.utf8Decode(terminal.emulator.utf8_buf[0..expected]) catch 0xFFFD;
+    if (decoder.utf8_len == expected)
+        codepoint = std.unicode.utf8Decode(decoder.utf8_buffer[0..expected]) catch 0xFFFD;
 
-    terminal.emulator.utf8_len = 0;
-    putCodepoint(terminal, codepoint);
+    decoder.utf8_len = 0;
+    out.pushAssumeCapacity(.{ .print = codepoint });
 }
 
 const dec_special_graphics_table = [32]u21{
@@ -354,6 +385,73 @@ fn translate(charset: Emulator.Charset, byte: u8) u21 {
         @branchHint(.likely);
         return @intCast(byte);
     }
+}
+
+fn emitAttr(out: *ActionQueue, to_set: color.ansi.Flags, on: bool) void {
+    out.pushAssumeCapacity(.{ .set_attrs = .{ .to_set = to_set, .on = on } });
+}
+
+fn emitCursorRelative(out: *ActionQueue, dx: i32, dy: i32) void {
+    out.pushAssumeCapacity(.{ .cursor_move = .{ .relative = .{ .dx = dx, .dy = dy } } });
+}
+
+fn hasParam(state: *const vt.ParserData, index: usize) bool {
+    return index < @as(usize, state.num_params);
+}
+
+fn paramOr(state: *const vt.ParserData, index: usize, default: u32) u32 {
+    return if (hasParam(state, index)) state.params[index] else default;
+}
+
+/// Movement counts treat an explicit 0 as 1.
+fn countParam(state: *const vt.ParserData, index: usize) i32 {
+    const value = @max(paramOr(state, index, 1), 1);
+    return @intCast(@min(value, std.math.maxInt(i32)));
+}
+
+fn countParamU16(state: *const vt.ParserData, index: usize) u16 {
+    const value = @max(paramOr(state, index, 1), 1);
+    return @intCast(@min(value, std.math.maxInt(u16)));
+}
+
+fn positionParam(state: *const vt.ParserData, index: usize, default: u32) u16 {
+    return @intCast(@min(paramOr(state, index, default), std.math.maxInt(u16)));
+}
+
+fn eraseMode(value: u32) EraseMode {
+    return @fromBackingInt(@intCast(@as(usize, value)));
+}
+
+fn applyCursorMove(terminal: *Terminal, move: CursorMoveAction) void {
+    terminal.grid.clearWrapPending();
+
+    switch (move) {
+        .abs => |abs| {
+            if (abs.y) |row|
+                terminal.grid.cursor_y = @min(@as(usize, row) -| 1, terminal.grid.visable_rows -| 1);
+            if (abs.x) |col|
+                terminal.grid.cursor_x = @min(@as(usize, col) -| 1, terminal.grid.rows_width -| 1);
+        },
+        .relative => |rel| {
+            const max_x: i32 = @intCast(terminal.grid.rows_width -| 1);
+            const max_y: i32 = @intCast(terminal.grid.visable_rows -| 1);
+
+            const x = @as(i32, @intCast(terminal.grid.cursor_x)) + rel.dx;
+            const y = @as(i32, @intCast(terminal.grid.cursor_y)) + rel.dy;
+
+            terminal.grid.cursor_x = @intCast(std.math.clamp(x, 0, max_x));
+            terminal.grid.cursor_y = @intCast(std.math.clamp(y, 0, max_y));
+        },
+    }
+}
+
+fn resolveColor(terminal: *Terminal, value: ?VTColor, default: color.RGBA) color.RGBA {
+    const resolved = value orelse return default;
+
+    return switch (resolved) {
+        .ansi_index => |index| terminal.emulator.color_palette.get(index),
+        .true_color => |rgba| rgba,
+    };
 }
 
 fn putCodepoint(terminal: *Terminal, codepoint: u21) void {
