@@ -280,10 +280,10 @@ fn choosePresentMode(
 
 fn chooseCompositeAlpha(supported: vk.CompositeAlphaFlagsKHR) vk.CompositeAlphaFlagsKHR {
     const preferred = [_]vk.CompositeAlphaFlagsKHR{
-        .{ .inherit_khr = true },
-        .{ .opaque_khr = true },
         .{ .pre_multiplied_khr = true },
         .{ .post_multiplied_khr = true },
+        .{ .inherit_khr = true },
+        .{ .opaque_khr = true },
     };
 
     for (preferred) |flag| {

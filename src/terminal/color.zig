@@ -166,20 +166,36 @@ pub const RGBA = packed struct(u32) {
         return @bitCast(vec * m);
     }
 
-    /// convert hex rgb string like `#00eeff` to RGBA
+    /// convert hex rgb string like `#00eeff` to opaque RGBA
     /// expects string length 7 and '#' at start, else
     /// is undefined behavior
     pub fn fromRGBHexString(color: []const u8) RGBA {
         assert(color.len == 7 and color[0] == '#');
 
-        var int: u32 = 0xFF << 24;
+        return .{
+            .r = hexByte(color[1], color[2]),
+            .g = hexByte(color[3], color[4]),
+            .b = hexByte(color[5], color[6]),
+            .a = 255,
+        };
+    }
 
-        inline for (color[1..7]) |c| {
-            int <<= 4;
-            int |= (@as(u32, c) & 0xF) + (@as(u32, c) >> 6) * 9;
-        }
+    /// convert hex rgba string like `#00eeff80` to RGBA
+    /// expects string length 9 and '#' at start, else
+    /// is undefined behavior
+    pub fn fromRGBAHexString(color: []const u8) RGBA {
+        assert(color.len == 9 and color[0] == '#');
 
-        return RGBA.fromInt(int);
+        return .{
+            .r = hexByte(color[1], color[2]),
+            .g = hexByte(color[3], color[4]),
+            .b = hexByte(color[5], color[6]),
+            .a = hexByte(color[7], color[8]),
+        };
+    }
+
+    fn hexByte(hi: u8, lo: u8) u8 {
+        return (hexToU8(hi) << 4) | hexToU8(lo);
     }
 
     fn hexToU8(c: u8) u8 {

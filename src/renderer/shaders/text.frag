@@ -22,5 +22,7 @@ layout(set = 1, binding = 0) uniform sampler2D textures[];
 
 void main() {
     float alpha = texture(textures[texture_index], texture_coords).r;
-    frag_color = mix(bg_color, fg_color, alpha);
+    vec4 color = mix(bg_color, fg_color, alpha);
+    // The swapchain uses premultiplied alpha so the window can be transparent.
+    frag_color = vec4(color.rgb * color.a, color.a);
 }

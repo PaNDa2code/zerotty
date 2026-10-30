@@ -10,7 +10,7 @@ pub const Config = struct {
     theme: ?Theme = .dark,
 
     fg_color: color.RGBA = .white,
-    bg_color: color.RGBA = .mix(.white, .black, 0.94),
+    bg_color: color.RGBA = color.RGBA.mix(.white, .black, 0.94).alpha(240),
     /// Font size in pixels (vertical height of a glyph).
     font_size: u32 = 32,
     gpu_acceleration: bool = true,
@@ -23,8 +23,12 @@ pub const ConfigJson = struct {
     font_size: u32 = 20,
 
     fn resolveColorValue(color_str: []const u8) !color.RGBA {
-        if (color_str.len >= 6 and color_str.len >= 6 and color_str[0] == '#') {
-            return color.RGBA.fromRGBHexString(color_str);
+        if (color_str.len > 0 and color_str[0] == '#') {
+            return switch (color_str.len) {
+                7 => color.RGBA.fromRGBHexString(color_str),
+                9 => color.RGBA.fromRGBAHexString(color_str),
+                else => error.InvalidColorValue,
+            };
         } else if (std.meta.stringToEnum(color.CSSColors, color_str)) |css| {
             return css.toRGBA();
         } else return error.InvalidColorValue;

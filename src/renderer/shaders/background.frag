@@ -27,9 +27,12 @@ void main() {
     // Fragments outside the grid (partial cells at the bottom/right edge)
     // fall back to the clear color, which matches the default background.
     if (cell.x >= int(ubo.grid_size.x) || cell.y >= int(ubo.grid_size.y)) {
-        frag_color = ubo.bg_color;
+        // The swapchain uses premultiplied alpha so the window can be transparent.
+        frag_color = vec4(ubo.bg_color.rgb * ubo.bg_color.a, ubo.bg_color.a);
         return;
     }
 
-    frag_color = texelFetch(u_cell_colors, cell, 0);
+    // The swapchain uses premultiplied alpha so the window can be transparent.
+    vec4 color = texelFetch(u_cell_colors, cell, 0);
+    frag_color = vec4(color.rgb * color.a, color.a);
 }

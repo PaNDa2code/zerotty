@@ -27,6 +27,7 @@ pub fn create(allocator: Allocator, options: root.WindowOptions) !Window {
 
     // if (render_backend != .opengl)
     c.glfwWindowHint(c.GLFW_CLIENT_API, c.GLFW_NO_API);
+    c.glfwWindowHint(c.GLFW_TRANSPARENT_FRAMEBUFFER, c.GLFW_TRUE);
 
     const title = try allocator.allocSentinel(u8, options.title.len, 0);
     defer allocator.free(title);
