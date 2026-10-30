@@ -1,32 +1,22 @@
 const Window = @This();
 
-keyboard_cb: ?*const fn (utf32: u32, press: bool) void = null,
-
-title: []const u8,
 height: u32,
 width: u32,
 
-window: *c.GLFWwindow = undefined,
-
-event_queue: *root.EventQueue = undefined,
+window: *c.GLFWwindow,
+event_queue: *root.EventQueue,
 
 pub fn nextEvent(self: *Window) ?root.Event {
     return self.event_queue.pop();
 }
 
-pub fn destroy(self: *Window, allocator: Allocator) void {
-    self.close();
-    allocator.destroy(self);
-}
-pub fn new(title: []const u8, height: u32, width: u32) Window {
-    return .{
-        .title = title,
-        .height = height,
-        .width = width,
-    };
+pub fn destroy(self: Window, allocator: Allocator) void {
+    allocator.destroy(self.event_queue);
 }
 
-pub fn open(self: *Window, allocator: Allocator, event_queue: *root.EventQueue) !void {
+pub fn create(allocator: Allocator, options: root.WindowOptions) !Window {
+    const event_queue = try allocator.create(root.EventQueue);
+
     if (@import("builtin").mode == .debug)
         _ = c.glfwSetErrorCallback(callbacks.errorCallback);
 
@@ -35,13 +25,13 @@ pub fn open(self: *Window, allocator: Allocator, event_queue: *root.EventQueue) 
     // if (render_backend != .opengl)
     c.glfwWindowHint(c.GLFW_CLIENT_API, c.GLFW_NO_API);
 
-    const title = try allocator.allocSentinel(u8, self.title.len, 0);
+    const title = try allocator.allocSentinel(u8, options.title.len, 0);
     defer allocator.free(title);
-    @memcpy(title, self.title);
+    @memcpy(title, options.title);
 
-    self.window = c.glfwCreateWindow(
-        @intCast(self.width),
-        @intCast(self.height),
+    const glfw_window = c.glfwCreateWindow(
+        @intCast(options.width),
+        @intCast(options.height),
         title.ptr,
         null,
         null,
@@ -49,27 +39,29 @@ pub fn open(self: *Window, allocator: Allocator, event_queue: *root.EventQueue) 
 
     var fb_w: c_int = 0;
     var fb_h: c_int = 0;
-    c.glfwGetFramebufferSize(self.window, &fb_w, &fb_h);
+    c.glfwGetFramebufferSize(glfw_window, &fb_w, &fb_h);
 
-    self.width = @intCast(fb_w);
-    self.height = @intCast(fb_h);
+    _ = c.glfwSetWindowUserPointer(glfw_window, event_queue);
+    _ = c.glfwSetFramebufferSizeCallback(glfw_window, callbacks.framebufferSize);
+    _ = c.glfwSetWindowCloseCallback(glfw_window, callbacks.windowClose);
+    _ = c.glfwSetKeyCallback(glfw_window, callbacks.key);
+    _ = c.glfwSetCharCallback(glfw_window, callbacks.char);
+    _ = c.glfwSetScrollCallback(glfw_window, callbacks.scroll);
+    _ = c.glfwSetWindowIconifyCallback(glfw_window, callbacks.iconify);
+    _ = c.glfwSetMouseButtonCallback(glfw_window, callbacks.mouseButton);
+    _ = c.glfwSetCursorPosCallback(glfw_window, callbacks.cursorPos);
 
-    _ = c.glfwSetWindowUserPointer(self.window, self);
-    _ = c.glfwSetFramebufferSizeCallback(self.window, callbacks.framebufferSize);
-    _ = c.glfwSetWindowCloseCallback(self.window, callbacks.windowClose);
-    _ = c.glfwSetKeyCallback(self.window, callbacks.key);
-    _ = c.glfwSetCharCallback(self.window, callbacks.char);
-    _ = c.glfwSetScrollCallback(self.window, callbacks.scroll);
-    _ = c.glfwSetWindowIconifyCallback(self.window, callbacks.iconify);
-    _ = c.glfwSetMouseButtonCallback(self.window, callbacks.mouseButton);
-    _ = c.glfwSetCursorPosCallback(self.window, callbacks.cursorPos);
-
-    c.glfwShowWindow(self.window);
+    c.glfwShowWindow(glfw_window);
 
     // if (render_backend == .opengl)
     //     c.glfwMakeContextCurrent(self.window);
 
-    self.event_queue = event_queue;
+    return .{
+        .window = glfw_window,
+        .event_queue = event_queue,
+        .width = @intCast(fb_w),
+        .height = @intCast(fb_h),
+    };
 }
 
 pub fn setTitle(self: *Window, title: []const u8) !void {
@@ -200,7 +192,7 @@ const callbacks = struct {
                 .mouse = .{
                     .button = .{
                         // mouse input enum matches the glfw mouse buttons enumeration
-                        .button = @enumFromInt(button),
+                        .button = @fromBackingInt(@intCast(button)),
                         .state = if (action == c.GLFW_PRESS) .press else .release,
                     },
                 },

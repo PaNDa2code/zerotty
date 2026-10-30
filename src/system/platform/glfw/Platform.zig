@@ -22,7 +22,7 @@ pub const Clipboard = struct {
 
 allocator: std.mem.Allocator,
 
-current_window: ?*Window = null,
+current_window: ?Window = null,
 clipboard: Clipboard = undefined,
 
 event_queue: ?*root.EventQueue = null,
@@ -42,26 +42,17 @@ pub fn deinit(self: *Platform) void {
 }
 
 pub fn createWindow(self: *Platform, options: root.WindowOptions) !void {
-    const win = try self.allocator.create(Window);
-
-    win.* = .new(options.title, options.height, options.width);
+    const win = try Window.create(self.allocator, options);
 
     self.current_window = win;
     self.clipboard.window = @ptrCast(win.window);
-
-    const event_queue = try self.allocator.create(root.EventQueue);
-    event_queue.* = .empty;
-
-    self.event_queue = event_queue;
-
-    try win.open(self.allocator, event_queue);
 }
 
 pub fn getWindowNativeHandles(self: *Platform) !root.WindowNativeHandles {
     return .{ .window = (try self.getWindow()).window };
 }
 
-pub fn pollEvents(self: *const Platform) !void {
+pub fn pollEvents(self: *Platform) !void {
     const w = try self.getWindow();
     w.poll();
 }
@@ -70,6 +61,6 @@ pub fn eventQueue(self: *const Platform) *root.EventQueue {
     return self.event_queue orelse unreachable;
 }
 
-fn getWindow(self: *const Platform) !*Window {
-    return self.current_window orelse error.WindowNotCreated;
+fn getWindow(self: *Platform) !*Window {
+    return if (self.current_window) |*w| w else error.WindowNotCreated;
 }
