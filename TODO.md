@@ -6,7 +6,7 @@
 
 ### Renderer:
 
-- [ ] stable renderer interface (--dynamic-- runtime backend)
+- [ ] stable renderer interface (~~dynamic~~ runtime backend)
 - [x] vulkan backend
 - [x] opengl backend
 - [ ] GPU font rastrizer
@@ -29,7 +29,7 @@
 - [x] asynchronous event loop (IO, Window Events)
 - [x] keyboard and mouse input handler
 - [ ] C#, Python or any interpreted programming language for plugins interfaces
-- [ ] ConEmu "Progress Bar" sequences
+- [x] ConEmu "Progress Bar" sequences
 
 ### CI/CD:
 
