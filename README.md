@@ -11,7 +11,9 @@ ZeroTTY is a modern terminal emulator designed for speed, efficiency, and cross-
 > **⚠️ This project is currently in an early stage of development.  
 > Expect bugs, missing features, and fast-moving changes**
 
-![](assets/screenshots/preview.gif)
+<p align="center">
+  <img src="assets/screenshots/preview.gif"/>
+</p>
 
 ## Getting Started
 
