@@ -277,13 +277,14 @@ pub fn run(self: *App) !void {
             const completion = self.io_batch.next() orelse break;
 
             const n = completion.result.file_read_streaming catch |err| switch (err) {
-                error.EndOfStream => {
+                error.InputOutput, error.EndOfStream => {
                     running = false;
                     break;
                 },
                 else => return err,
             };
 
+            log.debug("pty bytes = {b64}", .{self.buf[0..n]});
             self.terminal.vtparser.parse(self.buf[0..n]);
 
             self.io_batch.addAt(completion.index, .{
@@ -300,7 +301,7 @@ pub fn run(self: *App) !void {
         if (shell_exit == .ended) break;
 
         while (events_queue.pop()) |event| {
-            std.log.debug("event: {f}", .{event});
+            log.debug("event: {f}", .{event});
 
             switch (event) {
                 .close => {
@@ -368,7 +369,7 @@ pub fn run(self: *App) !void {
             // two fonts does not collide.
             const resolved = self.resolveGlyph(@intCast(item.cell.unicode));
             if (resolved.glyph == 0) {
-                std.log.debug("cell({},{}) codepoint 0x{X} .nodef", .{
+                log.debug("cell({},{}) codepoint 0x{X} .nodef", .{
                     item.x,
                     item.y,
                     item.cell.unicode,
@@ -572,3 +573,5 @@ const InputHandler = @import("InputHandler.zig");
 const os_tag = builtin.os.tag;
 
 const Config = zerotty.config.Config;
+
+const log = std.log.scoped(.App);

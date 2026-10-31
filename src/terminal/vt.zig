@@ -17,6 +17,16 @@ const CursorMoveAction = union(enum) {
 const VTColor = union(enum) {
     ansi_index: color.ansi.ColorIndex,
     true_color: color.RGBA,
+
+    pub fn format(
+        self: VTColor,
+        writer: *std.Io.Writer,
+    ) std.Io.Writer.Error!void {
+        return switch (self) {
+            .ansi_index => |i| writer.print("{s}", .{@tagName(i)}),
+            .true_color => |c| writer.print("rgba({},{},{},{})", .{ c.r, c.g, c.b, c.a }),
+        };
+    }
 };
 
 pub const Action = union(enum) {
@@ -60,8 +70,8 @@ pub const Action = union(enum) {
             .erase_chars => |n| writer.print("Action.erase_chars({})", .{n}),
             .delete_chars => |n| writer.print("Action.delete_chars({})", .{n}),
 
-            .change_fg => |c| writer.print("Action.change_fg({?})", .{c}),
-            .change_bg => |c| writer.print("Action.change_bg({?})", .{c}),
+            .change_fg => |c| writer.print("Action.change_fg({?f})", .{c}),
+            .change_bg => |c| writer.print("Action.change_bg({?f})", .{c}),
 
             .set_charset => |chr| writer.print("Action.set_charset({s})", .{@tagName(chr)}),
 
@@ -91,6 +101,11 @@ pub fn vtparserEntry(state: *const vt.ParserData, to_action: vt.Action, char: u8
 
     var actions: ActionQueue = .{};
     decode(state, to_action, char, &terminal.decoder, &actions);
+
+    log.debug("{s} 0x{X} params = {any}", .{
+        @tagName(to_action),               char,
+        state.params[0..state.num_params],
+    });
 
     while (actions.pop()) |action| {
         log.debug("{f}", .{action});
