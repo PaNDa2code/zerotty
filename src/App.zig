@@ -10,7 +10,7 @@ allocator: std.mem.Allocator,
 platform: Platform,
 renderer: Renderer,
 
-buf: []u8,
+buffers: [1][]u8,
 terminal: *Terminal,
 
 cell_width: u32,
@@ -158,14 +158,7 @@ pub fn init(
     // try event_loop.read(terminal.session.pty.readFile(), buf, ptyReadCallback, terminal);
 
     const storage = try allocator.alloc(std.Io.Operation.Storage, 1);
-    var batch = std.Io.Batch.init(storage);
-
-    _ = batch.add(.{
-        .file_read_streaming = .{
-            .file = terminal.session.pty.readFile(),
-            .data = &.{buf},
-        },
-    });
+    const batch = std.Io.Batch.init(storage);
 
     return .{
         .config = config,
@@ -178,7 +171,7 @@ pub fn init(
 
         // .io_event_loop = event_loop,
 
-        .buf = buf,
+        .buffers = .{buf},
         .terminal = terminal,
 
         .cell_width = cell_width,
@@ -254,6 +247,13 @@ pub fn run(self: *App) !void {
     var cache = font.Cache.init(self.allocator);
     defer cache.deinit();
 
+    _ = self.io_batch.add(.{
+        .file_read_streaming = .{
+            .file = self.terminal.session.pty.readFile(),
+            .data = self.buffers[0..],
+        },
+    });
+
     while (running) {
         try self.platform.pollEvents();
         const events_queue = self.platform.eventQueue();
@@ -284,13 +284,13 @@ pub fn run(self: *App) !void {
                 else => return err,
             };
 
-            log.debug("pty bytes = {b64}", .{self.buf[0..n]});
-            self.terminal.vtparser.parse(self.buf[0..n]);
+            log.debug("pty bytes = {b64}", .{self.buffers[0][0..n]});
+            self.terminal.vtparser.parse(self.buffers[0][0..n]);
 
             self.io_batch.addAt(completion.index, .{
                 .file_read_streaming = .{
                     .file = self.terminal.session.pty.readFile(),
-                    .data = &.{self.buf},
+                    .data = self.buffers[0..],
                 },
             });
         }
@@ -481,7 +481,7 @@ pub fn deinit(self: *App) void {
     self.renderer.deinit();
     self.platform.deinit();
     self.terminal.deinit();
-    self.allocator.free(self.buf);
+    self.allocator.free(self.buffers[0]);
     // self.io_event_loop.deinit(self.allocator);
     self.bg_color_data.deinit(self.allocator);
 
