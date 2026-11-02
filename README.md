@@ -30,7 +30,8 @@ ZeroTTY is a modern terminal emulator designed for speed, efficiency, and cross-
 ### Prerequisites
 
 *   **Zig:** The project is built using the Zig compiler.
-*   **System Libraries:** Additional system libraries may be required depending on your OS, chosen windowing system, and rendering backend (e.g., `X11`, `xcb`, `xkbcommon`, `GL` for Linux).
+*   **glslang (optional):** having khronos [glslang](https://github.com/KhronosGroup/glslang) installed will save you around 5 minutes. If not, the build script will just fetch and build it from source.
+*   **Vulkan:** vulkan is the main rendering backend
 
 ### Install
 
@@ -45,7 +46,7 @@ curl -fsSL https://codeberg.org/panda2code/zerotty/raw/branch/master/ci/install-
 1.  **Clone the repository:**
 
 ```bash
-git clone https://github.com/PaNDa2code/zerotty.git
+git clone https://github.com/PaNDa2code/zerotty.git --recursive --depth 1
 cd zerotty
 ```
 
@@ -54,24 +55,9 @@ cd zerotty
 You can build ZeroTTY with the following command:
 
 ```bash
-zig build -Doptimize=ReleaseSafe
-```
-This will build it with the recommend options for your setup.
-
-You can also specify the rendering backend:
-
-```bash
-# Build with OpenGL renderer
-zig build -Doptimize=ReleaseSafe -Drender-backend=opengl
-
-# Build with Vulkan renderer
-zig build -Doptimize=ReleaseSafe -Drender-backend=vulkan
+zig build --release=safe
 ```
 
-Also the window backend:
-```bash
-zig build -Dwindow-system=glfw
-```
 
 3.  **Run ZeroTTY:**
 
