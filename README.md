@@ -4,7 +4,17 @@
   <p>
     A high-performance, cross-platform terminal emulator built with Zig.
   </p>
+  <p>
+    
+![](https://badgen.net/codeberg/release/panda2code/zerotty)
+![](https://badgen.net/codeberg/last-commit/panda2code/zerotty)
+![](https://badgen.net/codeberg/commits/panda2code/zerotty)
+[![status-badge](https://ci.codeberg.org/api/badges/17395/status.svg)](https://ci.codeberg.org/repos/17395)
+
+  </p>
 </div>
+
+
 
 ZeroTTY is a modern terminal emulator designed for speed, efficiency, and cross-platform compatibility. By leveraging the power of Zig and a low-level design, ZeroTTY aims to provide a native, high-performance experience with minimal dependencies.
 
