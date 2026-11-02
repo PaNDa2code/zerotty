@@ -126,15 +126,20 @@ fn startWindows(
 
     var env_block: ?*anyopaque = null;
 
-    var buffer = try std.ArrayList(u8).initCapacity(arina, 1024);
-    var writer = std.Io.Writer.fromArrayList(&buffer);
+    var buffer = try std.ArrayList(u8).initCapacity(arina, 1024 * 4);
 
     var it = options.environ_map.iterator();
     while (it.next()) |entry| {
-        try writer.print("{}={}\x00", .{ entry.key_ptr, entry.value_ptr });
+        try buffer.appendSlice(arina, entry.key_ptr.*);
+        try buffer.append(arina, '=');
+        try buffer.appendSlice(arina, entry.value_ptr.*);
+        try buffer.append(arina, 0);
     }
-    try writer.writeByte(0);
+    try buffer.append(arina, 0);
+
     env_block = buffer.items.ptr;
+
+    std.log.debug("{any}", .{env_block});
 
     if (win32thread.CreateProcessW(
         pathW.ptr,
@@ -296,6 +301,9 @@ fn findPathAlloc(
 ) !?[]const u8 {
     const sep = std.fs.path.sep;
     const delimiter = std.fs.path.delimiter;
+
+    if (std.fs.path.isAbsolute(exe) or std.mem.indexOfAny(u8, exe, "/\\") != 0)
+        return try allocator.dupe(u8, exe);
 
     if (std.mem.containsAtLeastScalar(u8, exe, 1, sep)) return exe;
 

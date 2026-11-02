@@ -157,7 +157,7 @@ pub fn init(
         if (os_tag == .linux)
             "bash"
         else if (os_tag == .windows)
-            "cmd.exe"
+            "C:\\Windows\\System32\\cmd.exe"
         else
             unreachable;
 

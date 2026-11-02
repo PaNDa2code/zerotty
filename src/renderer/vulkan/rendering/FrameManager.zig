@@ -43,7 +43,7 @@ pub fn init(
     errdefer descriptor_set_layouts[0].deinit(device);
 
     descriptor_set_layouts[1] = try core.DescriptorSetLayout.Builder
-        .addBinding(0, .combined_image_sampler, 255, .{ .fragment = true })
+        .addBinding(0, .combined_image_sampler, 10, .{ .fragment = true })
         .build(device);
     errdefer descriptor_set_layouts[1].deinit(device);
 
@@ -70,7 +70,7 @@ pub fn init(
 
         resources[i].descriptor_pool = try core.DescriptorPool.Builder
             .addPoolSize(.uniform_buffer, 1)
-            .addPoolSize(.combined_image_sampler, 256)
+            .addPoolSize(.combined_image_sampler, 64)
             .setMaxSets(2)
             .build(device);
 

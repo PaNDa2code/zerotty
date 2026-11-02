@@ -89,11 +89,50 @@ pub const SwapchainTarget = struct {
         self.swapchain.deinit(allocator);
     }
 
+    fn resetImagesInFlight(self: *SwapchainTarget) !void {
+        const count = self.swapchain.images.len; // or image_views.len
+
+        if (self.images_in_flight.len != count) {
+            self.allocator.free(self.images_in_flight);
+            self.images_in_flight = try self.allocator.alloc(vk.Fence, count);
+        }
+
+        // Fences from the old swapchain are meaningless now
+        @memset(self.images_in_flight, .null_handle);
+    }
+
+    fn resetRenderFinished(self: *SwapchainTarget) !void {
+        const count = self.swapchain.images.len;
+        if (self.render_finished.len == count) return;
+
+        for (self.render_finished) |sem| self.device.destroySemaphore(sem);
+        self.allocator.free(self.render_finished);
+
+        self.render_finished = try self.allocator.alloc(vk.Semaphore, count);
+        for (self.render_finished) |*sem| sem.* = try self.device.createSemaphore();
+    }
+
     pub fn ensureFramebuffers(
         self: *SwapchainTarget,
         render_pass: *const core.RenderPass,
     ) !void {
-        for (0..self.swapchain.image_views.len) |i| {
+        const count = self.swapchain.image_views.len;
+
+        if (self.framebuffers.len != count) {
+            // Destroy any existing framebuffers first, they reference old image views
+            for (self.framebuffers) |*fb| {
+                if (fb.handle != .null_handle) fb.deinit(self.device);
+            }
+            self.allocator.free(self.framebuffers);
+
+            self.framebuffers = try self.allocator.alloc(core.Framebuffer, count);
+            for (self.framebuffers) |*fb| fb.* = .{
+                .handle = .null_handle,
+                .extent = self.swapchain.extent,
+            };
+        }
+
+        for (0..count) |i| {
             if (self.framebuffers[i].handle == .null_handle) {
                 self.framebuffers[i] = try core.Framebuffer.init(
                     self.device,
@@ -116,8 +155,11 @@ pub const SwapchainTarget = struct {
 
         try self.swapchain.recreate(allocator, extent);
 
+        try self.resetImagesInFlight();
+        try self.resetRenderFinished();
+
         for (self.framebuffers) |*fb| {
-            fb.* = .{ .handle = .null_handle, .extent = undefined };
+            fb.* = .{ .handle = .null_handle, .extent = extent };
         }
     }
 
