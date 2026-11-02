@@ -149,11 +149,10 @@ pub fn buildReleaseProfile(
     const app_artifact = try app_mod.buildAppArtifact(b, cfg);
 
     const arch_name = @tagName(target.result.cpu.arch);
-    const mode_name = if (optimize == .debug) "debug" else "release";
     const os_name = @tagName(target.result.os.tag);
 
     // Name format: zerotty + arch + release mode (e.g. zerotty-x86_64-ReleaseFast)
-    const release_base_name = b.fmt("zerotty-{s}-{s}-{s}", .{ arch_name, os_name, mode_name });
+    const release_base_name = b.fmt("zerotty-{s}-{s}", .{ arch_name, os_name });
 
     // Destination bundle directory in prefix: zig-out/release/{arch}-{os}/
     const release_sub_path = b.fmt("release/{s}-{s}", .{ arch_name, os_name });

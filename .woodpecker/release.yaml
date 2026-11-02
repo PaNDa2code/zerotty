@@ -11,22 +11,11 @@ steps:
 
       - >-
         zig build release
+        --release=safe
         -Darchive
-        -Drelease_mode=debug
-        -Drelease_targets=$RELEASE_TARGETS
-
-      - >-
-        zig build release
-        -Darchive
-        -Duse_llvm
-        -Drelease_mode=$RELEASE_MODE
-        -Drelease_targets=$RELEASE_TARGETS
+        -Drelease_targets=x86_64-linux-gnu,x86_64-windows-gnu,aarch64-linux-gnu,aarch64-windows-gnu
 
       - ls -R zig-out
-
-    environment:
-      RELEASE_MODE: fast
-      RELEASE_TARGETS: x86_64-linux-gnu,x86_64-windows-gnu,aarch64-linux-gnu,aarch64-windows-gnu
 
 
   - name: publish release

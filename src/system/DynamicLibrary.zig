@@ -3,7 +3,9 @@ const DynamicLibrary = @This();
 
 lib: usize,
 
-pub fn init(library_name: [*:0]const u8) !DynamicLibrary {
+pub const InitError = error{FailedToLoadDynamicLibrary};
+
+pub fn init(library_name: [*:0]const u8) InitError!DynamicLibrary {
     return switch (@import("builtin").os.tag) {
         .windows => initWindows(library_name),
         .linux, .macos => initPosix(library_name),
@@ -35,7 +37,7 @@ fn initPosix(library_name: [*:0]const u8) !DynamicLibrary {
 }
 
 fn initWindows(library_name: [*:0]const u8) !DynamicLibrary {
-    return .{ .lib = @intFromPtr(LoadLibrary(library_name) orelse return error.CantLoadLibrary) };
+    return .{ .lib = @intFromPtr(LoadLibrary(library_name) orelse return error.FailedToLoadDynamicLibrary) };
 }
 
 fn getProcAddressWindows(self: *const DynamicLibrary, name: [*:0]const u8) ?*const anyopaque {

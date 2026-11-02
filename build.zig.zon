@@ -1,11 +1,11 @@
 .{
     .name = .zerotty,
 
-    .version = "0.0.1",
+    .version = "0.0.2",
 
     .fingerprint = 0x5c682fee5d121c4c,
 
-    .minimum_zig_version = "0.15.1",
+    .minimum_zig_version = "0.17.0",
 
     .dependencies = .{
         .mach_freetype = .{

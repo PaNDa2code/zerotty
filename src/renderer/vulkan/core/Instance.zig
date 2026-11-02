@@ -13,12 +13,12 @@ vk_allocator: ?*const vk.AllocationCallbacks,
 debug_messenger: if (builtin.mode == .debug and renderer_debug) vk.DebugUtilsMessengerEXT else void,
 
 pub const InitError = std.mem.Allocator.Error ||
-    std.DynLib.Error ||
+    DynamicLibrary.InitError ||
     vk.BaseWrapper.CreateInstanceError ||
     debug.DebugMessagerError ||
     debug.CheckValidationLayerSupportError;
 
-var vk_lib: std.DynLib = undefined;
+var vk_lib: DynamicLibrary = std.mem.zeroes(DynamicLibrary);
 
 pub fn init(
     allocator: std.mem.Allocator,
@@ -31,10 +31,11 @@ pub fn init(
         else => @compileError("not implemented"),
     };
 
-    vk_lib = try .openZ(vk_lib_path);
+    vk_lib = try .init(vk_lib_path);
+
     const vkb = vk.BaseWrapper.load(struct {
         pub fn load(_: anytype, procname: [*:0]const u8) vk.PfnVoidFunction {
-            const symbol = vk_lib.lookup(*anyopaque, std.mem.span(procname));
+            const symbol = vk_lib.getProcAddress(procname);
             return @ptrCast(@alignCast(symbol));
         }
     }.load);
@@ -125,6 +126,8 @@ const vk = @import("vulkan");
 const builtin = @import("builtin");
 
 const debug = @import("debug.zig");
+
+const DynamicLibrary = @import("zerotty").system.DynamicLibrary;
 
 const renderer_debug =
     @import("build_options").renderer_debug and

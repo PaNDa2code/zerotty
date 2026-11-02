@@ -152,9 +152,6 @@ fn startWindows(
     }
 
     process.id = proc_info.hProcess.?;
-    if (options.pty) |_pty| {
-        _pty.child = proc_info.hProcess.?;
-    }
 
     return process;
 }
