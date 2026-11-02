@@ -13,9 +13,12 @@ vk_allocator: ?*const vk.AllocationCallbacks,
 debug_messenger: if (builtin.mode == .debug and renderer_debug) vk.DebugUtilsMessengerEXT else void,
 
 pub const InitError = std.mem.Allocator.Error ||
+    std.DynLib.Error ||
     vk.BaseWrapper.CreateInstanceError ||
     debug.DebugMessagerError ||
     debug.CheckValidationLayerSupportError;
+
+var vk_lib: std.DynLib = undefined;
 
 pub fn init(
     allocator: std.mem.Allocator,
@@ -28,10 +31,10 @@ pub fn init(
         else => @compileError("not implemented"),
     };
 
+    vk_lib = try .openZ(vk_lib_path);
     const vkb = vk.BaseWrapper.load(struct {
         pub fn load(_: anytype, procname: [*:0]const u8) vk.PfnVoidFunction {
-            const lib = DynamicLibrary.init(vk_lib_path) catch unreachable;
-            const symbol = lib.getProcAddress(procname);
+            const symbol = vk_lib.lookup(*anyopaque, std.mem.span(procname));
             return @ptrCast(@alignCast(symbol));
         }
     }.load);
@@ -123,8 +126,6 @@ const builtin = @import("builtin");
 
 const debug = @import("debug.zig");
 
-const DynamicLibrary = @import("zerotty").system.DynamicLibrary;
-
 const renderer_debug =
-    @import("build_options").@"renderer_debug" and
+    @import("build_options").renderer_debug and
     !builtin.is_test and builtin.mode == .debug;

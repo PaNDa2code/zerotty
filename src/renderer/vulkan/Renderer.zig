@@ -166,9 +166,7 @@ pub fn deinit(self: *Renderer) void {
 }
 
 pub fn beginFrame(self: *Renderer) !void {
-    const frame = self.frame_manager.beginFrame() catch |err| {
-        return err;
-    };
+    const frame = try self.frame_manager.beginFrame();
     self.current_frame = frame;
 
     self.frame_info = self.render_target.acquireFrame(frame.in_flight_fence) catch |err| blk: {

@@ -73,10 +73,6 @@ cursor_y: usize = 0,
 /// where the cursor was moved to.
 wrap_pending: bool = false,
 
-show_cursor: bool = true,
-
-cursor_unicode: u32 = eighth_block,
-
 pub const eighth_block = 0x258F;
 pub const full_block = 0x2588;
 pub const lower_eighth_block = 0x2581;
@@ -498,6 +494,12 @@ pub fn deleteChars(self: *Grid, allocator: std.mem.Allocator, n: usize) !void {
     @memset(cells[col + tail .. cols], Cell.default);
 }
 
+pub const CursorPos = struct { x: usize, y: usize };
+
+pub fn cursorPos(self: *const Grid) CursorPos {
+    return .{ .x = self.cursor_x, .y = self.cursor_y };
+}
+
 pub fn deinit(self: *Grid, allocator: std.mem.Allocator) void {
     allocator.free(self.cells);
     allocator.free(self.wrapped);
@@ -519,24 +521,14 @@ pub const Iterator = struct {
 
     row: ?Row = null,
 
-    pending_cursor: ?Item = null,
-
     pub const Item = struct {
         x: usize,
         y: usize,
         cell: Cell,
-        cursor: bool = false,
     };
 
     pub fn next(self: *Iterator) ?Item {
         const g = self.grid;
-
-        // Return the cursor item that was queued by the
-        // previous normal-cell iteration.
-        if (self.pending_cursor) |item| {
-            self.pending_cursor = null;
-            return item;
-        }
 
         if (g.rows_width == 0 or self.current_y >= g.visable_rows)
             return null;
@@ -559,26 +551,10 @@ pub const Iterator = struct {
             self.current_y += 1;
         }
 
-        if (g.show_cursor and g.cursor_x == x and g.cursor_y == y) {
-            // Inherit the cell's entire style.
-            var cursor_cell = cell;
-
-            // Only change what visually represents the cursor.
-            cursor_cell.unicode = g.cursor_unicode;
-
-            self.pending_cursor = .{
-                .x = x,
-                .y = y,
-                .cell = cursor_cell,
-                .cursor = true,
-            };
-        }
-
         return .{
             .x = x,
             .y = y,
             .cell = cell,
-            .cursor = false,
         };
     }
 };

@@ -50,6 +50,9 @@ pub const Action = union(enum) {
 
     set_charset: Emulator.Charset,
 
+    set_cursor_style: Emulator.CursorStyle,
+    set_cursor_visible: bool,
+
     linefeed,
     carriage_return,
     backspace,
@@ -74,6 +77,9 @@ pub const Action = union(enum) {
             .change_bg => |c| writer.print("Action.change_bg({?f})", .{c}),
 
             .set_charset => |chr| writer.print("Action.set_charset({s})", .{@tagName(chr)}),
+
+            .set_cursor_style => |st| writer.print("Action.set_cursor_style({}, blink = {})", .{ st.shape, st.blink }),
+            .set_cursor_visible => |v| writer.print("Action.set_cursor_visable({})", .{v}),
 
             else => writer.print("Action.{s}", .{@tagName(self)}),
         };
@@ -171,6 +177,14 @@ pub fn apply(terminal: *Terminal, action: Action) void {
 
         .set_charset => |charset| terminal.decoder.charset = charset,
 
+        .set_cursor_style => |cursor_style| {
+            terminal.emulator.cursor_style = cursor_style;
+        },
+
+        .set_cursor_visible => |cursor_visable| {
+            terminal.emulator.cursor_visible = cursor_visable;
+        },
+
         .linefeed => terminal.grid.linefeed(terminal.allocator) catch unreachable,
         .carriage_return => terminal.grid.carriageReturn(),
         .backspace => backspace(terminal),
@@ -199,8 +213,28 @@ fn decodeCsi(state: *const vt.ParserData, char: u8, out: *ActionQueue) void {
         'K' => out.pushAssumeCapacity(.{ .erase_line = eraseMode(paramOr(state, 0, 0)) }), // Erase in Line
         'P' => out.pushAssumeCapacity(.{ .delete_chars = countParamU16(state, 0) }), // DCH — Delete Character(s)
 
-        'h' => {}, // Set Mode (ignore for now)
-        'l' => {}, // Reset Mode (ignore for now)
+        'h', 'l' => {
+            if (state.num_intermediate_chars == 1 and
+                state.intermediate_chars[0] == '?' and
+                paramOr(state, 0, 0) == 25)
+            {
+                out.pushAssumeCapacity(.{ .set_cursor_visible = char == 'h' });
+            }
+        },
+        'q' => {
+            if (state.num_intermediate_chars == 1 and
+                state.intermediate_chars[0] == ' ')
+            {
+                const p = paramOr(state, 0, 0);
+                const blink = p == 0 or p & 1 == 1;
+                const shape: Emulator.CursorShape = switch (p) {
+                    3, 4 => .underline,
+                    5, 6 => .bar,
+                    else => .block,
+                };
+                out.pushAssumeCapacity(.{ .set_cursor_style = .{ .shape = shape, .blink = blink } });
+            }
+        },
         else => {},
     }
 }

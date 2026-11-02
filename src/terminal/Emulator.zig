@@ -4,6 +4,18 @@ const std = @import("std");
 const zerotty = @import("zerotty");
 const color = zerotty.terminal.color;
 
+pub const CursorShape = enum {
+    block,
+    underline,
+    bar,
+};
+
+pub const CursorStyle = struct {
+    blink: bool,
+    shape: CursorShape,
+    color: color.RGBA = .white,
+};
+
 pub const Charset = enum { ascii, dec_special_graphics };
 
 pub const ProgressBarState = enum(u3) {
@@ -46,3 +58,6 @@ color_palette: color.ansi.Palette = .default,
 
 default_style: Style,
 current_style: Style,
+
+cursor_style: CursorStyle = .{ .shape = .block, .blink = true, .color = .white },
+cursor_visible: bool = true,

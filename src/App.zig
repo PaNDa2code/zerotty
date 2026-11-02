@@ -1,4 +1,22 @@
+const std = @import("std");
+const builtin = @import("builtin");
+const os_tag = builtin.os.tag;
+
+const zerotty = @import("zerotty");
+const color = zerotty.terminal.color;
+const Platform = zerotty.system.platform.Platform;
+const font = zerotty.font;
+const Terminal = zerotty.terminal.Terminal;
+const AssetsManager = zerotty.AssetsManager;
+const TextInstance = zerotty.renderer.vertex.TextInstance;
+const Renderer = zerotty.renderer.Renderer;
+const Config = zerotty.config.Config;
+
+const InputHandler = @import("InputHandler.zig");
+
 const App = @This();
+
+const log = std.log.scoped(.App);
 
 config: Config,
 
@@ -135,8 +153,6 @@ pub fn init(
         },
     );
 
-    // var event_loop = try myio.EventLoop.init(allocator, 100);
-
     const shell_path = environ_map.get("SHELL") orelse
         if (os_tag == .linux)
             "bash"
@@ -155,7 +171,6 @@ pub fn init(
     });
 
     const buf = try allocator.alloc(u8, 64 * 1024);
-    // try event_loop.read(terminal.session.pty.readFile(), buf, ptyReadCallback, terminal);
 
     const storage = try allocator.alloc(std.Io.Operation.Storage, 1);
     const batch = std.Io.Batch.init(storage);
@@ -168,8 +183,6 @@ pub fn init(
 
         .platform = platform,
         .renderer = renderer,
-
-        // .io_event_loop = event_loop,
 
         .buffers = .{buf},
         .terminal = terminal,
@@ -246,6 +259,8 @@ pub fn run(self: *App) !void {
 
     var cache = font.Cache.init(self.allocator);
     defer cache.deinit();
+
+    var blink_on = true;
 
     _ = self.io_batch.add(.{
         .file_read_streaming = .{
@@ -334,7 +349,7 @@ pub fn run(self: *App) !void {
                             try self.applyFontSize(&cache, new_size);
                     }
 
-                    self.terminal.grid.show_cursor = true;
+                    blink_on = true;
                     cursor_tik = .now(self.io, .real);
                 },
                 else => {},
@@ -356,65 +371,77 @@ pub fn run(self: *App) !void {
             try self.bg_color_data.resize(self.allocator, bg_bytes);
         }
 
+        // self.syncCursor(blink_on);
+
         var grid_iter = self.terminal.grid.iterator();
+
+        const cur = self.terminal.grid.cursorPos();
+        const shape = self.terminal.emulator.cursor_style.shape;
+
+        const cursor_on = self.terminal.emulator.cursor_visible and
+            (!self.terminal.emulator.cursor_style.blink or blink_on);
+
+        var cursor_color = self.terminal.emulator.cursor_style.color;
 
         while (grid_iter.next()) |item| {
             if (item.cell.unicode == 0 or item.cell.unicode == ' ')
                 continue;
 
-            // The index is a glyph index into the resolved face, not a
-            // codepoint. Deriving it from the codepoint keeps repeated frames
-            // hitting the same atlas entry instead of rasterizing every cell.
-            // The face id is part of the cache key, so the same glyph index in
-            // two fonts does not collide.
-            const resolved = self.resolveGlyph(@intCast(item.cell.unicode));
-            if (resolved.glyph == 0) {
-                log.debug("cell({},{}) codepoint 0x{X} .nodef", .{
-                    item.x,
-                    item.y,
-                    item.cell.unicode,
-                });
+            var fg_color = item.cell.fg_color;
+            var bg_color = item.cell.bg_color;
+
+            if (cursor_on and shape == .block and
+                item.x == cur.x and item.y == cur.y)
+            {
+                fg_color = item.cell.bg_color;
+                bg_color = item.cell.fg_color;
+
+                cursor_color = bg_color;
             }
 
-            const glyph_id = font.GlyphID{
-                .font = @fromBackingInt(@intCast(@as(u32, @intCast(resolved.face)))),
-                .index = @fromBackingInt(@intCast(resolved.glyph)),
-            };
-            const glyph_entry =
-                cache.getAtlasEntry(glyph_id) orelse blk: {
-                    const bmp = self.font_faces[resolved.face].glyphBitmap(
-                        self.allocator,
-                        &pixels_pool,
-                        resolved.glyph,
-                    ) catch continue;
-
-                    // const current_len = pixels_pool.items.len;
-                    // const align_len = std.mem.alignForward(usize, current_len, 16);
-                    //
-                    // if (current_len < align_len)
-                    //     try pixels_pool.appendNTimes(self.allocator, 0, align_len - current_len);
-
-                    var new_atlas: bool = false;
-
-                    break :blk try cache.pushEntry(
-                        glyph_id,
-                        @intCast(bmp.width),
-                        @intCast(bmp.height),
-                        @intCast(bmp.off_x),
-                        @intCast(bmp.off_y),
-                        &new_atlas,
-                    );
-                };
-            const glyph_entry_bits = glyph_entry.toInt();
-            try instance_list.append(self.allocator, .{
-                .p_postion = (@as(u32, @intCast(item.y)) & 0xFFFF) | (@as(u32, @intCast(item.x)) << 16),
-                .p_glyph_entry = @as(*const @TypeOf(instance_list.items[0].p_glyph_entry), @ptrCast(&glyph_entry_bits)).*,
-                .fg_color = item.cell.fg_color,
-                .bg_color = item.cell.bg_color,
-            });
+            try addInstance(
+                self,
+                &cache,
+                &pixels_pool,
+                &instance_list,
+                @intCast(item.cell.unicode),
+                item.x,
+                item.y,
+                fg_color,
+                bg_color,
+            );
         }
 
         self.terminal.grid.fillBackgroundColors(self.bg_color_data.items);
+
+        if (shape == .block and cursor_on) {
+            const idx = (cur.x + cur.y * self.terminal.grid.rows_width) * 4;
+            self.bg_color_data.items[idx] = cursor_color.r;
+            self.bg_color_data.items[idx + 1] = cursor_color.g;
+            self.bg_color_data.items[idx + 2] = cursor_color.b;
+            self.bg_color_data.items[idx + 3] = cursor_color.a;
+        } else if (cursor_on) {
+            const lower_eighth_block = 0x2581;
+            const vertical_bar = 0x258F;
+
+            const unicode: u21 = switch (shape) {
+                .bar => vertical_bar,
+                .underline => lower_eighth_block,
+                else => unreachable,
+            };
+
+            try addInstance(
+                self,
+                &cache,
+                &pixels_pool,
+                &instance_list,
+                unicode,
+                cur.x,
+                cur.y,
+                cursor_color,
+                self.terminal.emulator.current_style.bg_color,
+            );
+        }
 
         try self.renderer.beginFrame();
 
@@ -471,7 +498,7 @@ pub fn run(self: *App) !void {
         const cursor_diff = cursor_tik.untilNow(self.io, .real);
 
         if (cursor_diff.nanoseconds >= std.time.ns_per_s) {
-            self.terminal.grid.show_cursor = !self.terminal.grid.show_cursor;
+            blink_on = !blink_on;
             cursor_tik = .now(self.io, .real);
         }
     }
@@ -493,6 +520,57 @@ pub fn deinit(self: *App) void {
     self.allocator.free(self.font_face_data);
 
     AssetsManager.instance.deinit();
+}
+
+fn addInstance(
+    self: *App,
+    cache: *font.Cache,
+    pixels_pool: *std.ArrayList(u8),
+    instance_list: *std.ArrayList(TextInstance),
+    unicode: u21,
+    x: usize,
+    y: usize,
+    fg: color.RGBA,
+    bg: color.RGBA,
+) !void {
+    const resolved = self.resolveGlyph(@intCast(unicode));
+
+    const glyph_id = font.GlyphID{
+        .font = @fromBackingInt(@intCast(@as(u32, @intCast(resolved.face)))),
+        .index = @fromBackingInt(@intCast(resolved.glyph)),
+    };
+    const glyph_entry =
+        cache.getAtlasEntry(glyph_id) orelse blk: {
+            const bmp = try self.font_faces[resolved.face].glyphBitmap(
+                self.allocator,
+                pixels_pool,
+                resolved.glyph,
+            );
+
+            // const current_len = pixels_pool.items.len;
+            // const align_len = std.mem.alignForward(usize, current_len, 16);
+            //
+            // if (current_len < align_len)
+            //     try pixels_pool.appendNTimes(self.allocator, 0, align_len - current_len);
+
+            var new_atlas: bool = false;
+
+            break :blk try cache.pushEntry(
+                glyph_id,
+                @intCast(bmp.width),
+                @intCast(bmp.height),
+                @intCast(bmp.off_x),
+                @intCast(bmp.off_y),
+                &new_atlas,
+            );
+        };
+
+    try instance_list.append(self.allocator, .{
+        .p_postion = (@as(u32, @intCast(y)) & 0xFFFF) | (@as(u32, @intCast(x)) << 16),
+        .p_glyph_entry = @as(*const @TypeOf(instance_list.items[0].p_glyph_entry), @ptrCast(&glyph_entry.toInt())).*,
+        .fg_color = fg,
+        .bg_color = bg,
+    });
 }
 
 /// Build an `InputHandler.Sink` that writes to our PTY and drives the grid.
@@ -549,29 +627,20 @@ const AppSink = struct {
     }
 };
 
-fn ptyReadCallback(event: *myio.EventLoop.Event, len: usize, user_data: ?*anyopaque) myio.EventLoop.CallbackAction {
-    const buffer = event.request.op_data.read[0..len];
-    const terminal: *Terminal = @ptrCast(@alignCast(user_data));
-    terminal.vtparser.parse(buffer);
-    return .retry;
-}
+// const full_block = 0x2588;
+// const lower_eighth_block = 0x2581;
+// const vertical_bar = 0x258F;
 
-const std = @import("std");
-const builtin = @import("builtin");
-const zerotty = @import("zerotty");
-
-const myio = zerotty.system.io;
-const Platform = zerotty.system.platform.Platform;
-const font = zerotty.font;
-const Terminal = zerotty.terminal.Terminal;
-const AssetsManager = zerotty.AssetsManager;
-const TextInstance = zerotty.renderer.vertex.TextInstance;
-const color = zerotty.terminal.color;
-const Renderer = zerotty.renderer.Renderer;
-const InputHandler = @import("InputHandler.zig");
-
-const os_tag = builtin.os.tag;
-
-const Config = zerotty.config.Config;
-
-const log = std.log.scoped(.App);
+// fn syncCursor(app: *App, blink_on: bool) void {
+//     const emu = &app.terminal.emulator;
+//
+//     app.terminal.grid.cursor_unicode =
+//         switch (emu.cursor_style.shape) {
+//             .block => full_block,
+//             .underline => lower_eighth_block,
+//             .bar => vertical_bar,
+//         };
+//
+//     app.terminal.grid.show_cursor = emu.cursor_visible and
+//         (!emu.cursor_style.blink or blink_on);
+// }
