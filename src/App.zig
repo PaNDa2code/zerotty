@@ -211,7 +211,7 @@ fn applyFontSize(
     cache.deinit();
     cache.* = font.Cache.init(self.allocator);
 
-    try self.renderer.resetGlyphCache();
+    // try self.renderer.resetGlyphCache();
 
     self.config.font_size = new_size;
 
@@ -232,7 +232,6 @@ fn applyFontSize(
         .height = @intCast(rows),
     });
     try self.terminal.grid.resizeVisable(self.allocator, rows, cols);
-    try self.renderer.setGridSize(@intCast(cols), @intCast(rows));
 }
 
 /// Walks `font_faces` in order and returns the first face that has a glyph for
@@ -324,7 +323,7 @@ pub fn run(self: *App) !void {
                     break;
                 },
                 .resize => |size| {
-                    try self.renderer.resizeSurface(
+                    try self.renderer.resize(
                         size.width,
                         size.height,
                     );
@@ -337,7 +336,6 @@ pub fn run(self: *App) !void {
                     );
 
                     try self.terminal.grid.resizeVisable(self.allocator, rows, cols);
-                    try self.renderer.setGridSize(@intCast(cols), @intCast(rows));
                 },
                 .input => |input_event| {
                     var sink = self.inputSink();
@@ -370,8 +368,6 @@ pub fn run(self: *App) !void {
             self.bg_color_data.clearRetainingCapacity();
             try self.bg_color_data.resize(self.allocator, bg_bytes);
         }
-
-        // self.syncCursor(blink_on);
 
         var grid_iter = self.terminal.grid.iterator();
 
@@ -443,41 +439,28 @@ pub fn run(self: *App) !void {
             );
         }
 
-        try self.renderer.beginFrame();
+        const scene: zerotty.renderer.Scene = .{
+            .clear_color = self.config.bg_color,
+            .cell_metrics = .{
+                .cell_width = @intCast(self.cell_width),
+                .cell_height = @intCast(self.cell_height),
+                .baseline = @intCast(self.renderer.settings.baseline),
+            },
+            .grid_size = .{
+                .rows = @intCast(grid_rows),
+                .cols = @intCast(grid_cols),
+            },
+            .instances = instance_list.items,
+            .background = self.bg_color_data.items,
+            .damage = .full,
+            .glyph_upload = .{
+                .entries = cache.new_added_entries.items,
+                .bitmaps = pixels_pool.items,
+            },
+        };
 
-        try self.renderer.setViewport(
-            0,
-            0,
-            self.platform.current_window.?.width,
-            self.platform.current_window.?.height,
-        );
-
-        self.renderer.clear(self.config.bg_color);
-
-        if (cache.new_added_entries.items.len > 0) {
-            try self.renderer.cacheGlyphs(
-                cache.new_added_entries.items,
-                pixels_pool.items,
-            );
-
-            cache.new_added_entries.clearRetainingCapacity();
-        }
-
-        try self.renderer.uploadBackground(
-            @intCast(grid_rows),
-            @intCast(grid_cols),
-            self.bg_color_data.items,
-        );
-
-        if (instance_list.items.len != 0) {
-            const batch = try self.renderer.reserveBatch(instance_list.items.len);
-            @memcpy(batch, instance_list.items);
-
-            try self.renderer.commitBatch(instance_list.items.len);
-        }
-
-        try self.renderer.endFrame();
-        try self.renderer.presnt();
+        _ = try self.renderer.render(scene);
+        cache.new_added_entries.clearRetainingCapacity();
 
         frames += 1;
 
@@ -626,21 +609,3 @@ const AppSink = struct {
         self.app.pending_font_size = new_size;
     }
 };
-
-// const full_block = 0x2588;
-// const lower_eighth_block = 0x2581;
-// const vertical_bar = 0x258F;
-
-// fn syncCursor(app: *App, blink_on: bool) void {
-//     const emu = &app.terminal.emulator;
-//
-//     app.terminal.grid.cursor_unicode =
-//         switch (emu.cursor_style.shape) {
-//             .block => full_block,
-//             .underline => lower_eighth_block,
-//             .bar => vertical_bar,
-//         };
-//
-//     app.terminal.grid.show_cursor = emu.cursor_visible and
-//         (!emu.cursor_style.blink or blink_on);
-// }

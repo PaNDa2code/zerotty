@@ -73,7 +73,7 @@ pub fn pushEntry(
 
     try self.packers.append(
         self.allocator,
-        Packer.init(root.max_atlas_dim, root.max_atlas_dim),
+        Packer.init(2048, 2048),
     );
 
     const atlas_index = self.packers.items.len - 1;

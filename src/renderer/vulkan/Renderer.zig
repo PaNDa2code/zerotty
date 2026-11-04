@@ -80,7 +80,7 @@ pub fn init(
     const render_target = swapchain_target_ptr.interface();
 
     // see src/font/root.zig
-    var cache = Cache.init(2048, 2048, 255);
+    var cache = Cache.init(2048, 2048, 10);
     _ = try cache.newTexture(allocator, render_context.device_allocator);
 
     const staging_buffer = try core.Buffer.initAlloc(
@@ -165,13 +165,51 @@ pub fn deinit(self: *Renderer) void {
     self.render_context.deinit();
 }
 
-pub fn beginFrame(self: *Renderer) !void {
+pub fn render(self: *Renderer, scene: root.Scene) !root.PresentResult {
+    try self.beginFrame();
+
+    const info = self.frame_info orelse return error.FrameDidNotStart;
+
+    try self.setViewport(0, 0, info.extent.width, info.extent.height);
+    self.clear(scene.clear_color);
+
+    try self.setGridSize(scene.grid_size.cols, scene.grid_size.rows);
+
+    self.settings.cell_width = scene.cell_metrics.cell_width;
+    self.settings.cell_height = scene.cell_metrics.cell_height;
+    self.settings.baseline = scene.cell_metrics.baseline;
+
+    if (scene.glyph_upload.entries.len > 0)
+        try self.cacheGlyphs(
+            scene.glyph_upload.entries,
+            scene.glyph_upload.bitmaps,
+        );
+
+    try self.uploadBackground(
+        scene.grid_size.rows,
+        scene.grid_size.cols,
+        scene.background,
+    );
+
+    if (scene.instances.len > 0) {
+        const batch = try self.reserveBatch(scene.instances.len);
+        @memcpy(batch, scene.instances);
+        try self.commitBatch(scene.instances.len);
+    }
+
+    try self.endFrame();
+    try self.presnt();
+
+    return .ok;
+}
+
+fn beginFrame(self: *Renderer) !void {
     const frame = try self.frame_manager.beginFrame();
     self.current_frame = frame;
 
     self.frame_info = self.render_target.acquireFrame(frame.in_flight_fence) catch |err| blk: {
         if (err == error.TargetNotReady) {
-            try self.resizeSurface(0, 0);
+            try self.resize(0, 0);
             break :blk try self.render_target.acquireFrame(frame.in_flight_fence);
         }
         return err;
@@ -212,7 +250,7 @@ pub fn beginFrame(self: *Renderer) !void {
     try cmd.setScissor(scissor);
 }
 
-pub fn endFrame(self: *Renderer) !void {
+fn endFrame(self: *Renderer) !void {
     if (self.current_frame) |frame| {
         const info = self.frame_info orelse return error.FrameDidNotStart;
 
@@ -307,7 +345,7 @@ pub fn endFrame(self: *Renderer) !void {
     } else return error.FrameDidNotStart;
 }
 
-pub fn presnt(self: *Renderer) !void {
+fn presnt(self: *Renderer) !void {
     if (self.current_frame) |frame| {
         self.render_target.presentFrame(.{
             .queue = &self.render_context.queue,
@@ -321,11 +359,11 @@ pub fn presnt(self: *Renderer) !void {
     self.instance_count = 0;
 }
 
-pub fn clear(self: *Renderer, bg_color: color.RGBA) void {
+fn clear(self: *Renderer, bg_color: color.RGBA) void {
     self.bg_color = bg_color;
 }
 
-pub fn setViewport(self: *Renderer, x: u32, y: u32, width: u32, height: u32) !void {
+fn setViewport(self: *Renderer, x: u32, y: u32, width: u32, height: u32) !void {
     const viewport = vk.Viewport{
         .x = @floatFromInt(x),
         .y = @floatFromInt(y),
@@ -346,7 +384,7 @@ pub fn setViewport(self: *Renderer, x: u32, y: u32, width: u32, height: u32) !vo
     }
 }
 
-pub fn resizeSurface(self: *Renderer, width: u32, height: u32) !void {
+pub fn resize(self: *Renderer, width: u32, height: u32) !void {
     try self.render_context.device.waitIdle();
 
     const new_extent = try self.render_context.getSurfaceExtent(width, height);
@@ -365,21 +403,21 @@ pub fn resizeSurface(self: *Renderer, width: u32, height: u32) !void {
     try self.swapchain_target.ensureFramebuffers(&self.render_pipeline.renderpass);
 }
 
-pub fn resetGlyphCache(self: *Renderer) !void {
+fn resetGlyphCache(self: *Renderer) !void {
     try self.render_context.device.waitIdle();
 
     const allocator = self.render_context.allocator_adapter.allocator;
     self.cache.deinit(allocator, self.render_context.device_allocator);
 
-    var cache = Cache.init(2048, 2048, 255);
+    var cache = Cache.init(2048, 2048, 10);
     _ = try cache.newTexture(allocator, self.render_context.device_allocator);
 
     self.cache = cache;
 }
 
-pub fn cacheGlyphs(
+fn cacheGlyphs(
     self: *Renderer,
-    entries: []font.GlyphAtlasEntry,
+    entries: []const font.GlyphAtlasEntry,
     bitmap_pool: []const u8,
 ) !void {
     const frame = self.current_frame orelse return error.FrameDidNotStart;
@@ -406,10 +444,11 @@ pub fn cacheGlyphs(
         &self.glyph_staging_buffer,
         self.render_context.allocator_adapter.allocator,
         entries,
+        self.render_context.device_allocator,
     );
 }
 
-pub fn reserveBatch(self: *Renderer, count: usize) ![]vertex.TextInstance {
+fn reserveBatch(self: *Renderer, count: usize) ![]vertex.TextInstance {
     if (self.staging_buffer.mem_alloc == null or
         self.staging_buffer.mem_alloc.?.size < count * @sizeOf(vertex.TextInstance))
     {
@@ -426,7 +465,7 @@ pub fn reserveBatch(self: *Renderer, count: usize) ![]vertex.TextInstance {
     return self.staging_buffer.hostSlice(vertex.TextInstance).?[0..count];
 }
 
-pub fn commitBatch(self: *Renderer, count: usize) !void {
+fn commitBatch(self: *Renderer, count: usize) !void {
     if (self.current_frame) |frame| {
         if (frame.vertex_buffer.mem_alloc == null or
             frame.vertex_buffer.mem_alloc.?.size < count * @sizeOf(vertex.TextInstance))
@@ -467,7 +506,7 @@ pub fn commitBatch(self: *Renderer, count: usize) !void {
 /// Recreate the per-cell background color texture for the new grid
 /// dimensions. Callers must follow up with `uploadBackground` to
 /// repopulate the texture before it is sampled again.
-pub fn setGridSize(self: *Renderer, cols: u32, rows: u32) !void {
+fn setGridSize(self: *Renderer, cols: u32, rows: u32) !void {
     const new_cols = @max(1, cols);
     const new_rows = @max(1, rows);
 
@@ -493,7 +532,7 @@ pub fn setGridSize(self: *Renderer, cols: u32, rows: u32) !void {
 
 /// Stage `colors` (`rows * cols * 4` RGBA8 bytes) into the per-cell
 /// background texture. Must be called between `beginFrame`/`endFrame`.
-pub fn uploadBackground(self: *Renderer, rows: u32, cols: u32, colors: []const u8) !void {
+fn uploadBackground(self: *Renderer, rows: u32, cols: u32, colors: []const u8) !void {
     const frame = self.current_frame orelse return error.FrameDidNotStart;
     if (rows == 0 or cols == 0) return;
 

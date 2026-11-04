@@ -56,6 +56,7 @@ pub fn recordCopyCmd(
     buffer: *const core.Buffer,
     allocator: std.mem.Allocator,
     entries: []const font.GlyphAtlasEntry,
+    device_allocator: *memory.DeviceAllocator,
 ) !void {
     if (entries.len == 0) return;
 
@@ -63,18 +64,25 @@ pub fn recordCopyCmd(
     defer arina.deinit();
     const arina_alloc = arina.allocator();
 
-    const texture_count = self.textures.items.len;
+    var texture_count = self.textures.items.len;
 
     var copy_lists = try arina_alloc.alloc(std.ArrayList(vk.BufferImageCopy), texture_count);
-
-    for (copy_lists) |*list| {
-        list.* = std.ArrayList(vk.BufferImageCopy).empty;
-    }
+    @memset(copy_lists, .empty);
 
     var buffer_offset: usize = 0;
 
     for (entries) |entry| {
         const texture_index: usize = @intCast(entry.atlas_id);
+
+        if (texture_index >= texture_count) {
+            copy_lists = try arina_alloc.realloc(copy_lists, texture_index + 1);
+
+            for (texture_count..texture_index + 1) |i| {
+                copy_lists[i] = .empty;
+                _ = try self.newTexture(allocator, device_allocator);
+                texture_count += 1;
+            }
+        }
 
         const region = vk.BufferImageCopy{
             .buffer_offset = buffer_offset,
