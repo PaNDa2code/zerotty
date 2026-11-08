@@ -9,21 +9,35 @@ const Assets = struct {
 };
 
 pub fn resolveAssets(b: *Build) !Assets {
-    const shaders = try shaders_mod.compiledShadersPathes(
+    const zig_shaders = try shaders_mod.compiledZigShadersPathes(
         b,
         b.path("src/renderer/shaders"),
         &.{
-            "text.vert",       "text.frag",
-            "background.vert", "background.frag",
+            "text_vert.zig",
+            "text_frag.zig",
+            "background_vert.zig",
+            "background_frag.zig",
         },
-        .vulkan,
     );
+    // const shaders = try shaders_mod.compiledGLSLShadersPathes(
+    //     b,
+    //     b.path("src/renderer/shaders"),
+    //     &.{
+    //         "text.vert",       "text.frag",
+    //         "background.vert", "background.frag",
+    //     },
+    //     .vulkan,
+    // );
 
     const stage = b.addWriteFiles();
 
     _ = stage.addCopyDirectory(b.path("assets/fonts"), "fonts", .{});
 
-    for (shaders) |shader| {
+    // for (shaders) |shader| {
+    //     _ = stage.addCopyFile(shader.path, b.fmt("shaders/{s}", .{shader.name}));
+    // }
+
+    for (zig_shaders) |shader| {
         _ = stage.addCopyFile(shader.path, b.fmt("shaders/{s}", .{shader.name}));
     }
 

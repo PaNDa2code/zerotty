@@ -1,6 +1,6 @@
 const RenderPipeline = @This();
 
-pipeline: core.Pipeline,
+text_pass_pipeline: core.Pipeline,
 bg_pass_pipeline: core.Pipeline,
 pipeline_layout: core.PipelineLayout,
 renderpass: core.RenderPass,
@@ -22,7 +22,7 @@ pub fn init(
     descriptor_info: DescriptorSetInfo,
 ) !RenderPipeline {
     const text_vert_asset = try AssetsManager.instance
-        .get("shaders/text.vert.spv");
+        .get("shaders/text_vert.zig.spv");
     const text_vert_data = try text_vert_asset.fixedBuffer();
 
     const text_vert_data_aligned = try allocator.alignedAlloc(u8, .@"8", text_vert_data.len);
@@ -31,7 +31,7 @@ pub fn init(
     @memcpy(text_vert_data_aligned, text_vert_data);
 
     const text_frag_asset = try AssetsManager.instance
-        .get("shaders/text.frag.spv");
+        .get("shaders/text_frag.zig.spv");
     const text_frag_data = try text_frag_asset.fixedBuffer();
 
     const text_frag_data_aligned = try allocator.alignedAlloc(u8, .@"8", text_frag_data.len);
@@ -40,7 +40,7 @@ pub fn init(
     @memcpy(text_frag_data_aligned, text_frag_data);
 
     const bg_vert_asset = try AssetsManager.instance
-        .get("shaders/background.vert.spv");
+        .get("shaders/background_vert.zig.spv");
     const bg_vert_data = try bg_vert_asset.fixedBuffer();
 
     const bg_vert_data_aligned = try allocator.alignedAlloc(u8, .@"8", bg_vert_data.len);
@@ -49,7 +49,7 @@ pub fn init(
     @memcpy(bg_vert_data_aligned, bg_vert_data);
 
     const bg_frag_asset = try AssetsManager.instance
-        .get("shaders/background.frag.spv");
+        .get("shaders/background_frag.zig.spv");
     const bg_frag_data = try bg_frag_asset.fixedBuffer();
 
     const bg_frag_data_aligned = try allocator.alignedAlloc(u8, .@"8", bg_frag_data.len);
@@ -139,22 +139,6 @@ pub fn init(
         .extent = display_info.extent,
     };
 
-    const blend_attachment = vk.PipelineColorBlendAttachmentState{
-        .blend_enable = .false,
-        .src_color_blend_factor = .one,
-        .dst_color_blend_factor = .zero,
-        .color_blend_op = .add,
-        .src_alpha_blend_factor = .one,
-        .dst_alpha_blend_factor = .zero,
-        .alpha_blend_op = .add,
-        .color_write_mask = .{
-            .r = true,
-            .g = true,
-            .b = true,
-            .a = true,
-        },
-    };
-
     var bg_pass_pipeline_builder = core.Pipeline.Builder.init(device, allocator);
     defer bg_pass_pipeline_builder.deinit();
 
@@ -172,7 +156,21 @@ pub fn init(
     try bg_pass_pipeline_builder.addDynamicState(.viewport);
     try bg_pass_pipeline_builder.addDynamicState(.scissor);
 
-    try bg_pass_pipeline_builder.addColorBlendAttachment(blend_attachment);
+    try bg_pass_pipeline_builder.addColorBlendAttachment(.{
+        .blend_enable = .false,
+        .src_color_blend_factor = .one,
+        .dst_color_blend_factor = .zero,
+        .color_blend_op = .add,
+        .src_alpha_blend_factor = .one,
+        .dst_alpha_blend_factor = .zero,
+        .alpha_blend_op = .add,
+        .color_write_mask = .{
+            .r = true,
+            .g = true,
+            .b = true,
+            .a = true,
+        },
+    });
 
     const bg_pass_pipeline = try bg_pass_pipeline_builder.build();
 
@@ -193,12 +191,26 @@ pub fn init(
     try pipeline_builder.addDynamicState(.viewport);
     try pipeline_builder.addDynamicState(.scissor);
 
-    try pipeline_builder.addColorBlendAttachment(blend_attachment);
+    try pipeline_builder.addColorBlendAttachment(.{
+        .blend_enable = .true,
+        .src_color_blend_factor = .one,
+        .dst_color_blend_factor = .one_minus_src_alpha,
+        .color_blend_op = .add,
+        .src_alpha_blend_factor = .one,
+        .dst_alpha_blend_factor = .one_minus_src_alpha,
+        .alpha_blend_op = .add,
+        .color_write_mask = .{
+            .r = true,
+            .g = true,
+            .b = true,
+            .a = true,
+        },
+    });
 
     const pipeline = try pipeline_builder.build();
 
     return .{
-        .pipeline = pipeline,
+        .text_pass_pipeline = pipeline,
         .bg_pass_pipeline = bg_pass_pipeline,
         .pipeline_layout = pipeline_layout,
         .renderpass = renderpass,
@@ -206,7 +218,7 @@ pub fn init(
 }
 
 pub fn deinit(self: *RenderPipeline, device: *const core.Device, allocator: std.mem.Allocator) void {
-    self.pipeline.deinit();
+    self.text_pass_pipeline.deinit();
     self.bg_pass_pipeline.deinit();
     self.pipeline_layout.deinit(device);
     self.renderpass.deinit(allocator);

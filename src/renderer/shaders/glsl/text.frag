@@ -8,7 +8,10 @@
 layout(location = 0) flat in uint texture_index;
 layout(location = 1) in vec2 texture_coords;
 layout(location = 2) in vec4 fg_color;
+
+#ifndef BLENDENABLE
 layout(location = 3) in vec4 bg_color;
+#endif
 
 // -------------------------------------------------
 // output
@@ -21,8 +24,7 @@ layout(location = 0) out vec4 frag_color;
 layout(set = 1, binding = 0) uniform sampler2D textures[];
 
 void main() {
-    float alpha = texture(textures[texture_index], texture_coords).r;
-    vec4 color = mix(bg_color, fg_color, alpha);
-    // The swapchain uses premultiplied alpha so the window can be transparent.
-    frag_color = vec4(color.rgb * color.a, color.a);
+    float coverage = texture(textures[texture_index], texture_coords).r;
+    float alpha = fg_color.a * coverage;
+    frag_color = vec4(fg_color.rgb * alpha, alpha);
 }

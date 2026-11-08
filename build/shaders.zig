@@ -7,7 +7,41 @@ pub const CompiledShader = struct {
     path: Build.LazyPath,
 };
 
-pub fn compiledShadersPathes(
+pub fn compiledZigShadersPathes(
+    b: *Build,
+    dir: Build.LazyPath,
+    files: []const []const u8,
+) ![]CompiledShader {
+    const shader_pathes = try b.allocator.alloc(CompiledShader, files.len);
+
+    const target = b.resolveTargetQuery(try std.Target.Query.parse(.{
+        .arch_os_abi = "spirv32-vulkan",
+        .cpu_features = "baseline+runtime_descriptor_array",
+    }));
+    for (files, shader_pathes) |f, *s| {
+        const name = b.fmt("{s}.spv", .{f});
+
+        const spv = b.addExecutable(.{
+            .name = name,
+            .root_module = b.createModule(.{
+                .root_source_file = dir.path(b, f),
+                .optimize = .fast,
+                .target = target,
+            }),
+            .linkage = .static,
+            // SPIR-V shaders must use the self-hosted backend; LLVM currently
+            // segfaults while compiling even trivial SPIR-V modules.
+            .use_llvm = false,
+        });
+
+        s.name = name;
+        s.path = spv.getEmittedBin();
+    }
+
+    return shader_pathes;
+}
+
+pub fn compiledGLSLShadersPathes(
     b: *Build,
     dir: Build.LazyPath,
     files: []const []const u8,
@@ -120,7 +154,7 @@ fn findPathAlloc(allocator: std.mem.Allocator, PATH: []const u8, exe: []const u8
         };
         defer file.close(io);
         const stat = try file.stat(io);
-        if (stat.kind == .file and @intFromEnum(stat.permissions) & 0o0111 != 0) {
+        if (stat.kind == .file and @backingInt(stat.permissions) & 0o0111 != 0) {
             return try allocator.dupe(u8, full_path);
         }
     }

@@ -65,17 +65,17 @@ pub fn addDescriptor(
     );
 }
 
-pub const ResetError = error{};
-
 pub fn reset(
     self: *DescriptorSet,
-) !void {
+) void {
+    self.descriptors.clearRetainingCapacity();
     self.write_descriptor_sets.clearRetainingCapacity();
-    try self.prepare();
 }
 
 pub fn prepare(self: *DescriptorSet) std.mem.Allocator.Error!void {
     const limits = self.pool.device.physical_device.properties.limits;
+
+    self.write_descriptor_sets.clearRetainingCapacity();
 
     var desc_iter = self.descriptors.iterator();
 
@@ -128,7 +128,9 @@ pub fn prepare(self: *DescriptorSet) std.mem.Allocator.Error!void {
     }
 }
 
-pub fn update(self: *DescriptorSet) void {
+pub fn update(self: *DescriptorSet) std.mem.Allocator.Error!void {
+    try self.prepare();
+
     self.pool.device.vkd.updateDescriptorSets(
         self.pool.device.handle,
         self.write_descriptor_sets.items,

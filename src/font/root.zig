@@ -71,7 +71,7 @@ pub const makeFontInterface = font_interface.FontInterface;
 /// CFF/PostScript outlines, WOFF containers, and hinting via autohinter -- but
 /// for the plain TrueType faces in the asset archive the two produce the same
 /// glyphs.
-pub const default_backend = TrueTypeBackend;
+pub const default_backend = FreeTypeBackend;
 
 /// The concrete interface zerotty runs on.
 pub const Font = makeFontInterface(default_backend);

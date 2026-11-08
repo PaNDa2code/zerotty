@@ -220,18 +220,7 @@ fn beginFrame(self: *Renderer) !void {
 
     try cmd.begin(.{ .one_time_submit = true });
 
-    try frame.descriptor_sets[0].reset();
-    try frame.descriptor_sets[0].addDescriptor(0, 0, .{
-        .buffer = frame.uniform_buffer.getDescriptorBufferInfo(),
-    });
-    try frame.descriptor_sets[0].addDescriptor(1, 0, .{
-        .image = self.bg_color_image.getDescriptorImageInfo(self.bg_color_sampler),
-    });
-    frame.descriptor_sets[0].update();
-
-    try self.cache.updateDescriptorSet(&frame.descriptor_sets[1]);
-
-    try cmd.bindPipeline(self.render_pipeline.pipeline.handle, .graphics);
+    try cmd.bindPipeline(self.render_pipeline.text_pass_pipeline.handle, .graphics);
 
     const viewport = vk.Viewport{
         .x = 0,
@@ -277,7 +266,7 @@ fn endFrame(self: *Renderer) !void {
             .inv_atlas_size = .from(1.0 / atlas_w, 1.0 / atlas_h),
             .cell_size = .from(cell_w, cell_h),
             .cell_size_inv = .from(1.0 / cell_w, 1.0 / cell_h),
-            .grid_size = .from(@floatFromInt(self.bg_grid_cols), @floatFromInt(self.bg_grid_rows)),
+            .grid_size = .from(self.bg_grid_cols, self.bg_grid_rows),
             .bg_color = blk: {
                 const arr = self.bg_color.floatArray();
                 break :blk .{ .x = arr[0], .y = arr[1], .z = arr[2], .w = arr[3] };
@@ -297,10 +286,16 @@ fn endFrame(self: *Renderer) !void {
             },
         );
 
-        for (0..2) |i| {
-            try frame.descriptor_sets[i].prepare();
-            frame.descriptor_sets[i].update();
-        }
+        frame.descriptor_sets[0].reset();
+        try frame.descriptor_sets[0].addDescriptor(0, 0, .{
+            .buffer = frame.uniform_buffer.getDescriptorBufferInfo(),
+        });
+        try frame.descriptor_sets[0].addDescriptor(1, 0, .{
+            .image = self.bg_color_image.getDescriptorImageInfo(self.bg_color_sampler),
+        });
+        try frame.descriptor_sets[0].update();
+
+        try self.cache.updateDescriptorSet(&frame.descriptor_sets[1]);
 
         if (self.instance_count != 0 or self.bg_color_ready) {
             for (0..2) |i|
@@ -328,7 +323,7 @@ fn endFrame(self: *Renderer) !void {
             }
 
             if (self.instance_count != 0) {
-                try frame.main_cmd.bindPipeline(self.render_pipeline.pipeline.handle, .graphics);
+                try frame.main_cmd.bindPipeline(self.render_pipeline.text_pass_pipeline.handle, .graphics);
 
                 try frame.main_cmd.bindVertexBuffer(
                     &frame.vertex_buffer,

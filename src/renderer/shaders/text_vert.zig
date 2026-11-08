@@ -1,77 +1,101 @@
 const std = @import("std");
-const gpu = std.gpu;
 
-const Vec2 = @Vector(2, f32);
-const Vec4 = @Vector(4, f32);
-const UVec2 = @Vector(2, u32);
-
-// zig fmt: off
-
-const TextUniform = extern struct {
-    screen_to_clip_scale:   Vec2,
-    screen_to_clip_offset:  Vec2,
-    inv_atlas_size:         Vec2, // 1 / atlas_size
-    cell_size:              Vec2,
-    baseline:               f32,
-};
-
-
-const ubo = uniform("ubo", TextUniform, 0, 0);
+const ubo = @extern(*addrspace(.uniform) const extern struct {
+    screen_to_clip_scale: @Vector(2, f32),
+    screen_to_clip_offset: @Vector(2, f32),
+    inv_atlas_size: @Vector(2, f32), // 1 / atlas_size
+    cell_size: @Vector(2, f32),
+    cell_size_inv: @Vector(2, f32),
+    grid_size: @Vector(2, f32),
+    bg_color: @Vector(4, f32),
+    baseline: f32,
+}, .{
+    .name = "ubo",
+    .decoration = .{
+        .descriptor = .{ .set = 0, .binding = 0 },
+    },
+});
 
 // Vertex input
-const p_postion         = input("p_postion",        u32, 0);
-const p_glyph_entry     = input("p_glyph_entry",    UVec2, 1);
-const fg_color          = input("fg_color",         Vec4, 2);
-const bg_color          = input("bg_color",         Vec4, 3);
+const p_postion = @extern(*addrspace(.input) const u32, .{
+    .name = "p_postion",
+    .decoration = .{ .location = 0 },
+});
+
+const p_glyph_entry = @extern(*addrspace(.input) const @Vector(2, u32), .{
+    .name = "p_glyph_entry",
+    .decoration = .{ .location = 1 },
+});
+
+const fg_color = @extern(*addrspace(.input) const @Vector(4, f32), .{
+    .name = "fg_color",
+    .decoration = .{ .location = 2 },
+});
+
+const bg_color = @extern(*addrspace(.input) const @Vector(4, f32), .{
+    .name = "bg_color",
+    .decoration = .{ .location = 3 },
+});
 
 // Vertex output
-const f_texture_index   = output("f_texture_index", u32,  0);
-const f_texture_coords  = output("f_texture_coords",Vec2, 1);
-const f_fg_color        = output("f_fg_color",      Vec4, 2);
-const f_bg_color        = output("f_bg_color",      Vec4, 3);
-// zig fmt: on
+const f_texture_index = @extern(*addrspace(.output) u32, .{
+    .name = "f_texture_index",
+    .decoration = .{ .flat = 0 },
+});
+
+const f_texture_coords = @extern(*addrspace(.output) @Vector(2, f32), .{
+    .name = "f_texture_coords",
+    .decoration = .{ .location = 1 },
+});
+
+const f_fg_color = @extern(*addrspace(.output) @Vector(4, f32), .{
+    .name = "f_fg_color",
+    .decoration = .{ .location = 2 },
+});
+
+const f_bg_color = @extern(*addrspace(.output) @Vector(4, f32), .{
+    .name = "f_bg_color",
+    .decoration = .{ .location = 3 },
+});
 
 export fn main() callconv(.spirv_vertex) void {
-    asm volatile (
-        \\OpDecorate %f_texture_index Flat
-        :
-        : [f_texture_index] "" (f_texture_index),
-    );
+    const vertex_index = std.spirv.vertex_index;
 
-    const vertex_index = gpu.vertex_index;
-
-    const quad_position = Vec2{
-        @floatFromInt(@intFromBool(1 <= vertex_index and vertex_index <= 3)),
-        @floatFromInt(@intFromBool(2 <= vertex_index and vertex_index <= 4)),
+    const quad_position = @Vector(2, f32){
+        @floatFromInt((@as(u32, 14) >> @truncate(vertex_index)) & 1),
+        @floatFromInt((@as(u32, 28) >> @truncate(vertex_index)) & 1),
     };
 
     const lo = p_glyph_entry.*[0];
     const hi = p_glyph_entry.*[1];
 
-    const atlas_id = lo & 0xFF;
-    const glyph_pos = Vec2{
-        @floatFromInt((lo >> 8) & 0xFFF),
-        @floatFromInt((lo >> 20) & 0xFFF),
+    const atlas_id = bitfieldExtractFromU32(lo, 0, 8, .unsigned);
+
+    const glyph_pos = @Vector(2, f32){
+        @floatFromInt(bitfieldExtractFromU32(lo, 8, 12, .unsigned)),
+        @floatFromInt(bitfieldExtractFromU32(lo, 20, 12, .unsigned)),
     };
-    const glyph_size = Vec2{
-        @floatFromInt(hi & 0xFF),
-        @floatFromInt((hi >> 8) & 0xFF),
+
+    const glyph_size = @Vector(2, f32){
+        @floatFromInt(bitfieldExtractFromU32(hi, 0, 8, .unsigned)),
+        @floatFromInt(bitfieldExtractFromU32(hi, 8, 8, .unsigned)),
     };
-    const glyph_bearing = Vec2{
-        @floatFromInt(@as(i32, @bitCast(((hi >> 16) & 0xFF) << 24)) >> 24),
-        @floatFromInt(@as(i32, @bitCast(((hi >> 24) & 0xFF) << 24)) >> 24),
+
+    const glyph_bearing = @Vector(2, f32){
+        @floatFromInt(bitfieldExtractFromU32(hi, 16, 8, .signed)),
+        @floatFromInt(bitfieldExtractFromU32(hi, 24, 8, .signed)),
     };
 
     const row = p_postion.* & 0xFFFF;
     const col = (p_postion.* >> 16) & 0xFFFF;
 
-    const cell_origin = Vec2{ @floatFromInt(col), @floatFromInt(row) } * ubo.cell_size;
-    const glyph_offset = cell_origin + Vec2{ 0.0, ubo.baseline } + glyph_bearing;
+    const cell_origin = @Vector(2, f32){ @floatFromInt(col), @floatFromInt(row) } * ubo.cell_size;
+    const glyph_offset = cell_origin + @Vector(2, f32){ 0.0, ubo.baseline } + glyph_bearing;
     const vertex_position = glyph_offset + quad_position * glyph_size;
 
     const clip_position = vertex_position * ubo.screen_to_clip_scale + ubo.screen_to_clip_offset;
 
-    gpu.position_out.* = .{ clip_position[0], clip_position[1], 0.0, 1.0 };
+    std.spirv.position_out.* = .{ clip_position[0], clip_position[1], 0.0, 1.0 };
 
     f_texture_index.* = atlas_id;
     f_texture_coords.* = (glyph_pos + quad_position * glyph_size) * ubo.inv_atlas_size;
@@ -79,25 +103,30 @@ export fn main() callconv(.spirv_vertex) void {
     f_bg_color.* = bg_color.*;
 }
 
-fn uniform(name: []const u8, T: type, set: u32, binding: u32) *addrspace(.uniform) const T {
-    return @extern(*addrspace(.uniform) const T, .{
-        .name = name,
-        .decoration = .{
-            .descriptor = .{ .set = set, .binding = binding },
-        },
-    });
-}
+// Optimize to use GPUs BFE hardware
+inline fn bitfieldExtractFromU32(
+    value: u32,
+    offset: u5,
+    comptime bits: u16,
+    comptime signedness: std.lang.Signedness,
+) @Int(signedness, bits) {
+    const offset_u32: u32 = offset;
+    const bits_u32: u32 = bits;
 
-fn input(name: []const u8, T: type, location: u32) *addrspace(.input) const T {
-    return @extern(*addrspace(.input) const T, .{
-        .name = name,
-        .decoration = .{ .location = location },
-    });
-}
-
-fn output(name: []const u8, T: type, location: u32) *addrspace(.output) T {
-    return @extern(*addrspace(.output) T, .{
-        .name = name,
-        .decoration = .{ .location = location },
-    });
+    return switch (signedness) {
+        .unsigned => @truncate(asm ("%ret = OpBitFieldUExtract %ty %value %offset %bits"
+            : [ret] "" (-> u32),
+            : [ty] "t" (u32),
+              [value] "r" (value),
+              [offset] "r" (offset_u32),
+              [bits] "" (bits_u32),
+        )),
+        .signed => @truncate(asm ("%ret = OpBitFieldSExtract %ty %value %offset %bits"
+            : [ret] "" (-> i32),
+            : [ty] "t" (i32),
+              [value] "r" (@as(i32, @bitCast(value))),
+              [offset] "r" (offset_u32),
+              [bits] "" (bits_u32),
+        )),
+    };
 }

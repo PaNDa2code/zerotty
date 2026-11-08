@@ -173,7 +173,7 @@ pub const Builder = struct {
             device.vk_allocator,
         );
 
-        errdefer device.vkd.destroyImageView(self.device.handle, view, self.device.vk_allocator);
+        errdefer device.vkd.destroyImageView(device.handle, view, device.vk_allocator);
 
         return .{
             .handle = handle,
@@ -204,8 +204,8 @@ pub fn getDescriptorImageInfoWithLayout(self: *const Image, sampler: Sampler, la
 pub fn deinit(self: *const Image, device_allocator: *DeviceAllocator) void {
     const device = device_allocator.device;
 
-    device.vkd.destroyImage(device.handle, self.handle, device.vk_allocator);
     device.vkd.destroyImageView(device.handle, self.view, device.vk_allocator);
+    device.vkd.destroyImage(device.handle, self.handle, device.vk_allocator);
 
     device_allocator.free(self.allocation);
 }

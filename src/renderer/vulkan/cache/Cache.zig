@@ -40,14 +40,14 @@ pub fn updateDescriptorSet(
     self: *const Cache,
     descriptor_set: *core.DescriptorSet,
 ) !void {
-    try descriptor_set.reset();
+    descriptor_set.reset();
 
     for (self.textures.items, 0..) |*texture, i| {
         try descriptor_set.addDescriptor(0, @intCast(i), .{
             .image = texture.descriptorInfo(),
         });
     }
-    descriptor_set.update();
+    try descriptor_set.update();
 }
 
 pub fn recordCopyCmd(
