@@ -32,6 +32,10 @@ const Row = @import("Row.zig");
 const grid = @import("root.zig");
 const Cell = grid.Cell;
 const color = @import("zerotty").terminal.color;
+const ser = @import("serialize.zig");
+pub const serialize = ser.serialize;
+pub const deserialize = ser.deserialize;
+
 
 /// Flat ring storage: `cap_rows` rows of `rows_width` cells each.
 /// Only the first `row_count` logical rows hold meaningful data.

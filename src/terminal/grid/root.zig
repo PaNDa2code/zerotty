@@ -4,7 +4,7 @@ const color = @import("zerotty").terminal.color;
 pub const Grid = @import("Grid.zig");
 pub const Row = @import("Row.zig");
 
-pub const Cell = struct {
+pub const Cell = extern struct {
     unicode: u32,
     fg_color: color.RGBA,
     bg_color: color.RGBA,
