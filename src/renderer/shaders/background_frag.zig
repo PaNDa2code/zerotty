@@ -41,7 +41,7 @@ const u_cell_colors = @extern(*addrspace(.constant) const Sampler2D, .{
 });
 
 export fn main() callconv(.{ .spirv_fragment = .{} }) void {
-    const cell: @Vector(2, i32) = .{
+    const cell: @Vector(2, u32) = .{
         @trunc(std.spirv.frag_coord[0] * ubo.cell_size_inv[0]),
         @trunc(std.spirv.frag_coord[1] * ubo.cell_size_inv[1]),
     };
@@ -67,7 +67,7 @@ export fn main() callconv(.{ .spirv_fragment = .{} }) void {
     };
 }
 
-fn texelFetch(sampled_image: anytype, coord: @Vector(2, i32), lod: u32) @Vector(4, f32) {
+inline fn texelFetch(sampled_image: anytype, coord: @Vector(2, u32), lod: u32) @Vector(4, f32) {
     const SampledImage = switch (@typeInfo(@TypeOf(sampled_image))) {
         .pointer => |pointer| pointer.child,
         else => @compileError("expected a pointer to a sampled image"),
