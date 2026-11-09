@@ -1,12 +1,14 @@
 const std = @import("std");
+const spirv = @import("spirv.zig");
+const bitfieldExtractFromU32 = spirv.bitfieldExtractFromU32;
 
 const ubo = @extern(*addrspace(.uniform) const extern struct {
     screen_to_clip_scale: @Vector(2, f32),
     screen_to_clip_offset: @Vector(2, f32),
-    inv_atlas_size: @Vector(2, f32), // 1 / atlas_size
+    inv_atlas_size: @Vector(2, f32),
     cell_size: @Vector(2, f32),
     cell_size_inv: @Vector(2, f32),
-    grid_size: @Vector(2, f32),
+    grid_size: @Vector(2, u32),
     bg_color: @Vector(4, f32),
     baseline: f32,
 }, .{
@@ -86,8 +88,8 @@ export fn main() callconv(.spirv_vertex) void {
         @floatFromInt(bitfieldExtractFromU32(hi, 24, 8, .signed)),
     };
 
-    const row = p_postion.* & 0xFFFF;
-    const col = (p_postion.* >> 16) & 0xFFFF;
+    const row = bitfieldExtractFromU32(p_postion.*, 0, 16, .unsigned);
+    const col = bitfieldExtractFromU32(p_postion.*, 16, 16, .unsigned);
 
     const cell_origin = @Vector(2, f32){ @floatFromInt(col), @floatFromInt(row) } * ubo.cell_size;
     const glyph_offset = cell_origin + @Vector(2, f32){ 0.0, ubo.baseline } + glyph_bearing;
@@ -101,32 +103,4 @@ export fn main() callconv(.spirv_vertex) void {
     f_texture_coords.* = (glyph_pos + quad_position * glyph_size) * ubo.inv_atlas_size;
     f_fg_color.* = fg_color.*;
     f_bg_color.* = bg_color.*;
-}
-
-// Optimize to use GPUs BFE hardware
-inline fn bitfieldExtractFromU32(
-    value: u32,
-    offset: u5,
-    comptime bits: u16,
-    comptime signedness: std.lang.Signedness,
-) @Int(signedness, bits) {
-    const offset_u32: u32 = offset;
-    const bits_u32: u32 = bits;
-
-    return switch (signedness) {
-        .unsigned => @truncate(asm ("%ret = OpBitFieldUExtract %ty %value %offset %bits"
-            : [ret] "" (-> u32),
-            : [ty] "t" (u32),
-              [value] "r" (value),
-              [offset] "r" (offset_u32),
-              [bits] "" (bits_u32),
-        )),
-        .signed => @truncate(asm ("%ret = OpBitFieldSExtract %ty %value %offset %bits"
-            : [ret] "" (-> i32),
-            : [ty] "t" (i32),
-              [value] "r" (@as(i32, @bitCast(value))),
-              [offset] "r" (offset_u32),
-              [bits] "" (bits_u32),
-        )),
-    };
 }

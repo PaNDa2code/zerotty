@@ -1,6 +1,6 @@
 const AssetsManager = @This();
 
-pub var instance: AssetsManager = undefined;
+pub var instance: AssetsManager = .{};
 
 pub const assets_archive = @embedFile("assets.tar.zst");
 pub const assets_tar = @embedFile("assets.tar");
@@ -30,7 +30,7 @@ pub const Asset = struct {
     }
 };
 
-tar_data: []const u8,
+tar_data: []const u8 = &.{},
 allocator: ?std.mem.Allocator = null,
 
 pub fn decompressAndInit(allocator: std.mem.Allocator, compressed_data: []const u8) !AssetsManager {
@@ -128,4 +128,3 @@ pub fn getAlloc(self: *AssetsManager, allocator: std.mem.Allocator, name: []cons
 const std = @import("std");
 const tar = std.tar;
 const zstd = std.compress.zstd;
-const Sha256 = std.crypto.hash.sha2.Sha256;

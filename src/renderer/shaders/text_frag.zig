@@ -1,16 +1,5 @@
 const std = @import("std");
-
-const Image2D = @SpirvType(.{ .image = .{
-    .usage = .{ .sampled = f32 },
-    .format = .unknown,
-    .dim = .@"2d",
-    .depth = .unknown,
-    .arrayed = false,
-    .multisampled = false,
-    .access = .unknown,
-} });
-
-const Sampler2D = @SpirvType(.{ .sampled_image = Image2D });
+const spirv = @import("spirv.zig");
 
 const texture_index = @extern(*addrspace(.input) const u32, .{
     .name = "texture_index",
@@ -37,7 +26,7 @@ const frag_color = @extern(*addrspace(.output) @Vector(4, f32), .{
     .decoration = .{ .location = 0 },
 });
 
-const textures = @extern(*addrspace(.constant) const @SpirvType(.{ .runtime_array = Sampler2D }), .{
+const textures = @extern(*addrspace(.constant) const @SpirvType(.{ .runtime_array = spirv.Sampler2D }), .{
     .name = "textures",
     .decoration = .{
         .descriptor = .{ .set = 1, .binding = 0 },
