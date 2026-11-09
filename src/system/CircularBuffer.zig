@@ -29,7 +29,7 @@ const CircularBuffer = @This();
 pub const page_size = std.heap.pageSize();
 
 single_map_size: usize = 0,
-full_view: []align(page_size) u8 = undefined,
+full_view: []align(page_size) u8 = &.{},
 
 start: usize,
 len: usize,
@@ -81,7 +81,7 @@ fn initWindows(self: *CircularBuffer, requsted_size: usize) CreateError!void {
         return CreateError.VMemoryReserveFailed;
     }
 
-    const flags: u32 = @intFromEnum(win32.system.memory.MEM_PRESERVE_PLACEHOLDER) | @intFromEnum(win32.system.memory.MEM_RELEASE);
+    const flags: u32 = @backingInt(win32.system.memory.MEM_PRESERVE_PLACEHOLDER) | @backingInt(win32.system.memory.MEM_RELEASE);
 
     if (std.os.windows.kernel32.VirtualFree(palce_holder, size, flags) == 0) {
         return CreateError.VMemorySplitingFailed;

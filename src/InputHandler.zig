@@ -105,6 +105,14 @@ fn handleKey(sink: *Sink, io: std.Io, kev: KeyEvent) !void {
         if (altSequence(kev.key)) |seq| {
             try sink.write(io, seq);
             return;
+        } else {
+            var buf: [5]u8 = undefined;
+            buf[0] = 0x1b;
+
+            const n = std.unicode.utf8Encode(@intCast(@backingInt(kev.key)), buf[1..]) catch return;
+
+            try sink.write(io, buf[0 .. n + 1]);
+            return;
         }
     }
 
@@ -125,7 +133,7 @@ fn handleKey(sink: *Sink, io: std.Io, kev: KeyEvent) !void {
             try sink.write(io, seq);
             return;
         }
-        const ki = @intFromEnum(kev.key);
+        const ki = @backingInt(kev.key);
         if (ki >= 'a' and ki <= 'z') {
             const byte: u8 = @intCast(ki & 0x1F);
             try sink.write(io, &.{byte});
@@ -150,7 +158,7 @@ fn handleKey(sink: *Sink, io: std.Io, kev: KeyEvent) !void {
     }
 
     if (!ctrl and !alt) {
-        const ki = @intFromEnum(kev.key);
+        const ki = @backingInt(kev.key);
         if (ki >= ' ' and ki <= '~') {
             const ch: u8 = if (shift) shiftChar(@intCast(ki)) else @intCast(ki);
             try sink.write(io, &.{ch});
@@ -240,6 +248,7 @@ fn altSequence(key: Key) ?[]const u8 {
         .arrow_down => "\x1b[1;3B",
         .arrow_right => "\x1b[1;3C",
         .arrow_left => "\x1b[1;3D",
+        .backspace => "\x1b\x7f",
         else => null,
     };
 }

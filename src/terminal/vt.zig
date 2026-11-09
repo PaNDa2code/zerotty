@@ -53,6 +53,18 @@ pub const Action = union(enum) {
     set_cursor_style: Emulator.CursorStyle,
     set_cursor_visible: bool,
 
+    set_scroll_region: struct { top: u16, bottom: u16 },
+    insert_lines: u16,
+    delete_lines: u16,
+    scroll_up: u16,
+    scroll_down: u16,
+    insert_chars: u16,
+
+    save_cursor,
+    restore_cursor,
+    reverse_index,
+    set_alt_screen: bool,
+
     linefeed,
     carriage_return,
     backspace,
@@ -72,6 +84,13 @@ pub const Action = union(enum) {
             .erase_line => |mode| writer.print("Action.erase_line({})", .{@backingInt(mode)}),
             .erase_chars => |n| writer.print("Action.erase_chars({})", .{n}),
             .delete_chars => |n| writer.print("Action.delete_chars({})", .{n}),
+            .set_scroll_region => |r| writer.print("Action.set_scroll_region({},{})", .{ r.top, r.bottom }),
+            .insert_lines => |n| writer.print("Action.insert_lines({})", .{n}),
+            .delete_lines => |n| writer.print("Action.delete_lines({})", .{n}),
+            .scroll_up => |n| writer.print("Action.scroll_up({})", .{n}),
+            .scroll_down => |n| writer.print("Action.scroll_down({})", .{n}),
+            .insert_chars => |n| writer.print("Action.insert_chars({})", .{n}),
+            .set_alt_screen => |on| writer.print("Action.set_alt_screen({})", .{on}),
 
             .change_fg => |c| writer.print("Action.change_fg({?f})", .{c}),
             .change_bg => |c| writer.print("Action.change_bg({?f})", .{c}),
@@ -151,8 +170,41 @@ pub fn apply(terminal: *Terminal, action: Action) void {
         .cursor_move => |move| applyCursorMove(terminal, move),
         .erase_display => |mode| terminal.grid.eraseDisplay(terminal.allocator, mode) catch unreachable,
         .erase_line => |mode| terminal.grid.eraseLine(terminal.allocator, @backingInt(mode)) catch unreachable,
-        .erase_chars => {}, // ECH is not supported by Grid yet.
+        .erase_chars => |n| terminal.grid.eraseChars(n),
         .delete_chars => |n| terminal.grid.deleteChars(terminal.allocator, n) catch unreachable,
+        .insert_chars => |n| terminal.grid.insertChars(n),
+
+        .set_scroll_region => |region| {
+            const max = terminal.grid.visable_rows -| 1;
+            const top = @min(@as(usize, region.top) -| 1, max);
+            const bottom = if (region.bottom == 0)
+                max
+            else
+                @min(@as(usize, region.bottom) - 1, max);
+            terminal.grid.setScrollRegion(top, bottom);
+        },
+        .insert_lines => |n| terminal.grid.insertLines(terminal.allocator, n) catch unreachable,
+        .delete_lines => |n| terminal.grid.deleteLines(terminal.allocator, n) catch unreachable,
+        .scroll_up => |n| terminal.grid.scrollRegionUp(terminal.allocator, n) catch unreachable,
+        .scroll_down => |n| terminal.grid.scrollRegionDown(terminal.allocator, n) catch unreachable,
+
+        .save_cursor => terminal.emulator.saved_cursor = .{
+            .x = terminal.grid.cursor_x,
+            .y = terminal.grid.cursor_y,
+            .wrap_pending = terminal.grid.wrap_pending,
+            .style = terminal.emulator.current_style,
+        },
+        .restore_cursor => {
+            if (terminal.emulator.saved_cursor) |saved| {
+                terminal.grid.cursor_x = @min(saved.x, terminal.grid.rows_width -| 1);
+                terminal.grid.cursor_y = @min(saved.y, terminal.grid.visable_rows -| 1);
+                terminal.grid.wrap_pending = saved.wrap_pending and
+                    terminal.grid.cursor_x == (terminal.grid.rows_width -| 1);
+                terminal.emulator.current_style = saved.style;
+            }
+        },
+        .reverse_index => terminal.grid.reverseIndex(terminal.allocator) catch unreachable,
+        .set_alt_screen => |on| terminal.setAltScreen(on) catch unreachable,
 
         .change_fg => |value| terminal.emulator.current_style.fg_color =
             resolveColor(terminal, value, terminal.emulator.default_style.fg_color),
@@ -212,13 +264,44 @@ fn decodeCsi(state: *const vt.ParserData, char: u8, out: *ActionQueue) void {
         'J' => out.pushAssumeCapacity(.{ .erase_display = eraseMode(paramOr(state, 0, 0)) }), // Erase in Display
         'K' => out.pushAssumeCapacity(.{ .erase_line = eraseMode(paramOr(state, 0, 0)) }), // Erase in Line
         'P' => out.pushAssumeCapacity(.{ .delete_chars = countParamU16(state, 0) }), // DCH — Delete Character(s)
+        '@' => out.pushAssumeCapacity(.{ .insert_chars = countParamU16(state, 0) }), // ICH — Insert Character(s)
+        'X' => out.pushAssumeCapacity(.{ .erase_chars = countParamU16(state, 0) }), // ECH — Erase Character(s)
+        'L' => out.pushAssumeCapacity(.{ .insert_lines = countParamU16(state, 0) }), // IL — Insert Line(s)
+        'M' => out.pushAssumeCapacity(.{ .delete_lines = countParamU16(state, 0) }), // DL — Delete Line(s)
+        'S' => out.pushAssumeCapacity(.{ .scroll_up = countParamU16(state, 0) }), // SU — Scroll Up
+        'T' => out.pushAssumeCapacity(.{ .scroll_down = countParamU16(state, 0) }), // SD — Scroll Down
+        'r' => { // DECSTBM — Set Top and Bottom Margins
+            const top = positionParam(state, 0, 1);
+            const bottom = positionParam(state, 1, 0);
+            out.pushAssumeCapacity(.{ .set_scroll_region = .{ .top = top, .bottom = bottom } });
+        },
+        'd' => { // VPA — Vertical Position Absolute
+            const row = positionParam(state, 0, 1);
+            out.pushAssumeCapacity(.{ .cursor_move = .{ .abs = .{ .y = row } } });
+        },
+        'G' => { // CHA — Cursor Horizontal Absolute
+            const col = positionParam(state, 0, 1);
+            out.pushAssumeCapacity(.{ .cursor_move = .{ .abs = .{ .x = col } } });
+        },
+        's' => out.pushAssumeCapacity(.save_cursor),
+        'u' => out.pushAssumeCapacity(.restore_cursor),
 
         'h', 'l' => {
-            if (state.num_intermediate_chars == 1 and
-                state.intermediate_chars[0] == '?' and
-                paramOr(state, 0, 0) == 25)
-            {
-                out.pushAssumeCapacity(.{ .set_cursor_visible = char == 'h' });
+            if (state.num_intermediate_chars == 1 and state.intermediate_chars[0] == '?') {
+                var i: usize = 0;
+                while (i < state.num_params) : (i += 1) {
+                    switch (state.params[i]) {
+                        25 => out.pushAssumeCapacity(.{ .set_cursor_visible = char == 'h' }),
+                        47, 1047, 1049 => out.pushAssumeCapacity(.{ .set_alt_screen = char == 'h' }),
+                        1048 => {
+                            if (char == 'h')
+                                out.pushAssumeCapacity(.save_cursor)
+                            else
+                                out.pushAssumeCapacity(.restore_cursor);
+                        },
+                        else => {},
+                    }
+                }
             }
         },
         'q' => {
@@ -246,17 +329,30 @@ fn decodeEsc(state: *const vt.ParserData, char: u8, out: *ActionQueue) void {
             'B' => out.pushAssumeCapacity(.{ .set_charset = .ascii }),
             else => {},
         }
+        return;
+    }
+
+    switch (char) {
+        '7' => out.pushAssumeCapacity(.save_cursor), // DECSC
+        '8' => out.pushAssumeCapacity(.restore_cursor), // DECRC
+        'D' => out.pushAssumeCapacity(.linefeed), // IND
+        'E' => { // NEL
+            out.pushAssumeCapacity(.carriage_return);
+            out.pushAssumeCapacity(.linefeed);
+        },
+        'M' => out.pushAssumeCapacity(.reverse_index), // RI
+        else => {},
     }
     // '=' (application keypad) and '>' (normal keypad) are ignored for now.
 }
 
 fn decodeExecute(state: *const vt.ParserData, char: u8, out: *ActionQueue) void {
+    _ = state;
     switch (char) {
-        0x0A => out.pushAssumeCapacity(.linefeed),
+        0x0A, 0x0B, 0x0C => out.pushAssumeCapacity(.linefeed),
         0x0D => out.pushAssumeCapacity(.carriage_return),
         0x08 => out.pushAssumeCapacity(.backspace),
         0x07 => out.pushAssumeCapacity(.bell),
-        0x50 => out.pushAssumeCapacity(.{ .delete_chars = countParamU16(state, 0) }),
         else => {},
     }
 }

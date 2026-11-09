@@ -38,6 +38,7 @@ pub const WindowOptions = struct {
     height: u32,
     width: u32,
     title: []const u8,
+    opacity: f32 = 1.0,
     renderer_requirements: WindowRendererRequirements = .{},
 };
 

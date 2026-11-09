@@ -131,7 +131,7 @@ pub fn parseSpirv(shader_bytes: []const u8) !SpirvParseResult {
         switch (instruction.opcode) {
             .decorate => {
                 const target_id = operands[0];
-                const decoration: SpirvDecoration = @enumFromInt(operands[1]);
+                const decoration: SpirvDecoration = @fromBackingInt(@intCast(operands[1]));
 
                 switch (decoration) {
                     .descriptor_set => ids[target_id].set = operands[2],
@@ -186,7 +186,7 @@ pub fn parseSpirv(shader_bytes: []const u8) !SpirvParseResult {
             .variable => {
                 const result_type_id = operands[0];
                 const result_id = operands[1];
-                const storage_class: SpirvStorageClass = @enumFromInt(operands[2]);
+                const storage_class: SpirvStorageClass = @fromBackingInt(@intCast(operands[2]));
 
                 if (ids[result_id].set) |set_index| {
                     if (ids[result_id].binding) |binding| {

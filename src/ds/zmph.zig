@@ -109,7 +109,7 @@ pub fn PerfectHashMap(comptime K: type, comptime V: type) type {
                     i += int_slot;
                 },
                 .@"enum" => {
-                    std.mem.writeInt(i128, buf[i..][0..int_slot], @intFromEnum(v), .little);
+                    std.mem.writeInt(i128, buf[i..][0..int_slot], @backingInt(v), .little);
                     i += int_slot;
                 },
                 .@"struct" => |s| {

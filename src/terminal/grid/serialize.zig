@@ -3,17 +3,8 @@ const Grid = @import("Grid.zig");
 const root = @import("../root.zig");
 
 pub fn serialize(grid: *const Grid, writer: *std.Io.Writer) !void {
-    try writeUsize(writer, grid.cells.len);
-    try writer.writeSliceEndian(root.grid.Cell, grid.cells, .little);
-
-    try writeUsize(writer, grid.wrapped.len);
-    for (grid.wrapped) |b| try writer.writeByte(@intFromBool(b));
-
-    try writeUsize(writer, grid.cap_rows);
-    try writeUsize(writer, grid.head);
-    try writeUsize(writer, grid.row_count);
-    try writeUsize(writer, grid.visable_rows);
     try writeUsize(writer, grid.rows_width);
+    try writeUsize(writer, grid.visable_rows);
     try writeUsize(writer, grid.max_scrollback);
     try writeUsize(writer, grid.scroll_offset);
 
@@ -23,22 +14,22 @@ pub fn serialize(grid: *const Grid, writer: *std.Io.Writer) !void {
     try writeUsize(writer, grid.cursor_y);
 
     try writer.writeByte(@intFromBool(grid.wrap_pending));
+
+    try writeUsize(writer, grid.rows.items.len);
+    for (grid.rows.items) |row| {
+        try writeUsize(writer, row.cells.len);
+        try writer.writeSliceEndian(root.grid.Cell, row.cells, .little);
+        try writer.writeByte(@intFromBool(row.wrapped));
+    }
 }
 
 pub fn deserialize(grid: *Grid, allocator: std.mem.Allocator, reader: *std.Io.Reader) !void {
-    const cells_len = try readUsize(reader);
-    grid.cells = try allocator.realloc(grid.cells, cells_len);
-    try reader.readSliceEndian(root.grid.Cell, grid.cells, .little);
+    // Start from an empty grid. The caller owns `grid` but may reuse it.
+    for (grid.rows.items) |row| allocator.free(row.cells);
+    grid.rows.clearRetainingCapacity();
 
-    const wrapped_len = try readUsize(reader);
-    grid.wrapped = try allocator.realloc(grid.wrapped, wrapped_len);
-    for (grid.wrapped) |*b| b.* = (try reader.takeByte()) != 0;
-
-    grid.cap_rows = try readUsize(reader);
-    grid.head = try readUsize(reader);
-    grid.row_count = try readUsize(reader);
-    grid.visable_rows = try readUsize(reader);
     grid.rows_width = try readUsize(reader);
+    grid.visable_rows = try readUsize(reader);
     grid.max_scrollback = try readUsize(reader);
     grid.scroll_offset = try readUsize(reader);
 
@@ -48,6 +39,28 @@ pub fn deserialize(grid: *Grid, allocator: std.mem.Allocator, reader: *std.Io.Re
     grid.cursor_y = try readUsize(reader);
 
     grid.wrap_pending = (try reader.takeByte()) != 0;
+
+    const row_count = try readUsize(reader);
+
+    errdefer {
+        for (grid.rows.items) |row| allocator.free(row.cells);
+        grid.rows.clearRetainingCapacity();
+    }
+
+    for (0..row_count) |_| {
+        const cells_len = try readUsize(reader);
+        if (cells_len != grid.rows_width) return error.InvalidGrid;
+
+        const cells = try allocator.alloc(root.grid.Cell, cells_len);
+        errdefer allocator.free(cells);
+        try reader.readSliceEndian(root.grid.Cell, cells, .little);
+
+        const wrapped = (try reader.takeByte()) != 0;
+        try grid.rows.append(allocator, .{
+            .cells = cells,
+            .wrapped = wrapped,
+        });
+    }
 }
 
 fn writeUsize(writer: *std.Io.Writer, v: usize) !void {

@@ -129,10 +129,11 @@ pub fn init(
     const initial_width = 800;
     const initial_height = 600;
 
-    _ = try platform.createWindow(.{
+    try platform.createWindow(.{
         .title = "zerotty",
         .height = initial_height,
         .width = initial_width,
+        .opacity = config.window_opacity,
     });
 
     const initial_cols = initial_width / cell_width;

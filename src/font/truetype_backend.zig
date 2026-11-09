@@ -79,11 +79,11 @@ pub fn scale(self: *const Self) f32 {
 /// is the contract's intended meaning, since either case means "ask a fallback
 /// font".
 pub fn glyphIndexForCodepoint(self: *const Self, codepoint: u21) u32 {
-    return @intFromEnum(self.ttf.codepointGlyphIndex(codepoint));
+    return @backingInt(self.ttf.codepointGlyphIndex(codepoint));
 }
 
 pub fn glyphMetrics(self: *const Self, glyph: u32) backend.GlyphMetrics {
-    const index: TrueType.GlyphIndex = @enumFromInt(@as(u16, @intCast(glyph)));
+    const index: TrueType.GlyphIndex = @fromBackingInt(@intCast(@as(u16, @intCast(glyph))));
     return .{ .advance = self.ttf.glyphHMetrics(index).advance_width };
 }
 
@@ -109,7 +109,7 @@ pub fn glyphBitmap(
     if (!self.loaded or self.scale_x == 0)
         return backend.empty_bitmap;
 
-    const index: TrueType.GlyphIndex = @enumFromInt(@as(u16, @intCast(glyph)));
+    const index: TrueType.GlyphIndex = @fromBackingInt(@intCast(@as(u16, @intCast(glyph))));
 
     const bmp = try self.ttf.glyphBitmap(allocator, pixels, index, self.scale_x, self.scale_y);
 

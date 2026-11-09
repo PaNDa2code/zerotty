@@ -11,6 +11,8 @@ pub const Config = struct {
 
     fg_color: color.RGBA = .white,
     bg_color: color.RGBA = color.RGBA.mix(.white, .black, 0.94).alpha(240),
+
+    window_opacity: f32 = 1.0,
     /// Font size in pixels (vertical height of a glyph).
     font_size: u32 = 32,
     gpu_acceleration: bool = true,
@@ -21,6 +23,8 @@ pub const ConfigJson = struct {
     fg_color: []const u8 = "",
     bg_color: []const u8 = "",
     font_size: u32 = 20,
+
+    window_opacity: f32 = 1.0,
 
     fn resolveColorValue(color_str: []const u8) !color.RGBA {
         if (color_str.len > 0 and color_str[0] == '#') {
@@ -42,6 +46,7 @@ pub const ConfigJson = struct {
             .fg_color = fg_color,
             .bg_color = bg_color,
             .font_size = cfg.font_size,
+            .window_opacity = cfg.window_opacity,
         };
     }
 };

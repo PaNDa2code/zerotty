@@ -26,6 +26,13 @@ pub const ProgressBarState = enum(u3) {
     pause = 4,
 };
 
+pub const SavedCursor = struct {
+    x: usize,
+    y: usize,
+    wrap_pending: bool,
+    style: Style,
+};
+
 pub const Style = struct {
     fg_color: color.RGBA,
     bg_color: color.RGBA,
@@ -58,6 +65,8 @@ color_palette: color.ansi.Palette = .default,
 
 default_style: Style,
 current_style: Style,
+
+saved_cursor: ?SavedCursor = null,
 
 cursor_style: CursorStyle = .{ .shape = .block, .blink = true, .color = .white },
 cursor_visible: bool = true,

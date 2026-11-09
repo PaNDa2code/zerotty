@@ -33,7 +33,7 @@ pub const Weight = enum(u8) {
 
     /// Ordering used when snapping a request to the nearest available face.
     pub fn rank(w: Weight) u8 {
-        return @intFromEnum(w);
+        return @backingInt(w);
     }
 };
 

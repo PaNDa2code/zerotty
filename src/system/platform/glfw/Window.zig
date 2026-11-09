@@ -27,7 +27,12 @@ pub fn create(allocator: Allocator, options: root.WindowOptions) !Window {
 
     // if (render_backend != .opengl)
     c.glfwWindowHint(c.GLFW_CLIENT_API, c.GLFW_NO_API);
-    c.glfwWindowHint(c.GLFW_TRANSPARENT_FRAMEBUFFER, c.GLFW_TRUE);
+
+    c.glfwWindowHint(
+        c.GLFW_TRANSPARENT_FRAMEBUFFER,
+        if (options.opacity < 1.0) 
+        c.GLFW_TRUE else c.GLFW_FALSE,
+    );
 
     const title = try allocator.allocSentinel(u8, options.title.len, 0);
     defer allocator.free(title);
@@ -55,6 +60,7 @@ pub fn create(allocator: Allocator, options: root.WindowOptions) !Window {
     _ = c.glfwSetMouseButtonCallback(glfw_window, callbacks.mouseButton);
     _ = c.glfwSetCursorPosCallback(glfw_window, callbacks.cursorPos);
 
+    c.glfwSetWindowOpacity(glfw_window, options.opacity);
     c.glfwShowWindow(glfw_window);
 
     // if (render_backend == .opengl)
@@ -118,11 +124,6 @@ const callbacks = struct {
 
     fn key(glfw_window: ?*c.GLFWwindow, key_: c_int, scancode: c_int, action: c_int, mods: c_int) callconv(.c) void {
         const queue = eventQueue(glfw_window) orelse return;
-
-        if (key_ == c.GLFW_KEY_ESCAPE) {
-            queue.push(.close) catch unreachable;
-            return;
-        }
 
         const event = root.Event{
             .input = .{

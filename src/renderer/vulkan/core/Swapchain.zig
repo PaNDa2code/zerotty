@@ -183,6 +183,13 @@ pub fn recreate(
 }
 
 pub fn deinit(self: *const SwapChain, allocator: std.mem.Allocator) void {
+    for (self.image_views) |view|
+        self.device.vkd.destroyImageView(
+            self.device.handle,
+            view,
+            self.instance.vk_allocator,
+        );
+
     self.device.vkd.destroySwapchainKHR(
         self.device.handle,
         self.handle,
