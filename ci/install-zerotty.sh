@@ -9,7 +9,7 @@ case "$(uname -m)" in
   *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
 esac
 
-ARCHIVE_NAME="zerotty-${ARCH}-linux-release.tar.gz"
+ARCHIVE_NAME="zerotty-${ARCH}-linux.tar.gz"
 API="https://codeberg.org/api/v1/repos/panda2code/zerotty/releases?limit=1"
 
 # /releases/latest ignores pre-releases, so take the newest entry from the list
