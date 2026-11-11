@@ -195,12 +195,7 @@ fn startLinux(
 ) !Process {
     var process: Process = .{ .id = 0 };
 
-    const path = try findPathAlloc(io, options.environ_map, arina, options.exe_path) orelse options.exe_path;
-    const path_absolute =
-        if (std.fs.path.isAbsolutePosix(path))
-            path
-        else
-            try std.Io.Dir.realPathFileAbsoluteAlloc(io, path, arina);
+    const path_absolute = try findPathAlloc(io, options.environ_map, arina, options.exe_path) orelse options.exe_path;
 
     // build zero-terminated paths
     var pathZbuf: [std.fs.max_path_bytes]u8 = undefined;
@@ -351,21 +346,14 @@ pub fn unsetEvnVar(self: *Process, name: []const u8) void {
 }
 
 test Process {
-    var child: Process = .{
-        .exe_path = if (os == .windows) "cmd" else "bash",
-        .args = &.{},
-    };
-
     var map = try std.testing.environ
         .createMap(std.testing.allocator);
     defer map.deinit();
 
-    try child.start(
-        std.testing.io,
-        &map,
-        std.testing.allocator,
-        null,
-    );
+    var child = try Process.start(std.testing.io, std.testing.allocator, .{
+        .exe_path = if (os == .windows) "cmd" else "bash",
+        .environ_map = &map,
+    });
     defer child.deinit();
 
     try std.testing.expectEqual(.running, try child.wait(false));
@@ -375,28 +363,20 @@ test Process {
     try std.testing.expect(try child.wait(true) == .ended);
 }
 
-test "ChildProcess + Pty" {
-    var pty: Pty = undefined;
-    try pty.open(.{
+test "Process + Pty" {
+    var pty: Pty = try .open(.{
         .size = .{ .height = 100, .width = 100 },
     });
     defer pty.close();
-
-    var child: Process = .{
-        .exe_path = if (os == .windows) "cmd" else "bash",
-        .args = &.{},
-    };
 
     var map = try std.testing.environ
         .createMap(std.testing.allocator);
     defer map.deinit();
 
-    try child.start(
-        std.testing.io,
-        &map,
-        std.testing.allocator,
-        &pty,
-    );
+    var child = try Process.start(std.testing.io, std.testing.allocator, .{
+        .exe_path = if (os == .windows) "cmd" else "bash",
+        .environ_map = &map,
+    });
     defer child.deinit();
 
     try std.testing.expectEqual(.running, try child.wait(false));

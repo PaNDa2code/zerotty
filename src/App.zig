@@ -116,7 +116,10 @@ pub fn init(
                 AssetsManager.assets_tar,
             );
 
-    const config = zerotty.config.getConfig(io, environ_map, allocator) catch Config{};
+    const config = zerotty.config.getConfig(io, environ_map, allocator) catch |err| blk: {
+        log.err("getConfig: {} -- using the defulat config", .{err});
+        break :blk Config{};
+    };
 
     const loaded_fonts = try loadFaces(allocator, @floatFromInt(config.font_size));
 

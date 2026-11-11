@@ -24,7 +24,7 @@ pub const ConfigJson = struct {
     bg_color: []const u8 = "",
     font_size: u32 = 20,
 
-    window_opacity: f32 = 1.0,
+    window_opacity: f32 = 0.9,
 
     fn resolveColorValue(color_str: []const u8) !color.RGBA {
         if (color_str.len > 0 and color_str[0] == '#') {
@@ -39,15 +39,18 @@ pub const ConfigJson = struct {
     }
 
     pub fn resolve(cfg: ConfigJson) !Config {
-        const fg_color = resolveColorValue(cfg.fg_color) catch return error.InvalidFgColorValue;
-        const bg_color = resolveColorValue(cfg.bg_color) catch return error.InvalidBgColorValue;
-
-        return .{
-            .fg_color = fg_color,
-            .bg_color = bg_color,
+        var config: Config = .{
             .font_size = cfg.font_size,
             .window_opacity = cfg.window_opacity,
         };
+
+        if (cfg.bg_color.len > 0)
+            config.bg_color = try resolveColorValue(cfg.bg_color);
+
+        if (cfg.fg_color.len > 0)
+            config.fg_color = try resolveColorValue(cfg.fg_color);
+
+        return config;
     }
 };
 
