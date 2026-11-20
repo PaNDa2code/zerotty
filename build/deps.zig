@@ -105,7 +105,7 @@ pub fn wireWindow(b: *Build, mod: *Build.Module, cfg: ResolvedConfig) !void {
             mod.linkLibrary(glfw_lib);
         },
         .win32 => {
-            if (b.lazyDependency("zigwin32", .{})) |dep|
+            if (b.lazyDependency("win32", .{})) |dep|
                 mod.addImport("win32", dep.module("win32"));
         },
         .xcb => {
@@ -131,7 +131,7 @@ pub fn wireWindow(b: *Build, mod: *Build.Module, cfg: ResolvedConfig) !void {
     // Terminal pty/IO deps by OS, independent of window system.
     switch (target.result.os.tag) {
         .windows => {
-            if (b.lazyDependency("zigwin32", .{})) |dep|
+            if (b.lazyDependency("win32", .{})) |dep|
                 mod.addImport("win32", dep.module("win32"));
         },
         .linux, .macos => {
