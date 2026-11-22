@@ -48,6 +48,7 @@ pub const Action = union(enum) {
         value: u8,
     },
 
+    set_title: []const u8,
     set_charset: Emulator.Charset,
 
     set_cursor_style: Emulator.CursorStyle,
@@ -70,6 +71,10 @@ pub const Action = union(enum) {
     backspace,
     bell,
 
+    /// DSR/DECXCPR: host asks for the cursor position. `extended` is set for
+    /// `CSI ? 6 n`, which requires a `?` in the reply.
+    cursor_pos_report: struct { extended: bool = false },
+
     pub fn format(
         self: Action,
         writer: *std.Io.Writer,
@@ -80,6 +85,8 @@ pub const Action = union(enum) {
                 .abs => |abs| writer.print("Action.cursor_move.abs({?},{?})", .{ abs.x, abs.y }),
                 .relative => |rel| writer.print("Action.cursor_move.relative({},{})", .{ rel.dx, rel.dy }),
             },
+            .set_title => |title| writer.print("Action.set_title({s})", .{title}),
+            .cursor_pos_report => |cpr| writer.print("Action.cursor_pos_report({})", .{cpr.extended}),
             .erase_display => |mode| writer.print("Action.erase_display({})", .{@backingInt(mode)}),
             .erase_line => |mode| writer.print("Action.erase_line({})", .{@backingInt(mode)}),
             .erase_chars => |n| writer.print("Action.erase_chars({})", .{n}),
@@ -227,6 +234,13 @@ pub fn apply(terminal: *Terminal, action: Action) void {
             log.debug("progress: {} {}%", .{ terminal.emulator.progress_state, terminal.emulator.progress });
         },
 
+        .set_title => |title| {
+            const to_copy = @min(terminal.emulator.title.len, title.len);
+            @memcpy(terminal.emulator.title[0..to_copy], title[0..to_copy]);
+            terminal.emulator.title_len = to_copy;
+            terminal.emulator.title_updated = true;
+        },
+
         .set_charset => |charset| terminal.decoder.charset = charset,
 
         .set_cursor_style => |cursor_style| {
@@ -243,6 +257,20 @@ pub fn apply(terminal: *Terminal, action: Action) void {
         .bell => {
             if (terminal.emulator.bell_action_callback) |callback|
                 callback(terminal.emulator.bell_action_data);
+        },
+
+        .cursor_pos_report => |request| {
+            const row = @min(terminal.grid.cursor_y + 1, terminal.grid.visable_rows);
+            const col = @min(terminal.grid.cursor_x + 1, terminal.grid.rows_width);
+
+            const buffer = terminal.emulator.reply_buffer[terminal.emulator.reply_len..];
+            const reply = std.fmt.bufPrint(buffer, "\x1b[{s}{d};{d}R", .{
+                if (request.extended) "?" else "",
+                row,
+                col,
+            }) catch return;
+
+            terminal.emulator.reply_len += reply.len;
         },
     }
 }
@@ -285,6 +313,15 @@ fn decodeCsi(state: *const vt.ParserData, char: u8, out: *ActionQueue) void {
         },
         's' => out.pushAssumeCapacity(.save_cursor),
         'u' => out.pushAssumeCapacity(.restore_cursor),
+
+        'n' => { // DSR — Device Status Report
+            if (paramOr(state, 0, 0) == 6) {
+                out.pushAssumeCapacity(.{ .cursor_pos_report = .{
+                    .extended = state.num_intermediate_chars == 1 and
+                        state.intermediate_chars[0] == '?',
+                } });
+            }
+        },
 
         'h', 'l' => {
             if (state.num_intermediate_chars == 1 and state.intermediate_chars[0] == '?') {
@@ -357,33 +394,60 @@ fn decodeExecute(state: *const vt.ParserData, char: u8, out: *ActionQueue) void 
     }
 }
 
+const OscCmd = enum(u8) {
+    set_window_and_icon_title = 0,
+    set_window_title = 1,
+    set_icon_title = 2,
+    conemu = 9,
+    _,
+};
+
 fn decodeOsc(decoder: *Decoder, out: *ActionQueue) void {
-    const payload = decoder.osc_buffer[0..decoder.osc_len];
+    if (decoder.osc_len == 0) return;
 
-    if (!std.mem.startsWith(u8, payload, "9;4;")) return;
+    const raw = decoder.osc_buffer[0..decoder.osc_len];
+    const semi_idx = std.mem.indexOfScalar(u8, raw, ';') orelse return;
 
-    const args = payload[4..];
-    var it = std.mem.splitScalar(u8, args, ';');
+    const cmd_str = raw[0..semi_idx];
+    const cmd_num = std.fmt.parseInt(u8, cmd_str, 10) catch return;
 
-    const state_str = it.next() orelse return;
-    const state_int = std.fmt.parseInt(u3, state_str, 10) catch return;
+    const body = raw[semi_idx + 1 ..];
 
-    const progress_state: Emulator.ProgressBarState = switch (state_int) {
-        0 => .remove,
-        1 => .set,
-        2 => .@"error",
-        3 => .indeterminate,
-        4 => .pause,
-        else => return,
-    };
+    switch (@as(OscCmd, @fromBackingInt(cmd_num))) {
+        .set_window_and_icon_title,
+        .set_window_title,
+        .set_icon_title,
+        => {
+            out.pushAssumeCapacity(.{ .set_title = body });
+        },
+        .conemu => {
+            if (!std.mem.startsWith(u8, body, "4;")) return;
 
-    const progress_str = it.next() orelse "0";
-    const progress_int = std.fmt.parseInt(u32, progress_str, 10) catch return;
+            var parts = std.mem.splitScalar(u8, body[2..], ';'); // after "4;"
+            const state_str = parts.next() orelse return;
+            const state_int = std.fmt.parseInt(u3, state_str, 10) catch return;
 
-    out.pushAssumeCapacity(.{ .set_progress = .{
-        .state = progress_state,
-        .value = @intCast(@min(progress_int, 100)),
-    } });
+            const progress_state: Emulator.ProgressBarState = switch (state_int) {
+                0 => .remove,
+                1 => .set,
+                2 => .@"error",
+                3 => .indeterminate,
+                4 => .pause,
+                else => return,
+            };
+
+            const progress_val: u8 = if (parts.next()) |pct_str|
+                std.fmt.parseInt(u8, pct_str, 10) catch 0
+            else
+                0;
+
+            out.pushAssumeCapacity(.{ .set_progress = .{
+                .state = progress_state,
+                .value = progress_val,
+            } });
+        },
+        else => {},
+    }
 }
 
 fn decodeSgr(state: *const vt.ParserData, out: *ActionQueue) void {
@@ -612,4 +676,39 @@ fn backspace(terminal: *Terminal) void {
     terminal.grid.clearWrapPending();
     if (terminal.grid.cursor_x > 0)
         terminal.grid.cursor_x -= 1;
+}
+
+const CPRTestContext = struct {
+    decoder: Decoder = .{},
+    actions: ActionQueue = .{},
+
+    fn callback(
+        state: *const vt.ParserData,
+        to_action: vt.Action,
+        char: u8,
+        user_data: ?*anyopaque,
+    ) void {
+        const ctx: *CPRTestContext = @ptrCast(@alignCast(user_data));
+        decode(state, to_action, char, &ctx.decoder, &ctx.actions);
+    }
+};
+
+test "DSR/DECXCPR decode into cursor position reports" {
+    const cases = [_]struct { seq: []const u8, extended: bool }{
+        .{ .seq = "\x1b[6n", .extended = false },
+        .{ .seq = "\x1b[?6n", .extended = true },
+    };
+
+    for (cases) |case| {
+        var ctx: CPRTestContext = .{};
+        var parser = vt.VTParser.init(CPRTestContext.callback, &ctx);
+        parser.parse(case.seq);
+
+        const action = ctx.actions.pop() orelse @panic("missing report action");
+        switch (action) {
+            .cursor_pos_report => |request| try std.testing.expectEqual(case.extended, request.extended),
+            else => @panic("unexpected action"),
+        }
+        try std.testing.expect(ctx.actions.pop() == null);
+    }
 }

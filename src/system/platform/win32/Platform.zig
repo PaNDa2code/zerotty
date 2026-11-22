@@ -25,4 +25,3 @@ pub fn createWindow(self: *const Platform, options: WindowOptions) !*Window {
 
     return win;
 }
-

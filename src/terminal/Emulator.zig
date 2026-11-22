@@ -70,3 +70,17 @@ saved_cursor: ?SavedCursor = null,
 
 cursor_style: CursorStyle = .{ .shape = .block, .blink = true, .color = .white },
 cursor_visible: bool = true,
+
+title: [256]u8 = undefined,
+title_len: usize = 0,
+title_updated: bool = false,
+
+/// some commands needs to write data to the pty like CPR (cursor position report)
+reply_buffer: [64]u8 = undefined,
+reply_len: usize = 0,
+
+pub fn takeReply(emulator: *Emulator) []const u8 {
+    const reply = emulator.reply_buffer[0..emulator.reply_len];
+    emulator.reply_len = 0;
+    return reply;
+}

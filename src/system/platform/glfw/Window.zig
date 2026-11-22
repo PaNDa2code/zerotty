@@ -30,8 +30,10 @@ pub fn create(allocator: Allocator, options: root.WindowOptions) !Window {
 
     c.glfwWindowHint(
         c.GLFW_TRANSPARENT_FRAMEBUFFER,
-        if (options.opacity < 1.0) 
-        c.GLFW_TRUE else c.GLFW_FALSE,
+        if (options.opacity < 1.0)
+            c.GLFW_TRUE
+        else
+            c.GLFW_FALSE,
     );
 
     const title = try allocator.allocSentinel(u8, options.title.len, 0);

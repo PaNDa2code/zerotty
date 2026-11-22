@@ -89,8 +89,8 @@ pub fn destroyFence(self: *const Device, fence: vk.Fence) void {
 pub const WaitFenceError = vk.DeviceWrapper.WaitForFencesError;
 
 pub const WaitFenceResult = enum(i32) {
-    success = @intFromEnum(vk.Result.success),
-    timeout = @intFromEnum(vk.Result.timeout),
+    success = @backingInt(vk.Result.success),
+    timeout = @backingInt(vk.Result.timeout),
 };
 
 pub fn waitFence(self: *const Device, fence: vk.Fence, timeout: u64) WaitFenceError!WaitFenceResult {

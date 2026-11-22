@@ -114,7 +114,7 @@ fn onAppCmd(_app: [*c]native.android_app, _cmd: i32) callconv(.c) void {
     const app: *native.android_app = @ptrCast(_app);
     _ = app;
 
-    const cmd = @as(AppCmd, @enumFromInt(_cmd));
+    const cmd = @as(AppCmd, @fromBackingInt(@intCast(_cmd)));
 
     switch (cmd) {
         .init_window => {},

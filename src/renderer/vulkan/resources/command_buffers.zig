@@ -118,7 +118,7 @@ pub const CommandBufferRegistry = struct {
             thread_context_ptr.command_buffers[index .. index + 1],
         );
 
-        return @enumFromInt(index);
+        return @fromBackingInt(@intCast(index));
     }
 
     pub fn create(

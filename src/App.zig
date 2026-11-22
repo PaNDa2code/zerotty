@@ -251,8 +251,8 @@ pub fn run(self: *App) !void {
 
     var running = true;
 
-    var frame_tik = std.Io.Timestamp.zero;
-    var frames: usize = 0;
+    // var frame_tik = std.Io.Timestamp.zero;
+    // var frames: usize = 0;
 
     var cursor_tik = std.Io.Timestamp.zero;
 
@@ -300,6 +300,14 @@ pub fn run(self: *App) !void {
 
             log.debug("pty bytes = {b64}", .{self.buffers[0][0..n]});
             self.terminal.vtparser.parse(self.buffers[0][0..n]);
+
+            // VT only queues reply bytes (e.g. CPR). Writing them is the
+            // system layer's job, just like writing keystrokes.
+            const reply = self.terminal.emulator.takeReply();
+            if (reply.len != 0) {
+                var sink = self.inputSink();
+                try sink.sink.write(self.io, reply);
+            }
 
             self.io_batch.addAt(completion.index, .{
                 .file_read_streaming = .{
@@ -408,7 +416,7 @@ pub fn run(self: *App) !void {
             );
         }
 
-        self.terminal.grid.fillBackgroundColors(self.bg_color_data.items);
+        try self.terminal.grid.fillBackgroundColors(self.bg_color_data.items);
 
         if (shape == .block and cursor_on) {
             const idx = (cur.x + cur.y * self.terminal.grid.rows_width) * 4;
@@ -462,27 +470,34 @@ pub fn run(self: *App) !void {
         _ = try self.renderer.render(scene);
         cache.new_added_entries.clearRetainingCapacity();
 
-        frames += 1;
+        // frames += 1;
 
-        const frame_diff = frame_tik.untilNow(self.io, .real);
+        // const frame_diff = frame_tik.untilNow(self.io, .real);
 
-        if (frame_diff.nanoseconds >= std.time.ns_per_s) {
-            const secands = @as(f64, @floatFromInt(frame_diff.nanoseconds)) * (1.0 / @as(comptime_float, std.time.ns_per_s));
-            const fps = @as(f64, @floatFromInt(frames)) / secands;
-
-            var buf: [255]u8 = undefined;
-            const title = try std.fmt.bufPrintSentinel(buf[0 .. buf.len - 1], "zerotty - FPS: {:.02}", .{fps}, 0);
-            try self.platform.current_window.?.setTitle(buf[0..title.len]);
-
-            frames = 0;
-            frame_tik = .now(self.io, .real);
-        }
+        // if (frame_diff.nanoseconds >= std.time.ns_per_s) {
+        //     const secands = @as(f64, @floatFromInt(frame_diff.nanoseconds)) * (1.0 / @as(comptime_float, std.time.ns_per_s));
+        //     const fps = @as(f64, @floatFromInt(frames)) / secands;
+        //
+        //     var buf: [255]u8 = undefined;
+        //     const title = try std.fmt.bufPrintSentinel(buf[0 .. buf.len - 1], "zerotty - FPS: {:.02}", .{fps}, 0);
+        //     try self.platform.current_window.?.setTitle(buf[0..title.len]);
+        //
+        //     frames = 0;
+        //     frame_tik = .now(self.io, .real);
+        // }
 
         const cursor_diff = cursor_tik.untilNow(self.io, .real);
 
         if (cursor_diff.nanoseconds >= std.time.ns_per_s) {
             blink_on = !blink_on;
             cursor_tik = .now(self.io, .real);
+        }
+
+        if (self.terminal.emulator.title_updated) {
+            const window_title = self.terminal.emulator.title[0..self.terminal.emulator.title_len];
+            try self.platform.current_window.?.setTitle(window_title);
+
+            self.terminal.emulator.title_updated = false;
         }
     }
 }

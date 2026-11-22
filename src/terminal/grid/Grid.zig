@@ -876,10 +876,13 @@ pub fn iterator(self: *const Grid) Iterator {
 /// Write the background color of every visible cell into `colors` as
 /// packed RGBA8 texels in row-major order (`rows * cols * 4` bytes).
 /// `colors.len` must be exactly `visable_rows * rows_width * 4`.
-pub fn fillBackgroundColors(self: *const Grid, colors: []u8) void {
+pub fn fillBackgroundColors(self: *const Grid, colors: []u8) !void {
     const cols = self.rows_width;
     const rows = self.visable_rows;
-    std.debug.assert(colors.len == rows * cols * 4);
+
+    if (rows * cols * 4 > colors.len) {
+        return error.InvalidBufferSize;
+    }
 
     const blank_bg = self.bg_color;
     for (0..rows) |y| {

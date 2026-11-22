@@ -306,7 +306,7 @@ pub fn poll(self: *Window) void {
                 } else if (Input.xcbButtonToMouse(btn.detail)) |button| {
                     self.event_queue.push(.{ .input = .{ .mouse = .{ .button = .{
                         .button = button,
-                        .state  = .press,
+                        .state = .press,
                     } } } }) catch unreachable;
                 }
             },
@@ -315,7 +315,7 @@ pub fn poll(self: *Window) void {
                 if (Input.xcbButtonToMouse(btn.detail)) |button| {
                     self.event_queue.push(.{ .input = .{ .mouse = .{ .button = .{
                         .button = button,
-                        .state  = .release,
+                        .state = .release,
                     } } } }) catch unreachable;
                 }
             },
@@ -329,8 +329,8 @@ pub fn poll(self: *Window) void {
                 self.last_mouse_x = x;
                 self.last_mouse_y = y;
                 self.event_queue.push(.{ .input = .{ .mouse = .{ .move = .{
-                    .x  = x,
-                    .y  = y,
+                    .x = x,
+                    .y = y,
                     .dx = dx,
                     .dy = dy,
                 } } } }) catch unreachable;

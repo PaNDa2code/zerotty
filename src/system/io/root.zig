@@ -39,4 +39,3 @@ test Backend {
 test EventLoop {
     std.testing.refAllDecls(EventLoop);
 }
-

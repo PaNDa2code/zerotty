@@ -128,7 +128,7 @@ fn WindowProc(self: *Window, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARA
             const scancode: u32 = @intCast((lparam >> 16) & 0x1FF);
             const is_repeat = (lparam & (1 << 30)) != 0;
 
-            if (vk == @intFromEnum(win32km.VK_ESCAPE)) {
+            if (vk == @backingInt(win32km.VK_ESCAPE)) {
                 win32wm.PostQuitMessage(0);
                 self.event_queue.push(.close) catch unreachable;
                 return 0;
@@ -143,7 +143,7 @@ fn WindowProc(self: *Window, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARA
                 .input = .{
                     .keyboard = .{
                         .type = event_type,
-                        .key  = input_kb.keyFromWin32(vk),
+                        .key = input_kb.keyFromWin32(vk),
                         .code = scancode,
                         .mods = mods,
                     },
@@ -160,7 +160,7 @@ fn WindowProc(self: *Window, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARA
                 .input = .{
                     .keyboard = .{
                         .type = .release,
-                        .key  = input_kb.keyFromWin32(vk),
+                        .key = input_kb.keyFromWin32(vk),
                         .code = scancode,
                         .mods = mods,
                     },
@@ -238,13 +238,12 @@ fn WindowProc(self: *Window, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARA
 fn getWin32Mods() input_kb.ModState {
     const km = win32km;
     return .{
-        .shift = win32km.GetKeyState(@intFromEnum(km.VK_SHIFT))   < 0,
-        .ctrl  = win32km.GetKeyState(@intFromEnum(km.VK_CONTROL)) < 0,
-        .alt   = win32km.GetKeyState(@intFromEnum(km.VK_MENU))    < 0,
-        .super = win32km.GetKeyState(@intFromEnum(km.VK_LWIN))    < 0
-                 or win32km.GetKeyState(@intFromEnum(km.VK_RWIN)) < 0,
-        .caps  = win32km.GetKeyState(@intFromEnum(km.VK_CAPITAL)) & 1 != 0,
-        .num   = win32km.GetKeyState(@intFromEnum(km.VK_NUMLOCK)) & 1 != 0,
+        .shift = win32km.GetKeyState(@backingInt(km.VK_SHIFT)) < 0,
+        .ctrl = win32km.GetKeyState(@backingInt(km.VK_CONTROL)) < 0,
+        .alt = win32km.GetKeyState(@backingInt(km.VK_MENU)) < 0,
+        .super = win32km.GetKeyState(@backingInt(km.VK_LWIN)) < 0 or win32km.GetKeyState(@backingInt(km.VK_RWIN)) < 0,
+        .caps = win32km.GetKeyState(@backingInt(km.VK_CAPITAL)) & 1 != 0,
+        .num = win32km.GetKeyState(@backingInt(km.VK_NUMLOCK)) & 1 != 0,
     };
 }
 

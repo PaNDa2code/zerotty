@@ -46,12 +46,12 @@ pub fn init() !Input {
         .keymap = keymap,
         .state = state,
         .mods = .{
-            .ctrl  = one << @intCast(c.xkb_keymap_mod_get_index(keymap, c.XKB_MOD_NAME_CTRL)),
+            .ctrl = one << @intCast(c.xkb_keymap_mod_get_index(keymap, c.XKB_MOD_NAME_CTRL)),
             .shift = one << @intCast(c.xkb_keymap_mod_get_index(keymap, c.XKB_MOD_NAME_SHIFT)),
-            .alt   = one << @intCast(c.xkb_keymap_mod_get_index(keymap, c.XKB_MOD_NAME_ALT)),
+            .alt = one << @intCast(c.xkb_keymap_mod_get_index(keymap, c.XKB_MOD_NAME_ALT)),
             .super = one << @intCast(c.xkb_keymap_mod_get_index(keymap, c.XKB_MOD_NAME_LOGO)),
-            .caps  = one << @intCast(c.xkb_keymap_mod_get_index(keymap, "Lock")),
-            .num   = one << @intCast(c.xkb_keymap_mod_get_index(keymap, "Mod2")),
+            .caps = one << @intCast(c.xkb_keymap_mod_get_index(keymap, "Lock")),
+            .num = one << @intCast(c.xkb_keymap_mod_get_index(keymap, "Mod2")),
         },
     };
 }
@@ -66,12 +66,12 @@ pub fn deinit(self: *Input) void {
 pub fn getModState(self: *const Input) keyboard.ModState {
     const bitmask = c.xkb_state_serialize_mods(self.state, c.XKB_STATE_MODS_EFFECTIVE);
     return .{
-        .ctrl  = (bitmask & self.mods.ctrl)  != 0,
+        .ctrl = (bitmask & self.mods.ctrl) != 0,
         .shift = (bitmask & self.mods.shift) != 0,
-        .alt   = (bitmask & self.mods.alt)   != 0,
+        .alt = (bitmask & self.mods.alt) != 0,
         .super = (bitmask & self.mods.super) != 0,
-        .caps  = (bitmask & self.mods.caps)  != 0,
-        .num   = (bitmask & self.mods.num)   != 0,
+        .caps = (bitmask & self.mods.caps) != 0,
+        .num = (bitmask & self.mods.num) != 0,
     };
 }
 
@@ -88,10 +88,10 @@ pub fn processKey(self: *Input, keycode: u32, event_type: keyboard.KeyEventType)
     const sym = c.xkb_state_key_get_one_sym(self.state, keycode);
 
     return .{
-        .type  = event_type,
-        .mods  = self.getModState(),
-        .code  = keycode,
-        .key   = keyboard.keyFromXkbKeysym(sym),
+        .type = event_type,
+        .mods = self.getModState(),
+        .code = keycode,
+        .key = keyboard.keyFromXkbKeysym(sym),
     };
 }
 
@@ -125,10 +125,10 @@ pub fn xcbButtonToMouse(detail: u8) ?mouse.MouseButton {
 /// Convert an XCB scroll button detail (4 = up, 5 = down) to a `MouseScrollEvent`.
 pub fn xcbScrollEvent(detail: u8) ?mouse.MouseScrollEvent {
     return switch (detail) {
-        4 => .{ .x_offset = 0.0, .y_offset =  1.0 },
+        4 => .{ .x_offset = 0.0, .y_offset = 1.0 },
         5 => .{ .x_offset = 0.0, .y_offset = -1.0 },
         6 => .{ .x_offset = -1.0, .y_offset = 0.0 },
-        7 => .{ .x_offset =  1.0, .y_offset = 0.0 },
+        7 => .{ .x_offset = 1.0, .y_offset = 0.0 },
         else => null,
     };
 }
