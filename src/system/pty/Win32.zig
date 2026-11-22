@@ -139,13 +139,23 @@ pub fn close(self: *Pty) void {
 }
 
 pub fn resize(self: *Pty, size: PtySize) !void {
+    if (size.height <= 0 or size.width <= 0 or
+        size.height > std.math.maxInt(i16) or
+        size.width > std.math.maxInt(i16))
+    {
+        return error.InvalidSize;
+    }
+
     const hresult = win32con.ResizePseudoConsole(
         self.h_pesudo_console,
-        .{ .X = @bitCast(size.width), .Y = @bitCast(size.height) },
+        .{
+            .X = @bitCast(size.width),
+            .Y = @bitCast(size.height),
+        },
     );
 
-    if (win32.zig.FAILED(hresult)) {
-        return error.PtyResizeFailed;
+    if (hresult < 0) {
+        return error.Unexpected;
     }
 }
 

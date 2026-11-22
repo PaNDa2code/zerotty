@@ -42,6 +42,10 @@ pub fn close(self: *Pty) void {
 }
 
 pub fn resize(self: *Pty, size: PtySize) !void {
+    if (size.height <= 0 or size.width <= 0) {
+        return error.InvalidSize;
+    }
+
     const ws: posix.winsize = .{
         .row = size.height,
         .col = size.width,
@@ -53,7 +57,7 @@ pub fn resize(self: *Pty, size: PtySize) !void {
         std.posix.system.ioctl(self.master, std.posix.system.T.IOCSWINSZ, @intFromPtr(&ws));
 
     if (err < 0)
-        return error.PtyResizeFailed;
+        return error.Unexpected;
 }
 
 pub fn readFile(self: *const Pty) std.Io.File {

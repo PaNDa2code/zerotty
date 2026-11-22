@@ -56,6 +56,10 @@
             .hash = "glfw_zig-1.0.0-NrvYo0Y9GgCUwKJyfvWvV41_NDxETzQB-6Dwi-YqT2gt",
             .lazy = true,
         },
+        .rc = .{
+            .url = "git+https://codeberg.org/ziglang/rc#b315438c5a49f7252aa69f4e9e825c859a27252c",
+            .hash = "rc-0.0.0-rMftL99EAABbc3g55Rier2mxPJfJulJYcYwYnExbIL-m",
+        },
     },
     .paths = .{
         "build.zig",

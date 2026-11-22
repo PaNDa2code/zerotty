@@ -157,13 +157,13 @@ pub fn init(
         },
     );
 
-    const shell_path = environ_map.get("SHELL") orelse
-        if (os_tag == .linux)
-            "bash"
-        else if (os_tag == .windows)
-            "C:\\Windows\\System32\\cmd.exe"
-        else
-            unreachable;
+    const shell_path = switch (os_tag) {
+        .linux => environ_map.get("SHELL") orelse "/bin/sh",
+        .windows => environ_map.get("COMSPEC") orelse
+            "C:\\Windows\\System32\\cmd.exe",
+
+        else => @panic("Not supported"),
+    };
 
     const terminal = try Terminal.init(io, environ_map, allocator, .{
         .shell_path = shell_path,
@@ -231,10 +231,6 @@ fn applyFontSize(
     const cols = @max(1, window.width / self.cell_width);
     const rows = @max(1, window.height / self.cell_height);
 
-    try self.terminal.session.pty.resize(.{
-        .width = @intCast(cols),
-        .height = @intCast(rows),
-    });
     try self.terminal.grid.resizeVisable(self.allocator, rows, cols);
 }
 

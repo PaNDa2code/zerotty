@@ -11,6 +11,8 @@ const Config = profiles_mod.ResolvedConfig;
 
 const buildAndroidApk = android_mod.buildAndroidApk;
 
+const rc = @import("rc");
+
 pub const AppArtifact = struct {
     artifact: ArtifactType,
     mod: *Build.Module,
@@ -84,6 +86,17 @@ pub fn buildAppArtifact(b: *Build, cfg: Config) !AppArtifact {
         }),
         .use_llvm = cfg.use_llvm,
     });
+
+    if (cfg.target.result.os.tag == .windows) {
+        const rc_dep = b.dependency("rc", .{});
+        var rc_compiler = rc.Compiler.init(rc_dep, .{
+            .rc_files = &.{b.path("assets/zerotty.rc")},
+            .target = cfg.target,
+            .optimize = cfg.optimize,
+        });
+
+        exe.root_module.addObjectFile(rc_compiler.getObjectFile());
+    }
 
     return .{
         .artifact = .{ .exe = exe },

@@ -112,51 +112,57 @@ fn startWindows(
 
     const path = try findPathAlloc(io, options.environ_map, arina, options.exe_path) orelse options.exe_path;
 
-    const path_absolute =
-        if (std.fs.path.isAbsoluteWindows(path))
-            path
-        else
-            @panic("not yet");
+    const pathW = try utf8ToUtf16LeAllocZ(arina, path);
 
-    // try std.Io.Dir.realPathFileAbsoluteAlloc(io, path, arina);
-
-    const pathW = try std.unicode.utf8ToUtf16LeAllocZ(arina, path_absolute);
-
-    const cwd = if (options.cwd_path) |cwd_path| (try std.unicode.utf8ToUtf16LeAllocZ(arina, cwd_path)).ptr else null;
+    const cwd = if (options.cwd_path) |cwd_path| (try utf8ToUtf16LeAllocZ(arina, cwd_path)).ptr else null;
 
     var env_block: ?*anyopaque = null;
 
-    var buffer = try std.ArrayList(u8).initCapacity(arina, 1024 * 4);
-
+    var env16 = std.ArrayList(u16).empty;
     var it = options.environ_map.iterator();
-    while (it.next()) |entry| {
-        try buffer.appendSlice(arina, entry.key_ptr.*);
-        try buffer.append(arina, '=');
-        try buffer.appendSlice(arina, entry.value_ptr.*);
-        try buffer.append(arina, 0);
+
+    while (it.next()) |e| {
+        const key16 = try utf8ToUtf16LeAlloc(arina, e.key_ptr.*);
+        try env16.appendSlice(arina, key16);
+
+        try env16.append(arina, '=');
+
+        const value16 = try utf8ToUtf16LeAlloc(arina, e.value_ptr.*);
+        try env16.appendSlice(arina, value16);
+
+        try env16.append(arina, 0);
     }
-    try buffer.append(arina, 0);
+    try env16.appendNTimes(arina, 0, 2);
 
-    env_block = buffer.items.ptr;
+    env_block = env16.items.ptr;
 
-    std.log.debug("{any}", .{env_block});
+    const creation_flags = win32thread.PROCESS_CREATION_FLAGS{
+        .EXTENDED_STARTUPINFO_PRESENT = @intFromBool(options.pty != null),
+        .CREATE_UNICODE_ENVIRONMENT = 1,
+    };
 
-    if (win32thread.CreateProcessW(
+    const rc = win32thread.CreateProcessW(
         pathW.ptr,
         null,
         null,
         null,
         0,
-        if (options.pty != null) .{ .EXTENDED_STARTUPINFO_PRESENT = 1 } else .{},
+        creation_flags,
         env_block,
         cwd,
-        if (options.pty != null) &startup_info_ex.StartupInfo else null,
+        &startup_info_ex.StartupInfo,
         &proc_info,
-    ) == 0) {
-        return error.CreateProcessWFailed;
+    );
+
+    if (rc == 0) {
+        return error.CreateProcessFailed;
     }
 
-    process.id = proc_info.hProcess.?;
+    if (proc_info.hProcess) |hp| {
+        process.id = hp;
+    } else {
+        return error.CreateProcessFailed;
+    }
 
     return process;
 }
@@ -403,3 +409,6 @@ const File = std.Io.File;
 const Allocator = std.mem.Allocator;
 
 const os = builtin.os.tag;
+
+const utf8ToUtf16LeAlloc = std.unicode.utf8ToUtf16LeAlloc;
+const utf8ToUtf16LeAllocZ = std.unicode.utf8ToUtf16LeAllocZ;
